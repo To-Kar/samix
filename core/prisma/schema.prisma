@@ -36,7 +36,9 @@ model AgentRun {
   startedAt    DateTime  @default(now())
   completedAt  DateTime?
 
-  articles Article[]
+  articles   Article[]
+  snapshots  SourceSnapshot[]
+  deliveries DeliveryLog[]
 
   @@index([agentId, startedAt])
 }
@@ -67,4 +69,40 @@ model BudgetLedger {
   costUsd      Float    @default(0)
 
   @@unique([agentId, period])
+}
+
+model SourceSnapshot {
+  id          String    @id @default(uuid())
+  agentRunId  String
+  agentRun    AgentRun  @relation(fields: [agentRunId], references: [id])
+  sourceType  String
+  sourceName  String
+  url         String
+  title       String
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
+  raw         String?
+
+  @@index([agentRunId])
+  @@index([url])
+}
+
+model DeliveryLog {
+  id         String   @id @default(uuid())
+  agentRunId String
+  agentRun   AgentRun @relation(fields: [agentRunId], references: [id])
+  channel    String
+  status     String
+  error      String?
+  sentAt     DateTime @default(now())
+
+  @@index([agentRunId])
+}
+
+model DeliverySchedule {
+  id        String   @id @default(uuid())
+  channel   String   @unique
+  config    String
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 }

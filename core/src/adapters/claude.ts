@@ -19,12 +19,12 @@ interface ClaudePricing {
 // Anthropic pricing page before any real call is enabled in Phase 1.
 const PRICING: Record<string, ClaudePricing> = {
   'claude-haiku-4-5': { inputPerMillionTokens: 1.0, outputPerMillionTokens: 5.0 },
-  'claude-sonnet-4-5': { inputPerMillionTokens: 3.0, outputPerMillionTokens: 15.0 },
+  'claude-sonnet-4-6': { inputPerMillionTokens: 3.0, outputPerMillionTokens: 15.0 },
 };
 
 const SDK_MODEL_ID: Record<string, string> = {
   'claude-haiku-4-5': 'claude-haiku-4-5',
-  'claude-sonnet-4-5': 'claude-sonnet-4-5',
+  'claude-sonnet-4-6': 'claude-sonnet-4-6',
 };
 
 export class ClaudeAdapter implements ModelAdapter {
@@ -36,7 +36,7 @@ export class ClaudeAdapter implements ModelAdapter {
   private readonly client: Anthropic;
   private readonly sdkModelId: string;
 
-  constructor(modelId: Extract<ModelId, 'claude-haiku-4-5' | 'claude-sonnet-4-5'>) {
+  constructor(modelId: Extract<ModelId, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>) {
     const pricing = PRICING[modelId];
     const sdkModelId = SDK_MODEL_ID[modelId];
     if (!pricing || !sdkModelId) {

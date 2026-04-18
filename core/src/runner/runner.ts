@@ -86,6 +86,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       costUsd: 0,
       error: 'budget_exceeded',
       citations: [],
+      articleIds: [],
+      deliveries: [],
       startedAt,
       completedAt,
     };
@@ -164,6 +166,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       tokensOutput: response.usage.outputTokens,
       costUsd,
       citations: response.citations,
+      articleIds: [],
+      deliveries: [],
       startedAt,
       completedAt,
     };
@@ -195,6 +199,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       costUsd: 0,
       error: message,
       citations: [],
+      articleIds: [],
+      deliveries: [],
       startedAt,
       completedAt,
     };

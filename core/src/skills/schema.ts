@@ -3,7 +3,7 @@ import { z } from 'zod';
 const modelIdSchema = z.enum([
   'static',
   'claude-haiku-4-5',
-  'claude-sonnet-4-5',
+  'claude-sonnet-4-6',
   'gpt-4o-mini',
   'perplexity-sonar',
   'ollama-llama3',

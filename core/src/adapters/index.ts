@@ -8,7 +8,7 @@ const registry = new Map<ModelId, AdapterFactory>();
 
 registry.set('static', () => new StaticAdapter());
 registry.set('claude-haiku-4-5', () => new ClaudeAdapter('claude-haiku-4-5'));
-registry.set('claude-sonnet-4-5', () => new ClaudeAdapter('claude-sonnet-4-5'));
+registry.set('claude-sonnet-4-6', () => new ClaudeAdapter('claude-sonnet-4-6'));
 
 export function resolveAdapter(modelId: ModelId): ModelAdapter {
   const factory = registry.get(modelId);

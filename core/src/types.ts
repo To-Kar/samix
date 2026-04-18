@@ -1,12 +1,16 @@
+import type { Logger } from 'pino';
+
 export type AgentType = 'reactive' | 'proactive';
 
 export type ModelId =
   | 'static'
   | 'claude-haiku-4-5'
-  | 'claude-sonnet-4-5'
+  | 'claude-sonnet-4-6'
   | 'gpt-4o-mini'
   | 'perplexity-sonar'
   | 'ollama-llama3';
+
+export type DeliveryChannelType = 'mail' | 'telegram';
 
 export interface Skill {
   id: string;
@@ -80,6 +84,8 @@ export interface RunResult {
   costUsd: number;
   error?: string;
   citations: Citation[];
+  articleIds: string[];
+  deliveries: DeliveryResult[];
   startedAt: Date;
   completedAt: Date;
 }
@@ -124,4 +130,63 @@ export interface ModelAdapter {
     outputPerMillionTokens: number;
   };
   generate(req: NormalizedRequest): Promise<NormalizedResponse>;
+}
+
+export interface SourceItem {
+  url: string;
+  title: string;
+  snippet?: string;
+  publishedAt?: Date;
+  sourceName: string;
+  raw?: Record<string, unknown>;
+}
+
+export interface FetchContext {
+  runId: string;
+  logger: Logger;
+  since?: Date;
+}
+
+export interface SourceFetcher<C = unknown> {
+  readonly type: 'rss' | 'perplexity_search' | 'arxiv';
+  fetch(config: C, ctx: FetchContext): Promise<SourceItem[]>;
+}
+
+export interface ArticleSummary {
+  id: string;
+  title: string;
+  summary: string;
+  sourceUrl?: string;
+  sourceName?: string;
+  publishedAt?: Date;
+  topic?: string;
+}
+
+export interface DeliveryPayload {
+  runId: string;
+  agentSlug: string;
+  articles: ArticleSummary[];
+  renderedAt: Date;
+}
+
+export interface DeliveryResult {
+  channel: DeliveryChannelType;
+  status: 'sent' | 'failed';
+  error?: string;
+  sentAt: Date;
+}
+
+export interface DeliveryChannel {
+  readonly type: DeliveryChannelType;
+  send(payload: DeliveryPayload): Promise<DeliveryResult>;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors?: string[];
+  parsed?: unknown;
+}
+
+export interface OutputValidator {
+  validate(raw: unknown, schemaPath: string): ValidationResult;
 }
