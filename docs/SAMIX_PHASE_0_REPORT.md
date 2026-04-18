@@ -39,7 +39,7 @@ No real LLM calls happened. `hello-world` uses the `StaticAdapter` which returns
 
 - **Phase 0.5 polish**: Rust shell could auto-spawn the core in dev mode, removing the two-terminal step. Currently requires env-var synchronization by hand.
 - **Prisma warning**: CLI emitted a "major version upgrade" notice pointing to the next Prisma release. Safe to ignore; upgrade can happen before Phase 1.
-- **Pricing numbers in `ClaudeAdapter`**: placeholders marked `// VERIFY:` — must be re-checked against Anthropic's current pricing page before any real call is issued.
+- **Pricing numbers in `ClaudeAdapter`**: verified against the current Anthropic pricing page (April 2026). `claude-haiku-4-5` at $1/$5 per million tokens (input/output) is correct. `claude-sonnet-4-5` is outdated — the current generation is Sonnet 4.6 ($3/$15); `types.ts` and `claude.ts` should rename the id before the adapter is activated in Phase 1.
 - **Scheduler**: wired and logs `scheduler_ready` but is a no-op. `node-cron` is installed but unused until Phase 1 introduces proactive skills.
 - **Dev DB location**: `core/data/samix-dev.db` (gitignored). Production path `%APPDATA%/samix/samix.db` is Windows-only and remains a Phase 1+ concern.
 
