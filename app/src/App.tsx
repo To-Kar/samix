@@ -3,11 +3,13 @@ import { initApi, type ApiClient, type RunResult } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { AgentList } from './components/AgentList';
 import { RunResultCard } from './components/RunResult';
+import { Settings } from './components/Settings';
 
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<RunResult | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     initApi()
@@ -46,12 +48,28 @@ export default function App() {
     <main className="min-h-full bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col">
       <ConnectionBanner api={api} />
       <div className="max-w-3xl w-full mx-auto px-6 py-8 flex flex-col gap-6">
-        <header>
-          <h1 className="text-2xl font-semibold">Samix</h1>
-          <p className="text-sm text-neutral-500">
-            Phase 0 · pipeline validation
-          </p>
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">Samix</h1>
+            <p className="text-sm text-neutral-500">
+              Phase 1 · scaffolding secrets
+            </p>
+          </div>
+          <button
+            onClick={() => setShowSettings((v) => !v)}
+            className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            {showSettings ? 'Close settings' : 'Settings'}
+          </button>
         </header>
+        {showSettings ? (
+          <section>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
+              Secrets
+            </h2>
+            <Settings />
+          </section>
+        ) : null}
         <section>
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
             Agents
