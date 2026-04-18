@@ -188,5 +188,5 @@ export interface ValidationResult {
 }
 
 export interface OutputValidator {
-  validate(raw: unknown, schemaPath: string): ValidationResult;
+  validate(raw: unknown, schemaPath: string): Promise<ValidationResult>;
 }
