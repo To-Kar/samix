@@ -1,0 +1,8 @@
+# Samix skill registry.
+#
+# Phase 0: the skill loader auto-discovers every directory under `agents/`
+# (ignoring names starting with `_` or `.`). This file is reserved for
+# Phase 1+ when we may want explicit enable/disable controls, load ordering,
+# or marking certain agents as experimental.
+agents:
+  - hello-world

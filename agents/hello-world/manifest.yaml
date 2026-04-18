@@ -1,0 +1,14 @@
+id: hello-world
+type: reactive
+version: "1.0"
+
+model:
+  primary: static
+
+budget:
+  daily_usd_max: 0.00
+  tokens_per_run_max: 0
+  halt_on_budget_exceeded: false
+
+output:
+  format: text

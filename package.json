@@ -1,0 +1,24 @@
+{
+  "name": "samix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first desktop multi-agent system for knowledge aggregation",
+  "scripts": {
+    "dev:core": "pnpm --filter samix-core dev",
+    "dev:app": "pnpm --filter samix-app tauri dev",
+    "build:core": "pnpm --filter samix-core build",
+    "build:app": "pnpm --filter samix-app tauri build",
+    "db:migrate": "pnpm --filter samix-core prisma migrate dev",
+    "db:studio": "pnpm --filter samix-core prisma studio"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "better-sqlite3",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}

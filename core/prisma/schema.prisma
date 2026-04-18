@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  type      String
+  skillPath String
+  config    String?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs   AgentRun[]
+  budget BudgetLedger[]
+}
+
+model AgentRun {
+  id           String    @id @default(uuid())
+  agentId      String
+  agent        Agent     @relation(fields: [agentId], references: [id])
+  status       String
+  trigger      String
+  input        String?
+  output       String?
+  tokensInput  Int       @default(0)
+  tokensOutput Int       @default(0)
+  costUsd      Float     @default(0)
+  error        String?
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  articles Article[]
+
+  @@index([agentId, startedAt])
+}
+
+model Article {
+  id          String    @id @default(uuid())
+  agentRunId  String
+  agentRun    AgentRun  @relation(fields: [agentRunId], references: [id])
+  title       String
+  summary     String
+  sourceUrl   String?
+  sourceName  String?
+  publishedAt DateTime?
+  topic       String?
+  metadata    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([topic, createdAt])
+}
+
+model BudgetLedger {
+  id           String   @id @default(uuid())
+  agentId      String
+  agent        Agent    @relation(fields: [agentId], references: [id])
+  period       DateTime
+  tokensInput  Int      @default(0)
+  tokensOutput Int      @default(0)
+  costUsd      Float    @default(0)
+
+  @@unique([agentId, period])
+}
