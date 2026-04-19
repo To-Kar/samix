@@ -62,10 +62,11 @@ async function fetchWithBackoff(url: string, ctx: FetchContext): Promise<string>
       break;
     }
     // Arxiv tightened rate-limits Feb 2026 — 429s show up even when within
-    // the published 3 req/s. Exponential backoff is the documented remedy.
-    if (res.status === 429) {
+    // the published 3 req/s. 5xx (most often 503) is also transient and
+    // shows up under normal load; same exponential backoff strategy.
+    if (res.status === 429 || (res.status >= 500 && res.status < 600)) {
       const wait = BACKOFF_BASE_MS * 2 ** (attempt - 1);
-      ctx.logger.warn({ attempt, wait }, 'arxiv_429_backoff');
+      ctx.logger.warn({ attempt, status: res.status, wait }, 'arxiv_transient_backoff');
       await sleep(wait);
       continue;
     }
