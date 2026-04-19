@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 import type { Logger } from 'pino';
 import type {
   FetchContext,
@@ -13,8 +14,13 @@ import type {
 } from '../types.js';
 import { resolveAdapter } from '../adapters/index.js';
 import { resolveFetcher } from '../sources/index.js';
+import { JsonSchemaValidator } from '../output/validator.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
+
+// Module-level singleton — the compiled-schema cache is the hot path and
+// must persist across runs.
+const outputValidator = new JsonSchemaValidator();
 
 export interface RunAgentOptions {
   skill: Skill;
@@ -153,6 +159,42 @@ function specTypeOf(item: SourceItem, specs: SourceSpec[]): string {
   return specs.find((s) => s.type === 'rss')?.type ?? 'rss';
 }
 
+function resolveSchemaPath(skill: Skill): string | undefined {
+  const p = skill.manifest.output.schemaPath;
+  if (!p) return undefined;
+  if (isAbsolute(p)) return p;
+  return resolvePath(dirname(skill.skillMdPath), p);
+}
+
+interface ParsedArticle {
+  title: string;
+  summary: string;
+  sourceUrl?: string;
+  publishedAt?: string;
+  topic?: string;
+}
+
+// Create Article rows from the validated parsed output. Returns the list
+// of new article IDs. Assumes the validator already enforced the shape.
+async function createArticles(runId: string, parsed: unknown): Promise<string[]> {
+  if (!parsed || typeof parsed !== 'object') return [];
+  const items = (parsed as { items?: ParsedArticle[] }).items;
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const rows = items.map((item) => ({
+    id: randomUUID(),
+    agentRunId: runId,
+    title: item.title,
+    summary: item.summary,
+    sourceUrl: item.sourceUrl,
+    publishedAt: item.publishedAt ? new Date(item.publishedAt) : null,
+    topic: item.topic,
+  }));
+
+  await prisma.article.createMany({ data: rows });
+  return rows.map((r) => r.id);
+}
+
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   const { skill, trigger, input } = opts;
   const runId = randomUUID();
@@ -259,21 +301,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     );
     const completedAt = new Date();
 
-    await prisma.agentRun.update({
-      where: { id: runId },
-      data: {
-        status: 'success',
-        output: JSON.stringify({
-          content: response.content,
-          stopReason: response.stopReason,
-        }),
-        tokensInput: response.usage.inputTokens,
-        tokensOutput: response.usage.outputTokens,
-        costUsd,
-        completedAt,
-      },
-    });
-
+    // Ledger always increments on a completed adapter call — the API cost
+    // was incurred regardless of whether the output validates.
     await prisma.budgetLedger.upsert({
       where: { agentId_period: { agentId: agentRow.id, period: periodStart } },
       create: {
@@ -290,15 +319,96 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       },
     });
 
-    log.info(
-      {
+    const schemaPath = resolveSchemaPath(skill);
+    const rawOutput = JSON.stringify({
+      content: response.content,
+      stopReason: response.stopReason,
+    });
+
+    // No schema declared → no validation, no articles, status=success.
+    // Skills like hello-world take this path.
+    if (!schemaPath) {
+      await prisma.agentRun.update({
+        where: { id: runId },
+        data: {
+          status: 'success',
+          output: rawOutput,
+          tokensInput: response.usage.inputTokens,
+          tokensOutput: response.usage.outputTokens,
+          costUsd,
+          completedAt,
+        },
+      });
+      log.info({ costUsd }, 'run ok (no schema)');
+      return {
+        runId,
+        agentSlug: skill.id,
+        status: 'success',
+        output: { content: response.content, stopReason: response.stopReason },
         tokensInput: response.usage.inputTokens,
         tokensOutput: response.usage.outputTokens,
         costUsd,
-      },
-      'run ok'
-    );
+        citations: response.citations,
+        articleIds: [],
+        deliveries: [],
+        startedAt,
+        completedAt,
+      };
+    }
 
+    const validation = await outputValidator.validate(response.content, schemaPath);
+
+    // Invalid output → status=partial, raw persisted for diagnosis, no
+    // Article rows, no delivery. The run is a "we spent money but got
+    // nothing usable" outcome — distinct from both success and failure.
+    if (!validation.valid) {
+      const errorSummary = (validation.errors ?? []).join('; ').slice(0, 2000);
+      log.warn({ errors: validation.errors }, 'output_validation_failed');
+      await prisma.agentRun.update({
+        where: { id: runId },
+        data: {
+          status: 'partial',
+          output: rawOutput,
+          error: `schema_violation: ${errorSummary}`,
+          tokensInput: response.usage.inputTokens,
+          tokensOutput: response.usage.outputTokens,
+          costUsd,
+          completedAt,
+        },
+      });
+      return {
+        runId,
+        agentSlug: skill.id,
+        status: 'partial',
+        output: { content: response.content, stopReason: response.stopReason },
+        tokensInput: response.usage.inputTokens,
+        tokensOutput: response.usage.outputTokens,
+        costUsd,
+        error: `schema_violation: ${errorSummary}`,
+        citations: response.citations,
+        articleIds: [],
+        deliveries: [],
+        startedAt,
+        completedAt,
+      };
+    }
+
+    // Valid output → create Article rows from parsed.items.
+    const articleIds = await createArticles(runId, validation.parsed);
+
+    await prisma.agentRun.update({
+      where: { id: runId },
+      data: {
+        status: 'success',
+        output: rawOutput,
+        tokensInput: response.usage.inputTokens,
+        tokensOutput: response.usage.outputTokens,
+        costUsd,
+        completedAt,
+      },
+    });
+
+    log.info({ costUsd, articles: articleIds.length }, 'run ok');
     return {
       runId,
       agentSlug: skill.id,
@@ -308,7 +418,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       tokensOutput: response.usage.outputTokens,
       costUsd,
       citations: response.citations,
-      articleIds: [],
+      articleIds,
       deliveries: [],
       startedAt,
       completedAt,
