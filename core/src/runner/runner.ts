@@ -15,6 +15,7 @@ import type {
 import { resolveAdapter } from '../adapters/index.js';
 import { resolveFetcher } from '../sources/index.js';
 import { JsonSchemaValidator } from '../output/validator.js';
+import { unwrapJsonFences } from '../output/unwrap.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 
@@ -356,7 +357,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       };
     }
 
-    const validation = await outputValidator.validate(response.content, schemaPath);
+    const validation = await outputValidator.validate(
+      unwrapJsonFences(response.content),
+      schemaPath
+    );
 
     // Invalid output → status=partial, raw persisted for diagnosis, no
     // Article rows, no delivery. The run is a "we spent money but got
