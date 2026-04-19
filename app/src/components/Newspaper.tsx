@@ -58,13 +58,22 @@ export function Newspaper({ api }: NewspaperProps) {
               ? 'No articles yet — run the newsletter agent to populate.'
               : `${articles.length} ${articles.length === 1 ? 'article' : 'articles'} from the last 7 days`}
         </div>
-        <button
-          onClick={() => void runNewsletter()}
-          disabled={running}
-          className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
-        >
-          {running ? 'Running…' : 'Run newsletter-ai'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void refresh()}
+            disabled={running}
+            className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+          >
+            Refresh
+          </button>
+          <button
+            onClick={() => void runNewsletter()}
+            disabled={running}
+            className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+          >
+            {running ? 'Running…' : 'Run newsletter-ai'}
+          </button>
+        </div>
       </div>
 
       {runMessage ? (
