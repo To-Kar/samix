@@ -10,8 +10,6 @@ export type ModelId =
   | 'perplexity-sonar'
   | 'ollama-llama3';
 
-export type DeliveryChannelType = 'mail' | 'telegram';
-
 export interface Skill {
   id: string;
   type: AgentType;
@@ -85,7 +83,6 @@ export interface RunResult {
   error?: string;
   citations: Citation[];
   articleIds: string[];
-  deliveries: DeliveryResult[];
   startedAt: Date;
   completedAt: Date;
 }
@@ -150,35 +147,6 @@ export interface FetchContext {
 export interface SourceFetcher<C = unknown> {
   readonly type: 'rss' | 'perplexity_search' | 'arxiv';
   fetch(config: C, ctx: FetchContext): Promise<SourceItem[]>;
-}
-
-export interface ArticleSummary {
-  id: string;
-  title: string;
-  summary: string;
-  sourceUrl?: string;
-  sourceName?: string;
-  publishedAt?: Date;
-  topic?: string;
-}
-
-export interface DeliveryPayload {
-  runId: string;
-  agentSlug: string;
-  articles: ArticleSummary[];
-  renderedAt: Date;
-}
-
-export interface DeliveryResult {
-  channel: DeliveryChannelType;
-  status: 'sent' | 'failed';
-  error?: string;
-  sentAt: Date;
-}
-
-export interface DeliveryChannel {
-  readonly type: DeliveryChannelType;
-  send(payload: DeliveryPayload): Promise<DeliveryResult>;
 }
 
 export interface ValidationResult {

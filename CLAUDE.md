@@ -13,7 +13,7 @@ Prioritization, in order: **architecture cleanliness > cost efficiency > time-to
 The repo ships in named phases. Each phase has a spec + a Claude Code handoff doc in `docs/`.
 
 - **Phase 0 — merged.** Pipeline validation with a `static` adapter returning a literal string. Proved skill-loader → runner → DB → HTTP → UI works end-to-end. See `docs/SAMIX_PHASE_0_SPEC.md` and `docs/SAMIX_PHASE_0_REPORT.md`.
-- **Phase 1 — in planning.** First real proactive agent (`newsletter-ai`): real LLM calls, RSS/Perplexity/Arxiv sources, JSON-schema output validation, SMTP + Telegram delivery, live cron scheduler, OS-keychain secrets. Spec: `docs/SAMIX_PHASE_1_SPEC.md`. Playbook: `docs/SAMIX_PHASE_1_CLAUDE_CODE_HANDOFF.md`.
+- **Phase 1 — in progress.** First real proactive agent (`newsletter-ai`): real Claude Haiku calls, RSS + Arxiv sources (Perplexity adapter+fetcher are wired but dormant — manifest edit away), JSON-schema output validation that creates `Article` rows, OS-keychain secrets, live cron scheduler. Spec: `docs/SAMIX_PHASE_1_SPEC.md`. Playbook: `docs/SAMIX_PHASE_1_CLAUDE_CODE_HANDOFF.md`. **Pivot:** SMTP + Telegram delivery channels were dropped from Phase 1 — the in-app Newspaper UI is the delivery surface. The original spec/handoff still describe delivery channels; treat those sections as superseded.
 - Do not pull Phase 2+ features forward (tray icon, autostart, OpenAI adapter, voting, orchestrator, coding agents, mobile) — the out-of-scope lists in the phase specs are load-bearing.
 
 ## Dev platform note

@@ -21,22 +21,6 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
       { account: 'PERPLEXITY_API_KEY', label: 'Perplexity API key', sensitive: true },
     ],
   },
-  {
-    title: 'SMTP (mail delivery)',
-    fields: [
-      { account: 'SMTP_HOST', label: 'Host', sensitive: false },
-      { account: 'SMTP_USER', label: 'User', sensitive: false },
-      { account: 'SMTP_PASS', label: 'Password', sensitive: true },
-      { account: 'SMTP_FROM', label: 'From address', sensitive: false },
-    ],
-  },
-  {
-    title: 'Telegram',
-    fields: [
-      { account: 'TELEGRAM_BOT_TOKEN', label: 'Bot token', sensitive: true },
-      { account: 'TELEGRAM_CHAT_ID', label: 'Chat ID', sensitive: false },
-    ],
-  },
 ];
 
 export function Settings() {

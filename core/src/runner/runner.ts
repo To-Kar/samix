@@ -83,7 +83,6 @@ function buildFailureResult(f: FailureShape): RunResult {
     error: f.error,
     citations: [],
     articleIds: [],
-    deliveries: [],
     startedAt: f.startedAt,
     completedAt: f.completedAt,
   };
@@ -351,7 +350,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
         costUsd,
         citations: response.citations,
         articleIds: [],
-        deliveries: [],
         startedAt,
         completedAt,
       };
@@ -391,7 +389,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
         error: `schema_violation: ${errorSummary}`,
         citations: response.citations,
         articleIds: [],
-        deliveries: [],
         startedAt,
         completedAt,
       };
@@ -423,7 +420,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       costUsd,
       citations: response.citations,
       articleIds,
-      deliveries: [],
       startedAt,
       completedAt,
     };

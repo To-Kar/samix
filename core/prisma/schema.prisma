@@ -36,9 +36,8 @@ model AgentRun {
   startedAt    DateTime  @default(now())
   completedAt  DateTime?
 
-  articles   Article[]
-  snapshots  SourceSnapshot[]
-  deliveries DeliveryLog[]
+  articles  Article[]
+  snapshots SourceSnapshot[]
 
   @@index([agentId, startedAt])
 }
@@ -87,22 +86,3 @@ model SourceSnapshot {
   @@index([url])
 }
 
-model DeliveryLog {
-  id         String   @id @default(uuid())
-  agentRunId String
-  agentRun   AgentRun @relation(fields: [agentRunId], references: [id])
-  channel    String
-  status     String
-  error      String?
-  sentAt     DateTime @default(now())
-
-  @@index([agentRunId])
-}
-
-model DeliverySchedule {
-  id        String   @id @default(uuid())
-  channel   String   @unique
-  config    String
-  enabled   Boolean  @default(false)
-  updatedAt DateTime @updatedAt
-}

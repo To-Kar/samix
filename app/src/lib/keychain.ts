@@ -3,15 +3,13 @@ import { invoke } from '@tauri-apps/api/core';
 // Account names match the env-var names the core will expect at spawn
 // time (Phase 1 step 11). Keeping them identical removes the need for
 // a mapping table between keychain identifiers and env vars.
+//
+// Newsletter delivery is the in-app newspaper UI; SMTP and Telegram
+// were dropped from Phase 1 scope, so only the LLM-provider keys are
+// stored in the keychain.
 export const SECRET_ACCOUNTS = [
   'ANTHROPIC_API_KEY',
   'PERPLEXITY_API_KEY',
-  'SMTP_HOST',
-  'SMTP_USER',
-  'SMTP_PASS',
-  'SMTP_FROM',
-  'TELEGRAM_BOT_TOKEN',
-  'TELEGRAM_CHAT_ID',
 ] as const;
 
 export type SecretAccount = (typeof SECRET_ACCOUNTS)[number];
