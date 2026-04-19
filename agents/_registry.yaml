@@ -6,3 +6,4 @@
 # or marking certain agents as experimental.
 agents:
   - hello-world
+  - newsletter-ai

@@ -1,14 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import type { Logger } from 'pino';
 import type {
+  FetchContext,
   ModelAdapter,
   NormalizedRequest,
   RunContext,
   RunResult,
   RunTrigger,
   Skill,
+  SourceItem,
+  SourceSpec,
 } from '../types.js';
 import { resolveAdapter } from '../adapters/index.js';
+import { resolveFetcher } from '../sources/index.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 
@@ -35,11 +39,14 @@ function computeCostUsd(
   return inCost + outCost;
 }
 
-// Pessimistic upper bound: treat the full tokensPerRunMax as output
-// (output is always the more expensive rate). Underestimating here would
-// defeat the pre-call gate.
+// Pessimistic upper bound: treat tokensPerRunMax as potentially spent at
+// both input AND output rates. Not a true upper bound — input can exceed
+// maxTokens — but the loosest honest estimate given what the runner knows
+// before the call. Underestimating here would defeat the pre-call gate.
 function estimateRunCostUsd(adapter: ModelAdapter, maxTokens: number): number {
-  return (maxTokens / 1_000_000) * adapter.pricing.outputPerMillionTokens;
+  const combinedRate =
+    adapter.pricing.inputPerMillionTokens + adapter.pricing.outputPerMillionTokens;
+  return (maxTokens / 1_000_000) * combinedRate;
 }
 
 function readGlobalCap(): number {
@@ -47,6 +54,103 @@ function readGlobalCap(): number {
   if (raw == null || raw === '') return 5.0;
   const n = Number(raw);
   return Number.isFinite(n) ? n : 5.0;
+}
+
+interface FailureShape {
+  runId: string;
+  agentSlug: string;
+  error: string;
+  startedAt: Date;
+  completedAt: Date;
+}
+
+function buildFailureResult(f: FailureShape): RunResult {
+  return {
+    runId: f.runId,
+    agentSlug: f.agentSlug,
+    status: 'failed',
+    output: null,
+    tokensInput: 0,
+    tokensOutput: 0,
+    costUsd: 0,
+    error: f.error,
+    citations: [],
+    articleIds: [],
+    deliveries: [],
+    startedAt: f.startedAt,
+    completedAt: f.completedAt,
+  };
+}
+
+async function markFailed(
+  runId: string,
+  error: string,
+  completedAt: Date
+): Promise<void> {
+  await prisma.agentRun.update({
+    where: { id: runId },
+    data: { status: 'failed', error, completedAt },
+  });
+}
+
+// Fetch every source in the manifest, persist each fetched SourceItem as a
+// SourceSnapshot row keyed to this run, and return the flat item list the
+// adapter should see. A single failing fetcher doesn't kill the run — it
+// logs and contributes zero items. Source-traceability is enforced at the
+// output stage (step 6c), not here.
+async function fetchSources(
+  specs: SourceSpec[],
+  runId: string,
+  log: Logger
+): Promise<SourceItem[]> {
+  const ctx: FetchContext = { runId, logger: log };
+  const all: SourceItem[] = [];
+
+  for (const spec of specs) {
+    const fetcher = resolveFetcher(spec.type);
+    if (!fetcher) {
+      log.warn({ type: spec.type }, 'fetcher_not_registered');
+      continue;
+    }
+    try {
+      const items = await fetcher.fetch(spec.config, ctx);
+      log.info({ type: spec.type, count: items.length }, 'source_fetched');
+      all.push(...items);
+    } catch (err) {
+      log.warn(
+        { type: spec.type, err: err instanceof Error ? err.message : String(err) },
+        'source_fetch_failed'
+      );
+    }
+  }
+
+  if (all.length === 0) return all;
+
+  await prisma.sourceSnapshot.createMany({
+    data: all.map((item) => ({
+      agentRunId: runId,
+      sourceType: specTypeOf(item, specs),
+      sourceName: item.sourceName,
+      url: item.url,
+      title: item.title,
+      publishedAt: item.publishedAt,
+      raw: item.raw ? JSON.stringify(item.raw) : null,
+    })),
+  });
+
+  return all;
+}
+
+// Map an item back to its originating spec type. SourceItem doesn't carry
+// the spec type directly; we infer from sourceName conventions. Imperfect
+// but good enough for audit: RSS feed titles and arxiv: prefixes are
+// distinguishable; "perplexity" is a fixed sentinel.
+function specTypeOf(item: SourceItem, specs: SourceSpec[]): string {
+  if (item.sourceName === 'perplexity') return 'perplexity_search';
+  if (item.sourceName.startsWith('arxiv')) return 'arxiv';
+  // Fallback: first RSS spec in the manifest wins. Works because we only
+  // have one RSS spec per manifest in Phase 1.
+  return specs.find((s) => s.type === 'rss')?.type ?? 'rss';
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
@@ -58,18 +162,30 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     trigger,
   });
   const startedAt = new Date();
-  const ctx: RunContext = { runId, triggeredBy: trigger, input, now: startedAt };
+  const _ctx: RunContext = { runId, triggeredBy: trigger, input, now: startedAt };
 
   const agentRow = await prisma.agent.findUnique({ where: { slug: skill.id } });
   if (!agentRow) {
     throw new Error(`Agent row missing for slug "${skill.id}" — was SkillLoader run?`);
   }
 
+  // Pre-create the AgentRun so SourceSnapshot rows have a valid FK target.
+  // Updated in place at every terminal branch below.
+  await prisma.agentRun.create({
+    data: {
+      id: runId,
+      agentId: agentRow.id,
+      status: 'running',
+      trigger,
+      input: input == null ? null : JSON.stringify(input),
+      startedAt,
+    },
+  });
+
+  // Per-agent daily cap.
   const periodStart = utcDayStart(startedAt);
   const ledger = await prisma.budgetLedger.findUnique({
-    where: {
-      agentId_period: { agentId: agentRow.id, period: periodStart },
-    },
+    where: { agentId_period: { agentId: agentRow.id, period: periodStart } },
   });
   const spentToday = ledger?.costUsd ?? 0;
   const dailyCap = skill.manifest.budget.dailyUsdMax;
@@ -78,45 +194,19 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   if (halt && dailyCap > 0 && spentToday >= dailyCap) {
     log.warn({ spentToday, dailyCap }, 'budget_exceeded; refusing to run');
     const completedAt = new Date();
-    const failed = await prisma.agentRun.create({
-      data: {
-        id: runId,
-        agentId: agentRow.id,
-        status: 'failed',
-        trigger,
-        input: input == null ? null : JSON.stringify(input),
-        error: 'budget_exceeded',
-        startedAt,
-        completedAt,
-      },
-    });
-    return {
-      runId: failed.id,
+    await markFailed(runId, 'budget_exceeded', completedAt);
+    return buildFailureResult({
+      runId,
       agentSlug: skill.id,
-      status: 'failed',
-      output: null,
-      tokensInput: 0,
-      tokensOutput: 0,
-      costUsd: 0,
       error: 'budget_exceeded',
-      citations: [],
-      articleIds: [],
-      deliveries: [],
       startedAt,
       completedAt,
-    };
+    });
   }
 
   const adapter = resolveAdapter(skill.manifest.model.primary);
-  const request: NormalizedRequest = {
-    systemPrompt: skill.systemPrompt,
-    messages: [],
-    maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
-  };
 
-  // Global budget gate — sum every agent's ledger for today and reject the
-  // run if its pessimistic estimate would tip the total past the cap. Runs
-  // with zero estimate (StaticAdapter, zero tokensPerRunMax) always pass.
+  // Global daily cap — sum across every agent's ledger for today.
   const globalCap = readGlobalCap();
   const globalSumAgg = await prisma.budgetLedger.aggregate({
     where: { period: periodStart },
@@ -131,36 +221,34 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       'global_budget_exceeded; refusing to run'
     );
     const completedAt = new Date();
-    await prisma.agentRun.create({
-      data: {
-        id: runId,
-        agentId: agentRow.id,
-        status: 'failed',
-        trigger,
-        input: input == null ? null : JSON.stringify(input),
-        error: 'global_budget_exceeded',
-        startedAt,
-        completedAt,
-      },
-    });
-    return {
+    await markFailed(runId, 'global_budget_exceeded', completedAt);
+    return buildFailureResult({
       runId,
       agentSlug: skill.id,
-      status: 'failed',
-      output: null,
-      tokensInput: 0,
-      tokensOutput: 0,
-      costUsd: 0,
       error: 'global_budget_exceeded',
-      citations: [],
-      articleIds: [],
-      deliveries: [],
       startedAt,
       completedAt,
-    };
+    });
   }
 
-  log.info({ model: adapter.name, estimatedCost, spentGlobal, globalCap }, 'run starting');
+  // Source fetch + snapshot persistence (only if the manifest declares any).
+  let sourceItems: SourceItem[] = [];
+  if (skill.manifest.sources?.length) {
+    sourceItems = await fetchSources(skill.manifest.sources, runId, log);
+  }
+
+  const request: NormalizedRequest = {
+    systemPrompt: skill.systemPrompt,
+    messages: sourceItems.length
+      ? [{ role: 'user', content: JSON.stringify({ items: sourceItems }, null, 2) }]
+      : [],
+    maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
+  };
+
+  log.info(
+    { model: adapter.name, estimatedCost, spentGlobal, globalCap, sources: sourceItems.length },
+    'run starting'
+  );
 
   try {
     const response = await adapter.generate(request);
@@ -171,13 +259,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     );
     const completedAt = new Date();
 
-    const run = await prisma.agentRun.create({
+    await prisma.agentRun.update({
+      where: { id: runId },
       data: {
-        id: runId,
-        agentId: agentRow.id,
         status: 'success',
-        trigger,
-        input: input == null ? null : JSON.stringify(input),
         output: JSON.stringify({
           content: response.content,
           stopReason: response.stopReason,
@@ -185,15 +270,12 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
         tokensInput: response.usage.inputTokens,
         tokensOutput: response.usage.outputTokens,
         costUsd,
-        startedAt,
         completedAt,
       },
     });
 
     await prisma.budgetLedger.upsert({
-      where: {
-        agentId_period: { agentId: agentRow.id, period: periodStart },
-      },
+      where: { agentId_period: { agentId: agentRow.id, period: periodStart } },
       create: {
         agentId: agentRow.id,
         period: periodStart,
@@ -218,7 +300,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     );
 
     return {
-      runId: run.id,
+      runId,
       agentSlug: skill.id,
       status: 'success',
       output: { content: response.content, stopReason: response.stopReason },
@@ -235,34 +317,13 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     const completedAt = new Date();
     const message = err instanceof Error ? err.message : String(err);
     log.error({ err }, 'run failed');
-
-    await prisma.agentRun.create({
-      data: {
-        id: runId,
-        agentId: agentRow.id,
-        status: 'failed',
-        trigger,
-        input: input == null ? null : JSON.stringify(input),
-        error: message,
-        startedAt,
-        completedAt,
-      },
-    });
-
-    return {
+    await markFailed(runId, message, completedAt);
+    return buildFailureResult({
       runId,
       agentSlug: skill.id,
-      status: 'failed',
-      output: null,
-      tokensInput: 0,
-      tokensOutput: 0,
-      costUsd: 0,
       error: message,
-      citations: [],
-      articleIds: [],
-      deliveries: [],
       startedAt,
       completedAt,
-    };
+    });
   }
 }

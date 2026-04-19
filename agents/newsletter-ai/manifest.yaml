@@ -1,0 +1,38 @@
+id: newsletter-ai
+type: proactive
+version: "1.0"
+
+model:
+  primary: claude-haiku-4-5
+  # No fallback in this revision. Adding Ollama (llama3) or Perplexity
+  # is a manifest edit — add `fallback:` or a `routing:` map, no code
+  # change. Skills-are-data.
+
+budget:
+  daily_usd_max: 0.50
+  tokens_per_run_max: 4000
+  halt_on_budget_exceeded: true
+
+schedule:
+  cron: "0 6 * * *"
+  timezone: Europe/Berlin
+  jitter_seconds: 30
+  catchup_on_startup: true
+
+sources:
+  - type: rss
+    config:
+      urls:
+        - https://hnrss.org/frontpage
+      maxPerFeed: 20
+  - type: arxiv
+    config:
+      categories:
+        - cs.AI
+      maxResults: 10
+
+output:
+  format: newsletter_items
+  schema: ./schema.json
+  min_items: 5
+  max_items: 10

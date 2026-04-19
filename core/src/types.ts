@@ -72,7 +72,7 @@ export interface RunContext {
   now: Date;
 }
 
-export type RunStatus = 'success' | 'failed' | 'partial';
+export type RunStatus = 'running' | 'success' | 'failed' | 'partial';
 
 export interface RunResult {
   runId: string;
