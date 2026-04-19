@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import { initApi, type ApiClient, type RunResult } from './lib/api';
+import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
-import { AgentList } from './components/AgentList';
-import { RunResultCard } from './components/RunResult';
 import { Settings } from './components/Settings';
+import { Newspaper } from './components/Newspaper';
 
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<RunResult | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
@@ -51,9 +49,7 @@ export default function App() {
         <header className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold">Samix</h1>
-            <p className="text-sm text-neutral-500">
-              Phase 1 · scaffolding secrets
-            </p>
+            <p className="text-sm text-neutral-500">Today's news, curated locally.</p>
           </div>
           <button
             onClick={() => setShowSettings((v) => !v)}
@@ -69,21 +65,9 @@ export default function App() {
             </h2>
             <Settings />
           </section>
-        ) : null}
-        <section>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
-            Agents
-          </h2>
-          <AgentList api={api} onRunComplete={setLastResult} />
-        </section>
-        {lastResult ? (
-          <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
-              Last run
-            </h2>
-            <RunResultCard result={lastResult} />
-          </section>
-        ) : null}
+        ) : (
+          <Newspaper api={api} />
+        )}
       </div>
     </main>
   );

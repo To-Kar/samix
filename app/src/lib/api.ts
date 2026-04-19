@@ -29,6 +29,25 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface Article {
+  id: string;
+  title: string;
+  summary: string;
+  sourceUrl: string | null;
+  sourceName: string | null;
+  publishedAt: string | null;
+  topic: string | null;
+  createdAt: string;
+  agentSlug: string;
+}
+
+export interface ListArticlesQuery {
+  since?: string;
+  topic?: string;
+  agent?: string;
+  limit?: number;
+}
+
 export class ApiClient {
   constructor(
     private readonly port: number,
@@ -70,6 +89,16 @@ export class ApiClient {
 
   getRun(id: string): Promise<RunResult> {
     return this.request<RunResult>(`/runs/${id}`);
+  }
+
+  listArticles(query: ListArticlesQuery = {}): Promise<Article[]> {
+    const params = new URLSearchParams();
+    if (query.since) params.set('since', query.since);
+    if (query.topic) params.set('topic', query.topic);
+    if (query.agent) params.set('agent', query.agent);
+    if (query.limit != null) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
   }
 }
 

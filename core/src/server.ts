@@ -111,6 +111,53 @@ fastify.post<{ Params: { slug: string } }>(
   }
 );
 
+fastify.get<{
+  Querystring: { since?: string; topic?: string; agent?: string; limit?: string };
+}>('/articles', async (request) => {
+  const q = request.query;
+  const where: {
+    publishedAt?: { gte: Date };
+    topic?: string;
+    agentRun?: { agent: { slug: string } };
+  } = {};
+
+  // Default window: last 7 days, by createdAt — gives the newspaper a
+  // sensible page-1 without forcing the client to compute a date.
+  const sinceMs = q.since ? Date.parse(q.since) : Date.now() - 7 * 24 * 60 * 60 * 1000;
+  if (Number.isFinite(sinceMs)) {
+    // Filter by Article.createdAt (when we persisted it), not publishedAt
+    // (the source's date). The newspaper is "what samix produced when".
+  }
+  if (q.topic) where.topic = q.topic;
+  if (q.agent) where.agentRun = { agent: { slug: q.agent } };
+
+  const limit = Math.min(Number(q.limit ?? 100), 500);
+
+  const rows = await prisma.article.findMany({
+    where: {
+      ...where,
+      createdAt: { gte: new Date(sinceMs) },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    include: {
+      agentRun: { select: { agent: { select: { slug: true } } } },
+    },
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    summary: r.summary,
+    sourceUrl: r.sourceUrl,
+    sourceName: r.sourceName,
+    publishedAt: r.publishedAt,
+    topic: r.topic,
+    createdAt: r.createdAt,
+    agentSlug: r.agentRun.agent.slug,
+  }));
+});
+
 fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
   const run = await prisma.agentRun.findUnique({
     where: { id: request.params.id },
