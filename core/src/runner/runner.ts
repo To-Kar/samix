@@ -35,6 +35,20 @@ function computeCostUsd(
   return inCost + outCost;
 }
 
+// Pessimistic upper bound: treat the full tokensPerRunMax as output
+// (output is always the more expensive rate). Underestimating here would
+// defeat the pre-call gate.
+function estimateRunCostUsd(adapter: ModelAdapter, maxTokens: number): number {
+  return (maxTokens / 1_000_000) * adapter.pricing.outputPerMillionTokens;
+}
+
+function readGlobalCap(): number {
+  const raw = process.env.SAMIX_GLOBAL_DAILY_USD_MAX;
+  if (raw == null || raw === '') return 5.0;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 5.0;
+}
+
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   const { skill, trigger, input } = opts;
   const runId = randomUUID();
@@ -100,7 +114,53 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
   };
 
-  log.info({ model: adapter.name }, 'run starting');
+  // Global budget gate — sum every agent's ledger for today and reject the
+  // run if its pessimistic estimate would tip the total past the cap. Runs
+  // with zero estimate (StaticAdapter, zero tokensPerRunMax) always pass.
+  const globalCap = readGlobalCap();
+  const globalSumAgg = await prisma.budgetLedger.aggregate({
+    where: { period: periodStart },
+    _sum: { costUsd: true },
+  });
+  const spentGlobal = globalSumAgg._sum.costUsd ?? 0;
+  const estimatedCost = estimateRunCostUsd(adapter, skill.manifest.budget.tokensPerRunMax);
+
+  if (globalCap > 0 && spentGlobal + estimatedCost > globalCap) {
+    log.warn(
+      { spentGlobal, estimatedCost, globalCap },
+      'global_budget_exceeded; refusing to run'
+    );
+    const completedAt = new Date();
+    await prisma.agentRun.create({
+      data: {
+        id: runId,
+        agentId: agentRow.id,
+        status: 'failed',
+        trigger,
+        input: input == null ? null : JSON.stringify(input),
+        error: 'global_budget_exceeded',
+        startedAt,
+        completedAt,
+      },
+    });
+    return {
+      runId,
+      agentSlug: skill.id,
+      status: 'failed',
+      output: null,
+      tokensInput: 0,
+      tokensOutput: 0,
+      costUsd: 0,
+      error: 'global_budget_exceeded',
+      citations: [],
+      articleIds: [],
+      deliveries: [],
+      startedAt,
+      completedAt,
+    };
+  }
+
+  log.info({ model: adapter.name, estimatedCost, spentGlobal, globalCap }, 'run starting');
 
   try {
     const response = await adapter.generate(request);
