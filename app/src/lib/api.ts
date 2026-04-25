@@ -41,6 +41,11 @@ export interface Article {
   agentSlug: string;
 }
 
+export interface SourceSpec {
+  type: 'rss' | 'arxiv' | 'perplexity_search' | 'api' | 'custom';
+  config: Record<string, unknown>;
+}
+
 export interface ListArticlesQuery {
   since?: string;
   topic?: string;
@@ -99,6 +104,18 @@ export class ApiClient {
     if (query.limit != null) params.set('limit', String(query.limit));
     const qs = params.toString();
     return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
+  }
+
+  getSources(slug: string): Promise<SourceSpec[]> {
+    return this.request<SourceSpec[]>(`/agents/${slug}/sources`);
+  }
+
+  putSources(slug: string, sources: SourceSpec[]): Promise<{ ok: boolean }> {
+    return this.request<{ ok: boolean }>(`/agents/${slug}/sources`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sources }),
+    });
   }
 }
 
