@@ -3,11 +3,13 @@ import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { Settings } from './components/Settings';
 import { Newspaper } from './components/Newspaper';
+import { Sources } from './components/Sources';
 
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSources, setShowSources] = useState(false);
 
   useEffect(() => {
     initApi()
@@ -51,12 +53,26 @@ export default function App() {
             <h1 className="text-2xl font-semibold">Samix</h1>
             <p className="text-sm text-neutral-500">Today's news, curated locally.</p>
           </div>
-          <button
-            onClick={() => setShowSettings((v) => !v)}
-            className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          >
-            {showSettings ? 'Close settings' : 'Settings'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setShowSources((v) => !v);
+                setShowSettings(false);
+              }}
+              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              {showSources ? 'Close sources' : 'Sources'}
+            </button>
+            <button
+              onClick={() => {
+                setShowSettings((v) => !v);
+                setShowSources(false);
+              }}
+              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              {showSettings ? 'Close settings' : 'Settings'}
+            </button>
+          </div>
         </header>
         {showSettings ? (
           <section>
@@ -64,6 +80,13 @@ export default function App() {
               Secrets
             </h2>
             <Settings />
+          </section>
+        ) : showSources ? (
+          <section>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
+              Sources
+            </h2>
+            <Sources api={api} />
           </section>
         ) : (
           <Newspaper api={api} />

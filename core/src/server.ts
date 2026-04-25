@@ -1,14 +1,17 @@
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { readFile, writeFile, rename } from 'node:fs/promises';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { z } from 'zod';
 import { logger } from './logger.js';
 import { prisma } from './db/prisma.js';
 import { loadSkills } from './skills/loader.js';
 import { runAgent } from './runner/runner.js';
-import { startScheduler } from './scheduler/index.js';
-import type { Skill } from './types.js';
+import { startScheduler, reloadSkill } from './scheduler/index.js';
+import type { Skill, SourceSpec } from './types.js';
 
 const PKG_VERSION = '0.1.0';
 
@@ -51,7 +54,7 @@ await fastify.register(helmet, {
 await fastify.register(cors, {
   origin: true,
   credentials: false,
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
   allowedHeaders: ['Authorization', 'Content-Type'],
 });
 
@@ -182,6 +185,62 @@ fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
     completedAt: run.completedAt,
   };
 });
+
+const sourcesBodySchema = z.object({
+  sources: z.array(
+    z.object({
+      type: z.enum(['rss', 'perplexity_search', 'arxiv', 'api', 'custom']),
+      config: z.record(z.string(), z.unknown()).default({}),
+    })
+  ),
+});
+
+fastify.get<{ Params: { slug: string } }>(
+  '/agents/:slug/sources',
+  async (request, reply) => {
+    const skill = skills.find((s) => s.id === request.params.slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    return skill.manifest.sources ?? [];
+  }
+);
+
+fastify.put<{ Params: { slug: string }; Body: unknown }>(
+  '/agents/:slug/sources',
+  async (request, reply) => {
+    const slug = request.params.slug;
+    const skill = skills.find((s) => s.id === slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug });
+      return reply;
+    }
+
+    const parsed = sourcesBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_sources', details: parsed.error.flatten() });
+      return reply;
+    }
+
+    const manifestDir = dirname(skill.skillMdPath);
+    const manifestPath = join(manifestDir, 'manifest.yaml');
+    const tmpPath = join(manifestDir, 'manifest.yaml.tmp');
+
+    const raw = await readFile(manifestPath, 'utf8');
+    const manifestObj = parseYaml(raw) as Record<string, unknown>;
+    manifestObj['sources'] = parsed.data.sources;
+
+    await writeFile(tmpPath, stringifyYaml(manifestObj), 'utf8');
+    await rename(tmpPath, manifestPath);
+
+    skill.manifest.sources = parsed.data.sources as SourceSpec[];
+
+    reloadSkill(slug, skill, request.log as unknown as typeof logger);
+
+    return { ok: true };
+  }
+);
 
 async function start(): Promise<void> {
   await prisma.$connect();
