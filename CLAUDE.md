@@ -94,6 +94,9 @@ Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `
 | `SAMIX_LOG_LEVEL` | Pino level (`debug` / `info` / `warn` / `error`). Default `info`. |
 | `SAMIX_GLOBAL_DAILY_USD_MAX` | Phase 1+ global kill-switch across all agents. Not yet enforced in Phase 0. |
 | `ANTHROPIC_API_KEY` / `PERPLEXITY_API_KEY` | Phase 1+ only. Populated by the Rust shell from the OS keychain, never stored in `.env` in prod. |
+| `SAMIX_ARTICLE_RETENTION_DAYS` | Days to keep `Article` rows. Default `30`. |
+| `SAMIX_SNAPSHOT_RETENTION_DAYS` | Days to keep `SourceSnapshot` rows. Default `30`. |
+| `SAMIX_RUN_RETENTION_DAYS` | Days to keep orphaned `AgentRun` rows (those with no children). Default `14`. |
 
 ## ADRs
 

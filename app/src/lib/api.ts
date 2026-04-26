@@ -46,6 +46,21 @@ export interface SourceSpec {
   config: Record<string, unknown>;
 }
 
+export interface SourceSnapshotSummary {
+  id: string;
+  sourceType: string;
+  sourceName: string | null;
+  url: string | null;
+  title: string | null;
+  publishedAt: string | null;
+}
+
+export interface ArticleDetail extends Article {
+  summary: string;
+  run: { trigger: string; costUsd: number; startedAt: string };
+  sources: SourceSnapshotSummary[];
+}
+
 export interface ListArticlesQuery {
   since?: string;
   topic?: string;
@@ -104,6 +119,10 @@ export class ApiClient {
     if (query.limit != null) params.set('limit', String(query.limit));
     const qs = params.toString();
     return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
+  }
+
+  getArticle(id: string): Promise<ArticleDetail> {
+    return this.request<ArticleDetail>(`/articles/${id}`);
   }
 
   getSources(slug: string): Promise<SourceSpec[]> {

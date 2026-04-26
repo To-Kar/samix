@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["items"],
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["title", "summary", "sourceUrl"],
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "maxLength": 200 },
+          "summary": { "type": "string", "maxLength": 280 },
+          "sourceUrl": { "type": "string", "format": "uri" },
+          "publishedAt": { "type": "string", "format": "date-time" },
+          "topic": { "type": "string" }
+        }
+      }
+    }
+  }
+}

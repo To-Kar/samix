@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import type { ApiClient, Article } from '../lib/api';
+import type { ApiClient, Article, ArticleDetail } from '../lib/api';
 
 const NEWSLETTER_SLUG = 'newsletter-ai';
 
@@ -13,6 +13,7 @@ export function Newspaper({ api }: NewspaperProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string | null>(null);
+  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -96,22 +97,40 @@ export function Newspaper({ api }: NewspaperProps) {
               </h3>
               <div className="flex flex-col gap-3">
                 {items.map((a) => (
-                  <ArticleCard key={a.id} article={a} />
+                  <ArticleCard key={a.id} article={a} onSelect={setSelectedArticleId} />
                 ))}
               </div>
             </section>
           ))
         : null}
+
+      {selectedArticleId ? (
+        <ArticleDetailModal
+          articleId={selectedArticleId}
+          api={api}
+          onClose={() => setSelectedArticleId(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function ArticleCard({ article }: { article: Article }) {
-  const handleOpen = () => {
+function ArticleCard({
+  article,
+  onSelect,
+}: {
+  article: Article;
+  onSelect: (id: string) => void;
+}) {
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (article.sourceUrl) void openUrl(article.sourceUrl);
   };
   return (
-    <article className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 p-4 flex flex-col gap-2">
+    <article
+      onClick={() => onSelect(article.id)}
+      className="cursor-pointer rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 p-4 flex flex-col gap-2 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors"
+    >
       <h2 className="text-base font-semibold leading-tight">{article.title}</h2>
       <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-snug">
         {article.summary}
@@ -136,6 +155,115 @@ function ArticleCard({ article }: { article: Article }) {
         </button>
       </div>
     </article>
+  );
+}
+
+function ArticleDetailModal({
+  articleId,
+  api,
+  onClose,
+}: {
+  articleId: string;
+  api: ApiClient;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<ArticleDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDetail(null);
+    setError(null);
+    api
+      .getArticle(articleId)
+      .then(setDetail)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+  }, [api, articleId]);
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+      className="flex items-start justify-center bg-black/40 overflow-y-auto pt-16 pb-8 px-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl p-6 flex flex-col gap-4"
+      >
+        {error ? (
+          <div className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</div>
+        ) : !detail ? (
+          <div className="text-xs text-neutral-400">Loading…</div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-base font-semibold leading-tight flex-1">{detail.title}</h2>
+              <button
+                onClick={onClose}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-lg leading-none shrink-0"
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-snug">
+              {detail.summary}
+            </p>
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              {detail.topic ? (
+                <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-neutral-600 dark:text-neutral-400">
+                  {detail.topic}
+                </span>
+              ) : null}
+              {detail.sourceUrl ? (
+                <button
+                  onClick={() => { if (detail.sourceUrl) void openUrl(detail.sourceUrl); }}
+                  className="rounded border border-neutral-300 dark:border-neutral-700 px-2 py-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Open ↗ {hostnameOf(detail.sourceUrl)}
+                </button>
+              ) : null}
+            </div>
+
+            <div className="text-xs text-neutral-500 flex flex-col gap-0.5">
+              <span>Trigger: <span className="font-mono">{detail.run.trigger}</span></span>
+              <span>Run cost: <span className="font-mono">${detail.run.costUsd.toFixed(6)}</span></span>
+              <span>Run started: {new Date(detail.run.startedAt).toLocaleString()}</span>
+              {detail.publishedAt ? (
+                <span>Published: {new Date(detail.publishedAt).toLocaleString()}</span>
+              ) : null}
+            </div>
+
+            {detail.sources.length > 0 ? (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 select-none">
+                  Sources seen by LLM ({detail.sources.length})
+                </summary>
+                <div className="mt-2 flex flex-col gap-1 pl-2 border-l border-neutral-200 dark:border-neutral-700">
+                  {detail.sources.map((s) => (
+                    <div key={s.id} className="text-neutral-600 dark:text-neutral-400">
+                      <span className="font-mono text-[10px] text-neutral-400">[{s.sourceType}]</span>{' '}
+                      {s.title ?? s.sourceName ?? s.url ?? s.id}
+                      {s.url ? (
+                        <>
+                          {' '}
+                          <button
+                            onClick={() => { if (s.url) void openUrl(s.url); }}
+                            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+                          >
+                            ↗
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

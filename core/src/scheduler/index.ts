@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import type { Skill } from '../types.js';
 import { runAgent } from '../runner/runner.js';
 import { prisma } from '../db/prisma.js';
+import { cleanupOldData } from './retention.js';
 
 type ScheduledTask = ReturnType<typeof cron.schedule>;
 
@@ -76,6 +77,17 @@ export function startScheduler(skills: Skill[], logger: Logger): void {
       void checkCatchup(skill, logger);
     }
   }
+
+  // Daily retention cleanup at 03:00 UTC — runs before skill crons.
+  cron.schedule(
+    '0 3 * * *',
+    () => {
+      void cleanupOldData(logger).catch((err) =>
+        logger.error({ err }, 'retention_job_uncaught')
+      );
+    },
+    { timezone: 'UTC' }
+  );
 
   logger.info({ scheduled: proactive.length }, 'scheduler_ready');
 }

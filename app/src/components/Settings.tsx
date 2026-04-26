@@ -6,6 +6,7 @@ import {
   hasSecret,
   deleteSecret,
 } from '../lib/keychain';
+import { isAutostartEnabled, setAutostart } from '../lib/autostart';
 
 interface FieldSpec {
   account: SecretAccount;
@@ -28,6 +29,8 @@ export function Settings() {
     () => Object.fromEntries(SECRET_ACCOUNTS.map((a) => [a, false])) as Record<SecretAccount, boolean>
   );
   const [savedFlash, setSavedFlash] = useState<SecretAccount | null>(null);
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
+  const [autostartError, setAutostartError] = useState<string | null>(null);
 
   async function refreshAll() {
     const entries = await Promise.all(
@@ -38,6 +41,11 @@ export function Settings() {
 
   useEffect(() => {
     void refreshAll();
+    isAutostartEnabled()
+      .then(setAutostartEnabled)
+      .catch((e: unknown) =>
+        setAutostartError(e instanceof Error ? e.message : String(e))
+      );
   }, []);
 
   return (
@@ -45,7 +53,7 @@ export function Settings() {
       <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
         Stored in the OS keychain under service <code>samix</code>. Values never leave
         Rust — the UI only sees whether a key is configured. Restart the app to load
-        new keys into the core (auto-spawn lands with Phase 1 step 11).
+        new keys into the core.
       </div>
       {GROUPS.map((group) => (
         <section key={group.title} className="flex flex-col gap-3">
@@ -70,6 +78,38 @@ export function Settings() {
           </div>
         </section>
       ))}
+
+      <section className="flex flex-col gap-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Startup
+        </h3>
+        <div className="flex items-center gap-3 text-xs">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={autostartEnabled ?? false}
+              disabled={autostartEnabled === null}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                setAutostartEnabled(enabled);
+                setAutostartError(null);
+                setAutostart(enabled).catch((err: unknown) => {
+                  setAutostartEnabled(!enabled);
+                  setAutostartError(err instanceof Error ? err.message : String(err));
+                });
+              }}
+              className="rounded border-neutral-300 dark:border-neutral-700"
+            />
+            <span className="text-neutral-700 dark:text-neutral-300">Launch at startup</span>
+          </label>
+          {autostartEnabled === null && !autostartError ? (
+            <span className="text-neutral-400">loading…</span>
+          ) : null}
+        </div>
+        {autostartError ? (
+          <div className="text-xs text-red-600 dark:text-red-400 font-mono">{autostartError}</div>
+        ) : null}
+      </section>
     </div>
   );
 }

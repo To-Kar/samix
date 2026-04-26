@@ -1,0 +1,31 @@
+id: hacker-digest
+type: proactive
+version: "1.0"
+
+model:
+  primary: claude-haiku-4-5
+
+budget:
+  daily_usd_max: 0.10
+  tokens_per_run_max: 3000
+  halt_on_budget_exceeded: true
+
+schedule:
+  cron: "0 8 * * 1"
+  timezone: Europe/Berlin
+  jitter_seconds: 60
+  catchup_on_startup: false
+
+sources:
+  - type: rss
+    config:
+      urls:
+        - https://hnrss.org/best
+        - https://hnrss.org/ask
+      maxPerFeed: 30
+
+output:
+  format: newsletter_items
+  schema: ./schema.json
+  min_items: 5
+  max_items: 8

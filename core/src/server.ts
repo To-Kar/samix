@@ -161,6 +161,51 @@ fastify.get<{
   }));
 });
 
+fastify.get<{ Params: { id: string } }>('/articles/:id', async (request, reply) => {
+  const article = await prisma.article.findUnique({
+    where: { id: request.params.id },
+    include: {
+      agentRun: {
+        select: {
+          trigger: true,
+          costUsd: true,
+          startedAt: true,
+          snapshots: {
+            select: {
+              id: true,
+              sourceType: true,
+              sourceName: true,
+              url: true,
+              title: true,
+              publishedAt: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!article) {
+    reply.code(404).send({ error: 'article_not_found', id: request.params.id });
+    return reply;
+  }
+  return {
+    id: article.id,
+    title: article.title,
+    summary: article.summary,
+    sourceUrl: article.sourceUrl,
+    sourceName: article.sourceName,
+    publishedAt: article.publishedAt,
+    topic: article.topic,
+    createdAt: article.createdAt,
+    run: {
+      trigger: article.agentRun.trigger,
+      costUsd: article.agentRun.costUsd,
+      startedAt: article.agentRun.startedAt,
+    },
+    sources: article.agentRun.snapshots,
+  };
+});
+
 fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
   const run = await prisma.agentRun.findUnique({
     where: { id: request.params.id },
