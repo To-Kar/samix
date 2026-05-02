@@ -265,7 +265,7 @@ fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
 const sourcesBodySchema = z.object({
   sources: z.array(
     z.object({
-      type: z.enum(['rss', 'perplexity_search', 'arxiv', 'api', 'custom']),
+      type: z.enum(['rss', 'perplexity_search', 'arxiv', 'workspace', 'api', 'custom']),
       config: z.record(z.string(), z.unknown()).default({}),
     })
   ),
