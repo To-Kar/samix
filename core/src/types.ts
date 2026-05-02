@@ -50,7 +50,7 @@ export interface ScheduleSpec {
 }
 
 export interface SourceSpec {
-  type: 'rss' | 'perplexity_search' | 'arxiv' | 'api' | 'custom';
+  type: 'rss' | 'perplexity_search' | 'arxiv' | 'workspace' | 'api' | 'custom';
   config: Record<string, unknown>;
 }
 
@@ -61,7 +61,7 @@ export interface OutputSpec {
   maxItems?: number;
 }
 
-export type RunTrigger = 'manual' | 'schedule' | 'catchup' | 'orchestrator';
+export type RunTrigger = 'manual' | 'schedule' | 'catchup' | 'orchestrator' | 'query';
 
 export interface RunContext {
   runId: string;
@@ -83,6 +83,19 @@ export interface RunResult {
   error?: string;
   citations: Citation[];
   articleIds: string[];
+  startedAt: Date;
+  completedAt: Date;
+}
+
+export interface QueryResult {
+  runId: string;
+  agentSlug: string;
+  status: RunStatus;
+  content: string;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd: number;
+  error?: string;
   startedAt: Date;
   completedAt: Date;
 }
@@ -145,7 +158,7 @@ export interface FetchContext {
 }
 
 export interface SourceFetcher<C = unknown> {
-  readonly type: 'rss' | 'perplexity_search' | 'arxiv';
+  readonly type: 'rss' | 'perplexity_search' | 'arxiv' | 'workspace';
   fetch(config: C, ctx: FetchContext): Promise<SourceItem[]>;
 }
 

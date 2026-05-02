@@ -61,6 +61,19 @@ export interface ArticleDetail extends Article {
   sources: SourceSnapshotSummary[];
 }
 
+export interface QueryResult {
+  runId: string;
+  agentSlug: string;
+  status: 'success' | 'failed';
+  content: string;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd: number;
+  error?: string;
+  startedAt: string;
+  completedAt: string;
+}
+
 export interface ListArticlesQuery {
   since?: string;
   topic?: string;
@@ -119,6 +132,14 @@ export class ApiClient {
     if (query.limit != null) params.set('limit', String(query.limit));
     const qs = params.toString();
     return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
+  }
+
+  queryAgent(slug: string, message: string): Promise<QueryResult> {
+    return this.request<QueryResult>(`/agents/${slug}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
   }
 
   getArticle(id: string): Promise<ArticleDetail> {

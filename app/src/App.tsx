@@ -4,12 +4,14 @@ import { ConnectionBanner } from './components/ConnectionBanner';
 import { Settings } from './components/Settings';
 import { Newspaper } from './components/Newspaper';
 import { Sources } from './components/Sources';
+import { Query } from './components/Query';
 
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [showQuery, setShowQuery] = useState(false);
 
   useEffect(() => {
     initApi()
@@ -18,6 +20,12 @@ export default function App() {
         setInitError(err instanceof Error ? err.message : String(err))
       );
   }, []);
+
+  const closeAll = () => {
+    setShowSettings(false);
+    setShowSources(false);
+    setShowQuery(false);
+  };
 
   if (initError) {
     return (
@@ -56,8 +64,15 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                setShowSources((v) => !v);
-                setShowSettings(false);
+                if (showQuery) { closeAll(); } else { closeAll(); setShowQuery(true); }
+              }}
+              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              {showQuery ? 'Close query' : 'Query'}
+            </button>
+            <button
+              onClick={() => {
+                if (showSources) { closeAll(); } else { closeAll(); setShowSources(true); }
               }}
               className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
@@ -65,8 +80,7 @@ export default function App() {
             </button>
             <button
               onClick={() => {
-                setShowSettings((v) => !v);
-                setShowSources(false);
+                if (showSettings) { closeAll(); } else { closeAll(); setShowSettings(true); }
               }}
               className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
@@ -87,6 +101,13 @@ export default function App() {
               Sources
             </h2>
             <Sources api={api} />
+          </section>
+        ) : showQuery ? (
+          <section>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
+              Coding Assistant
+            </h2>
+            <Query api={api} />
           </section>
         ) : (
           <Newspaper api={api} />

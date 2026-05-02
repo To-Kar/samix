@@ -1,0 +1,30 @@
+id: coding-assistant
+type: reactive
+version: "1.0"
+
+model:
+  primary: claude-sonnet-4-6
+
+budget:
+  daily_usd_max: 1.00
+  tokens_per_run_max: 8000
+  halt_on_budget_exceeded: true
+
+# No schedule — reactive agents are triggered by user queries, not cron.
+
+sources:
+  - type: workspace
+    config:
+      path: "~"
+      include:
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.md"
+        - "**/*.py"
+        - "**/*.rs"
+        - "**/*.go"
+      maxFileSizeKb: 80
+      maxTotalKb: 300
+
+output:
+  format: freeform

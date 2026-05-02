@@ -11,6 +11,7 @@ import { prisma } from './db/prisma.js';
 import { loadSkills } from './skills/loader.js';
 import { runAgent } from './runner/runner.js';
 import { startScheduler, reloadSkill } from './scheduler/index.js';
+import { queryAgent } from './runner/query-runner.js';
 import type { Skill, SourceSpec } from './types.js';
 
 const PKG_VERSION = '0.1.0';
@@ -111,6 +112,28 @@ fastify.post<{ Params: { slug: string } }>(
       logger: request.log as unknown as typeof logger,
     });
     return result;
+  }
+);
+
+fastify.post<{ Params: { slug: string }; Body: unknown }>(
+  '/agents/:slug/query',
+  async (request, reply) => {
+    const slug = request.params.slug;
+    const skill = skills.find((s) => s.id === slug && s.type === 'reactive');
+    if (!skill) {
+      reply.code(404).send({ error: 'reactive_agent_not_found', slug });
+      return reply;
+    }
+    const body = z.object({ message: z.string().min(1).max(4000) }).safeParse(request.body);
+    if (!body.success) {
+      reply.code(400).send({ error: 'invalid_body', details: body.error.flatten() });
+      return reply;
+    }
+    return queryAgent({
+      skill,
+      message: body.data.message,
+      logger: request.log as unknown as typeof logger,
+    });
   }
 );
 

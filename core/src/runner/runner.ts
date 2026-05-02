@@ -3,7 +3,6 @@ import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 import type { Logger } from 'pino';
 import type {
   FetchContext,
-  ModelAdapter,
   NormalizedRequest,
   RunContext,
   RunResult,
@@ -18,6 +17,14 @@ import { JsonSchemaValidator } from '../output/validator.js';
 import { unwrapJsonFences } from '../output/unwrap.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
+import {
+  utcDayStart,
+  computeCostUsd,
+  estimateRunCostUsd,
+  readGlobalCap,
+  markFailed,
+  buildFailureResult,
+} from './utils.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -30,81 +37,12 @@ export interface RunAgentOptions {
   logger?: Logger;
 }
 
-const UTC_DAY_MS = 24 * 60 * 60 * 1000;
-
-function utcDayStart(d: Date): Date {
-  return new Date(Math.floor(d.getTime() / UTC_DAY_MS) * UTC_DAY_MS);
-}
-
-function computeCostUsd(
-  adapter: ModelAdapter,
-  inputTokens: number,
-  outputTokens: number
-): number {
-  const inCost = (inputTokens / 1_000_000) * adapter.pricing.inputPerMillionTokens;
-  const outCost = (outputTokens / 1_000_000) * adapter.pricing.outputPerMillionTokens;
-  return inCost + outCost;
-}
-
-// Pessimistic upper bound: treat tokensPerRunMax as potentially spent at
-// both input AND output rates. Not a true upper bound — input can exceed
-// maxTokens — but the loosest honest estimate given what the runner knows
-// before the call. Underestimating here would defeat the pre-call gate.
-function estimateRunCostUsd(adapter: ModelAdapter, maxTokens: number): number {
-  const combinedRate =
-    adapter.pricing.inputPerMillionTokens + adapter.pricing.outputPerMillionTokens;
-  return (maxTokens / 1_000_000) * combinedRate;
-}
-
-function readGlobalCap(): number {
-  const raw = process.env.SAMIX_GLOBAL_DAILY_USD_MAX;
-  if (raw == null || raw === '') return 5.0;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 5.0;
-}
-
-interface FailureShape {
-  runId: string;
-  agentSlug: string;
-  error: string;
-  startedAt: Date;
-  completedAt: Date;
-}
-
-function buildFailureResult(f: FailureShape): RunResult {
-  return {
-    runId: f.runId,
-    agentSlug: f.agentSlug,
-    status: 'failed',
-    output: null,
-    tokensInput: 0,
-    tokensOutput: 0,
-    costUsd: 0,
-    error: f.error,
-    citations: [],
-    articleIds: [],
-    startedAt: f.startedAt,
-    completedAt: f.completedAt,
-  };
-}
-
-async function markFailed(
-  runId: string,
-  error: string,
-  completedAt: Date
-): Promise<void> {
-  await prisma.agentRun.update({
-    where: { id: runId },
-    data: { status: 'failed', error, completedAt },
-  });
-}
-
 // Fetch every source in the manifest, persist each fetched SourceItem as a
 // SourceSnapshot row keyed to this run, and return the flat item list the
 // adapter should see. A single failing fetcher doesn't kill the run — it
 // logs and contributes zero items. Source-traceability is enforced at the
 // output stage (step 6c), not here.
-async function fetchSources(
+export async function fetchSources(
   specs: SourceSpec[],
   runId: string,
   log: Logger
