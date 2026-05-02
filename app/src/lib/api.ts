@@ -42,8 +42,13 @@ export interface Article {
 }
 
 export interface SourceSpec {
-  type: 'rss' | 'arxiv' | 'perplexity_search' | 'api' | 'custom';
+  type: 'rss' | 'arxiv' | 'perplexity_search' | 'workspace' | 'api' | 'custom';
   config: Record<string, unknown>;
+}
+
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface SourceSnapshotSummary {
@@ -134,11 +139,11 @@ export class ApiClient {
     return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
   }
 
-  queryAgent(slug: string, message: string): Promise<QueryResult> {
+  queryAgent(slug: string, message: string, history?: ConversationMessage[]): Promise<QueryResult> {
     return this.request<QueryResult>(`/agents/${slug}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, history }),
     });
   }
 

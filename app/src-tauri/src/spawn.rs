@@ -1,5 +1,6 @@
 use keyring::Entry;
 use std::net::TcpListener;
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -15,24 +16,41 @@ pub fn free_port() -> Result<u16, std::io::Error> {
     Ok(listener.local_addr()?.port())
 }
 
-/// Spawn `pnpm --filter samix-core dev` with the generated port/token and any
-/// API keys that are already stored in the OS keychain. Missing keys are silently
-/// omitted — the adapters will self-disable at core startup.
-pub fn spawn_core(port: u16, token: &str) -> Result<Child, std::io::Error> {
+/// Spawn the core process.
+///
+/// In debug builds, runs `pnpm --filter samix-core dev` (hot-reload via tsx).
+/// In release builds, `node_script` points to the bundled `core/dist/server.js`
+/// inside the Tauri resource directory; pass `None` to always use the pnpm dev path.
+pub fn spawn_core(port: u16, token: &str, node_script: Option<&Path>) -> Result<Child, std::io::Error> {
     #[cfg(target_os = "windows")]
     let pnpm = "pnpm.cmd";
     #[cfg(not(target_os = "windows"))]
     let pnpm = "pnpm";
 
-    let mut cmd = Command::new(pnpm);
-    cmd.args(["--filter", "samix-core", "dev"])
-        .env("SAMIX_PORT", port.to_string())
+    let mut cmd = match node_script {
+        Some(script) => {
+            #[cfg(target_os = "windows")]
+            let node = "node.exe";
+            #[cfg(not(target_os = "windows"))]
+            let node = "node";
+            let mut c = Command::new(node);
+            c.arg(script);
+            c
+        }
+        None => {
+            let mut c = Command::new(pnpm);
+            c.args(["--filter", "samix-core", "dev"]);
+            c
+        }
+    };
+
+    cmd.env("SAMIX_PORT", port.to_string())
         .env("SAMIX_TOKEN", token)
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    for account in &["ANTHROPIC_API_KEY", "PERPLEXITY_API_KEY"] {
+    for account in &["ANTHROPIC_API_KEY", "PERPLEXITY_API_KEY", "OPENAI_API_KEY"] {
         if let Some(value) = read_secret(account) {
             cmd.env(account, value);
         }

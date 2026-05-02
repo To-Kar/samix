@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { ApiClient, QueryResult } from '../lib/api';
+import type { ApiClient, ConversationMessage, QueryResult } from '../lib/api';
 
 const CODING_ASSISTANT_SLUG = 'coding-assistant';
 
@@ -16,6 +16,8 @@ export function Query({ api }: QueryProps) {
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // Conversation turns sent to the API — grows across sends, cleared on Clear
+  const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -26,7 +28,12 @@ export function Query({ api }: QueryProps) {
     setPending(true);
     setError(null);
     try {
-      const result = await api.queryAgent(CODING_ASSISTANT_SLUG, trimmed);
+      const result = await api.queryAgent(CODING_ASSISTANT_SLUG, trimmed, conversation);
+      const newTurns: ConversationMessage[] = [
+        { role: 'user', content: trimmed },
+        ...(result.status === 'success' ? [{ role: 'assistant' as const, content: result.content }] : []),
+      ];
+      setConversation((prev) => [...prev, ...newTurns]);
       setHistory((prev) => [...prev, { question: trimmed, result }]);
       setMessage('');
       textareaRef.current?.focus();
@@ -67,7 +74,7 @@ export function Query({ api }: QueryProps) {
           </button>
           {history.length > 0 ? (
             <button
-              onClick={() => setHistory([])}
+              onClick={() => { setHistory([]); setConversation([]); }}
               disabled={pending}
               className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
             >

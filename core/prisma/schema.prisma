@@ -86,3 +86,15 @@ model SourceSnapshot {
   @@index([url])
 }
 
+model Memory {
+  id        String   @id @default(uuid())
+  agentSlug String
+  key       String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentSlug, key])
+  @@index([agentSlug])
+}
+

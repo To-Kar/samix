@@ -19,6 +19,7 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     title: 'LLM providers',
     fields: [
       { account: 'ANTHROPIC_API_KEY', label: 'Anthropic API key', sensitive: true },
+      { account: 'OPENAI_API_KEY', label: 'OpenAI API key', sensitive: true },
       { account: 'PERPLEXITY_API_KEY', label: 'Perplexity API key', sensitive: true },
     ],
   },

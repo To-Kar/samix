@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import type { NormalizedRequest, QueryResult, Skill, SourceItem } from '../types.js';
 import { resolveAdapter } from '../adapters/index.js';
 import { prisma } from '../db/prisma.js';
+import { listMemories } from '../memory/memory.js';
 import { logger as rootLogger } from '../logger.js';
 import {
   utcDayStart,
@@ -14,9 +15,15 @@ import {
 } from './utils.js';
 import { fetchSources } from './runner.js';
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface QueryAgentOptions {
   skill: Skill;
   message: string;
+  history?: ConversationMessage[];
   logger?: Logger;
 }
 
@@ -30,7 +37,7 @@ function formatWorkspaceContext(items: SourceItem[]): string {
 }
 
 export async function queryAgent(opts: QueryAgentOptions): Promise<QueryResult> {
-  const { skill, message } = opts;
+  const { skill, message, history } = opts;
   const runId = randomUUID();
   const log = (opts.logger ?? rootLogger).child({
     runId,
@@ -93,11 +100,22 @@ export async function queryAgent(opts: QueryAgentOptions): Promise<QueryResult> 
     workspaceItems = await fetchSources(skill.manifest.sources, runId, log);
   }
 
+  const memories = await listMemories(skill.id);
+
   const messages: NormalizedRequest['messages'] = [];
   const contextBlock = formatWorkspaceContext(workspaceItems);
   if (contextBlock) {
     messages.push({ role: 'user', content: contextBlock });
     messages.push({ role: 'assistant', content: 'I have reviewed the workspace files. What would you like to know?' });
+  }
+  if (memories.length > 0) {
+    const memBlock = memories.map((m) => `• [${m.key}] ${m.content}`).join('\n');
+    messages.push({ role: 'user', content: `Your stored memories:\n${memBlock}` });
+    messages.push({ role: 'assistant', content: 'Noted.' });
+  }
+  // Append prior conversation turns before the new message.
+  if (history?.length) {
+    messages.push(...history);
   }
   messages.push({ role: 'user', content: message });
 

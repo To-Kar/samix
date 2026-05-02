@@ -8,6 +8,7 @@ import type {
 } from '../types.js';
 import { StaticAdapter } from './static.js';
 import { ClaudeAdapter } from './claude.js';
+import { OpenAIAdapter } from './openai.js';
 import { PerplexityAdapter } from './perplexity.js';
 import { OllamaAdapter } from './ollama.js';
 
@@ -18,6 +19,8 @@ const registry = new Map<ModelId, AdapterFactory>();
 registry.set('static', () => new StaticAdapter());
 registry.set('claude-haiku-4-5', () => new ClaudeAdapter('claude-haiku-4-5'));
 registry.set('claude-sonnet-4-6', () => new ClaudeAdapter('claude-sonnet-4-6'));
+registry.set('gpt-4o-mini', () => new OpenAIAdapter('gpt-4o-mini'));
+registry.set('gpt-4o', () => new OpenAIAdapter('gpt-4o'));
 registry.set('perplexity-sonar', () => new PerplexityAdapter());
 registry.set('ollama-llama3', () => new OllamaAdapter());
 

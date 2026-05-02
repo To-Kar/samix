@@ -12,6 +12,7 @@ import { loadSkills } from './skills/loader.js';
 import { runAgent } from './runner/runner.js';
 import { startScheduler, reloadSkill } from './scheduler/index.js';
 import { queryAgent } from './runner/query-runner.js';
+import { getMemory, setMemory, listMemories, deleteMemory } from './memory/memory.js';
 import type { Skill, SourceSpec } from './types.js';
 
 const PKG_VERSION = '0.1.0';
@@ -124,7 +125,13 @@ fastify.post<{ Params: { slug: string }; Body: unknown }>(
       reply.code(404).send({ error: 'reactive_agent_not_found', slug });
       return reply;
     }
-    const body = z.object({ message: z.string().min(1).max(4000) }).safeParse(request.body);
+    const body = z.object({
+      message: z.string().min(1).max(4000),
+      history: z.array(z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      })).optional(),
+    }).safeParse(request.body);
     if (!body.success) {
       reply.code(400).send({ error: 'invalid_body', details: body.error.flatten() });
       return reply;
@@ -132,6 +139,7 @@ fastify.post<{ Params: { slug: string }; Body: unknown }>(
     return queryAgent({
       skill,
       message: body.data.message,
+      history: body.data.history,
       logger: request.log as unknown as typeof logger,
     });
   }
@@ -306,6 +314,69 @@ fastify.put<{ Params: { slug: string }; Body: unknown }>(
 
     reloadSkill(slug, skill, request.log as unknown as typeof logger);
 
+    return { ok: true };
+  }
+);
+
+fastify.get<{ Params: { slug: string } }>(
+  '/agents/:slug/memory',
+  async (request, reply) => {
+    const skill = skills.find((s) => s.id === request.params.slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    return listMemories(request.params.slug);
+  }
+);
+
+fastify.put<{ Params: { slug: string; key: string }; Body: unknown }>(
+  '/agents/:slug/memory/:key',
+  async (request, reply) => {
+    const { slug, key } = request.params;
+    const skill = skills.find((s) => s.id === slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug });
+      return reply;
+    }
+    const body = z.object({ content: z.string().min(1).max(10000) }).safeParse(request.body);
+    if (!body.success) {
+      reply.code(400).send({ error: 'invalid_body', details: body.error.flatten() });
+      return reply;
+    }
+    await setMemory(slug, key, body.data.content);
+    return { ok: true };
+  }
+);
+
+fastify.get<{ Params: { slug: string; key: string } }>(
+  '/agents/:slug/memory/:key',
+  async (request, reply) => {
+    const { slug, key } = request.params;
+    const skill = skills.find((s) => s.id === slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug });
+      return reply;
+    }
+    const content = await getMemory(slug, key);
+    if (content === null) {
+      reply.code(404).send({ error: 'memory_not_found', key });
+      return reply;
+    }
+    return { key, content };
+  }
+);
+
+fastify.delete<{ Params: { slug: string; key: string } }>(
+  '/agents/:slug/memory/:key',
+  async (request, reply) => {
+    const { slug, key } = request.params;
+    const skill = skills.find((s) => s.id === slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug });
+      return reply;
+    }
+    await deleteMemory(slug, key);
     return { ok: true };
   }
 );

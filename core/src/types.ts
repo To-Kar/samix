@@ -7,6 +7,7 @@ export type ModelId =
   | 'claude-haiku-4-5'
   | 'claude-sonnet-4-6'
   | 'gpt-4o-mini'
+  | 'gpt-4o'
   | 'perplexity-sonar'
   | 'ollama-llama3';
 

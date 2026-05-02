@@ -70,7 +70,17 @@ pub fn run() {
         .setup(|app| {
             let port = spawn::free_port()?;
             let token = Uuid::new_v4().to_string();
-            let child = spawn::spawn_core(port, &token)?;
+
+            #[cfg(debug_assertions)]
+            let node_script: Option<std::path::PathBuf> = None;
+            #[cfg(not(debug_assertions))]
+            let node_script: Option<std::path::PathBuf> = app
+                .path()
+                .resource_dir()
+                .ok()
+                .map(|d| d.join("core").join("dist").join("server.js"));
+
+            let child = spawn::spawn_core(port, &token, node_script.as_deref())?;
 
             // Best-effort: wait up to 15 s for the core to accept connections.
             // The ConnectionBanner handles reconnect if startup takes longer

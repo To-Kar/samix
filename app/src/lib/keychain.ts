@@ -10,6 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 export const SECRET_ACCOUNTS = [
   'ANTHROPIC_API_KEY',
   'PERPLEXITY_API_KEY',
+  'OPENAI_API_KEY',
 ] as const;
 
 export type SecretAccount = (typeof SECRET_ACCOUNTS)[number];
