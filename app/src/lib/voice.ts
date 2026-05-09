@@ -74,3 +74,50 @@ export function stopSpeaking() {
 export function getAvailableVoices(): SpeechSynthesisVoice[] {
   return speechSynthesis.getVoices();
 }
+
+const WAKE_PHRASES = ['hey jarvis', 'jarvis', 'hey samix', 'samix'];
+
+export class WakeWordListener {
+  private rec: SpeechRecognitionInstance | null = null;
+  private active = false;
+
+  start(onWake: () => void) {
+    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+    if (!SR) throw new Error('Speech recognition unavailable');
+    this.rec = new SR();
+    this.rec.continuous = true;
+    this.rec.interimResults = false;
+    this.rec.lang = navigator.language || 'en-US';
+    this.active = true;
+
+    this.rec.onresult = (e: SpeechRecognitionEvent) => {
+      for (const result of Array.from(e.results)) {
+        const transcript = result[0].transcript.toLowerCase().trim();
+        if (WAKE_PHRASES.some((p) => transcript.includes(p))) {
+          onWake();
+          break;
+        }
+      }
+    };
+
+    this.rec.onend = () => {
+      if (this.active) {
+        setTimeout(() => {
+          try { this.rec?.start(); } catch { /* already started */ }
+        }, 100);
+      }
+    };
+
+    this.rec.start();
+  }
+
+  stop() {
+    this.active = false;
+    this.rec?.stop();
+    this.rec = null;
+  }
+
+  get isActive() {
+    return this.active;
+  }
+}

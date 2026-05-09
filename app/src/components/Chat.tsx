@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { emitTo } from '@tauri-apps/api/event';
 import type { ApiClient, Article } from '../lib/api';
 import type { AgentMode } from './ModeSelector';
-import { VoiceRecognition, speak, stopSpeaking } from '../lib/voice';
+import { VoiceRecognition, WakeWordListener, speak, stopSpeaking } from '../lib/voice';
 
 export interface ChatHandle {
   focusInput: () => void;
@@ -46,7 +46,9 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [wakeListening, setWakeListening] = useState(false);
   const voiceRef = useRef<VoiceRecognition | null>(null);
+  const wakeRef = useRef<WakeWordListener | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const totalCostRef = useRef(0);
@@ -197,6 +199,31 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
     } catch { /* speech recognition unavailable */ }
   };
 
+  const toggleWakeWord = () => {
+    if (wakeListening) {
+      wakeRef.current?.stop();
+      wakeRef.current = null;
+      setWakeListening(false);
+      return;
+    }
+    try {
+      const wl = new WakeWordListener();
+      wakeRef.current = wl;
+      setWakeListening(true);
+      wl.start(() => {
+        wl.stop();
+        setWakeListening(false);
+        wakeRef.current = null;
+        inputRef.current?.focus();
+        toggleRecording();
+      });
+    } catch { /* unavailable */ }
+  };
+
+  useEffect(() => {
+    return () => { wakeRef.current?.stop(); };
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -289,6 +316,14 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
               className="flex-1 bg-transparent text-sm text-samix-text-primary placeholder:text-samix-text-muted resize-none outline-none disabled:opacity-50"
               style={{ fieldSizing: 'content', maxHeight: '150px' } as React.CSSProperties}
             />
+            <button
+              onClick={toggleWakeWord}
+              disabled={loading || recording}
+              className={`transition-colors pb-0.5 text-xs ${wakeListening ? 'text-green-400 animate-pulse' : 'text-samix-text-muted hover:text-samix-text-primary'}`}
+              title={wakeListening ? 'Wake word active — say "Hey Jarvis"' : 'Enable wake word'}
+            >
+              {wakeListening ? '((()))' : '(())'}
+            </button>
             <button
               onClick={toggleRecording}
               disabled={loading}
