@@ -4,6 +4,7 @@ import { listRecentArticlesTool } from './list-recent-articles.js';
 import { webSearchTool } from './web-search.js';
 import { openUrlTool } from './open-url.js';
 import { searchNotesTool } from './search-notes.js';
+import { saveMemoryTool, recallMemoryTool } from './memory.js';
 
 const tools = new Map<string, ToolDefinition>();
 
@@ -24,3 +25,5 @@ registerTool(listRecentArticlesTool);
 registerTool(webSearchTool);
 registerTool(openUrlTool);
 registerTool(searchNotesTool);
+registerTool(saveMemoryTool);
+registerTool(recallMemoryTool);

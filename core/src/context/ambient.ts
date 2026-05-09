@@ -8,6 +8,7 @@ export interface AmbientContext {
   activeApp?: string;
   unreadArticles: number;
   lastRun?: { slug: string; at: string };
+  memories?: Array<{ key: string; value: string }>;
 }
 
 function execWithTimeout(cmd: string, timeoutMs = 200): Promise<string> {
@@ -81,15 +82,29 @@ async function getLastRun(): Promise<{ slug: string; at: string } | undefined> {
   }
 }
 
+async function getMemories(): Promise<Array<{ key: string; value: string }>> {
+  try {
+    const rows = await prisma.memory.findMany({
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
+      select: { key: true, value: true },
+    });
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 export async function gatherAmbient(): Promise<AmbientContext> {
   const now = new Date();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const [battery, activeApp, unreadArticles, lastRun] = await Promise.all([
+  const [battery, activeApp, unreadArticles, lastRun, memories] = await Promise.all([
     getBattery(),
     getActiveApp(),
     getUnreadArticleCount(),
     getLastRun(),
+    getMemories(),
   ]);
 
   return {
@@ -99,6 +114,7 @@ export async function gatherAmbient(): Promise<AmbientContext> {
     activeApp,
     unreadArticles,
     lastRun,
+    memories: memories.length ? memories : undefined,
   };
 }
 
@@ -123,6 +139,14 @@ export function formatAmbientBlock(ctx: AmbientContext): string {
   if (ctx.lastRun) {
     const ago = Math.round((Date.now() - new Date(ctx.lastRun.at).getTime()) / 3600000);
     lines.push(`Last run: ${ctx.lastRun.slug} ${ago} h ago`);
+  }
+
+  if (ctx.memories?.length) {
+    lines.push('');
+    lines.push('Remembered facts:');
+    for (const m of ctx.memories) {
+      lines.push(`  ${m.key}: ${m.value}`);
+    }
   }
 
   return `<ambient_context>\n${lines.join('\n')}\n</ambient_context>`;

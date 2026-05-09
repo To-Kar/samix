@@ -16,5 +16,7 @@ tools:
   - list_recent_articles
   - open_url
   - search_notes
+  - save_memory
+  - recall_memory
 output:
   format: freeform_text

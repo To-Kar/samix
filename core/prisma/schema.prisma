@@ -86,3 +86,14 @@ model SourceSnapshot {
   @@index([url])
 }
 
+model Memory {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  category  String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
