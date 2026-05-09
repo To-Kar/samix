@@ -1,0 +1,15 @@
+id: url-summary
+type: reactive
+version: "1.0"
+model:
+  primary: claude-haiku-4-5
+  fallback: ollama-llama3
+budget:
+  daily_usd_max: 0.50
+  tokens_per_run_max: 3000
+  halt_on_budget_exceeded: true
+sources:
+  - type: url_fetch
+    config: {}
+output:
+  format: freeform_text

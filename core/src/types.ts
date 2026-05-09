@@ -50,7 +50,7 @@ export interface ScheduleSpec {
 }
 
 export interface SourceSpec {
-  type: 'rss' | 'perplexity_search' | 'arxiv' | 'api' | 'custom';
+  type: 'rss' | 'perplexity_search' | 'arxiv' | 'db_articles' | 'url_fetch' | 'api' | 'custom';
   config: Record<string, unknown>;
 }
 
@@ -142,10 +142,11 @@ export interface FetchContext {
   runId: string;
   logger: Logger;
   since?: Date;
+  input?: unknown;
 }
 
 export interface SourceFetcher<C = unknown> {
-  readonly type: 'rss' | 'perplexity_search' | 'arxiv';
+  readonly type: 'rss' | 'perplexity_search' | 'arxiv' | 'db_articles' | 'url_fetch';
   fetch(config: C, ctx: FetchContext): Promise<SourceItem[]>;
 }
 

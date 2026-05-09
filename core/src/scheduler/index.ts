@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import type { Skill } from '../types.js';
 import { runAgent } from '../runner/runner.js';
 import { prisma } from '../db/prisma.js';
+import { coreEvents } from '../events.js';
 
 type ScheduledTask = ReturnType<typeof cron.schedule>;
 
@@ -25,7 +26,15 @@ function registerJob(skill: Skill, logger: Logger): void {
         ? Math.floor(Math.random() * schedule.jitterSeconds * 1000)
         : 0;
       setTimeout(() => {
-        void runAgent({ skill, trigger: 'schedule', logger }).catch((err) =>
+        void runAgent({ skill, trigger: 'schedule', logger }).then((result) => {
+          if (result.status === 'success') {
+            coreEvents.emit('run:complete', {
+              agentSlug: result.agentSlug,
+              articleCount: result.articleIds.length,
+              costUsd: result.costUsd,
+            });
+          }
+        }).catch((err) =>
           logger.error({ err, skill: skill.id }, 'scheduled_run_failed')
         );
       }, jitterMs);
@@ -57,7 +66,15 @@ async function checkCatchup(skill: Skill, log: Logger): Promise<void> {
 
     if (!runSinceThen) {
       log.info({ skill: skill.id, missedAt: prevScheduledTime }, 'catchup_triggered');
-      void runAgent({ skill, trigger: 'catchup', logger: log }).catch((err) =>
+      void runAgent({ skill, trigger: 'catchup', logger: log }).then((result) => {
+        if (result.status === 'success') {
+          coreEvents.emit('run:complete', {
+            agentSlug: result.agentSlug,
+            articleCount: result.articleIds.length,
+            costUsd: result.costUsd,
+          });
+        }
+      }).catch((err) =>
         log.error({ err, skill: skill.id }, 'catchup_run_failed')
       );
     }

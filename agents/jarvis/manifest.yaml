@@ -1,0 +1,12 @@
+id: jarvis
+type: reactive
+version: "1.0"
+model:
+  primary: claude-haiku-4-5
+  fallback: ollama-llama3
+budget:
+  daily_usd_max: 1.00
+  tokens_per_run_max: 4000
+  halt_on_budget_exceeded: true
+output:
+  format: freeform_text

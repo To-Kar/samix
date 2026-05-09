@@ -1,0 +1,15 @@
+id: web-search
+type: reactive
+version: "1.0"
+model:
+  primary: perplexity-sonar
+  fallback: claude-haiku-4-5
+budget:
+  daily_usd_max: 0.50
+  tokens_per_run_max: 4000
+  halt_on_budget_exceeded: true
+sources:
+  - type: perplexity_search
+    config: {}
+output:
+  format: freeform_text

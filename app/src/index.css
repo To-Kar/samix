@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 html,
@@ -18,4 +18,27 @@ body,
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
+  background: #0a0a0a;
+  color: #f0f0f0;
+}
+
+::selection {
+  background: rgba(124, 109, 240, 0.3);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }

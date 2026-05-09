@@ -11,6 +11,7 @@ import { prisma } from './db/prisma.js';
 import { loadSkills } from './skills/loader.js';
 import { runAgent } from './runner/runner.js';
 import { startScheduler, reloadSkill } from './scheduler/index.js';
+import { coreEvents } from './events.js';
 import type { Skill, SourceSpec } from './types.js';
 
 const PKG_VERSION = '0.1.0';
@@ -64,7 +65,7 @@ fastify.addHook('onRequest', async (request, reply) => {
   // Let CORS preflight through so @fastify/cors can handle it.
   if (request.method === 'OPTIONS') return;
   // /health is open so the UI can detect core reachability without a token.
-  if (request.url === '/health') return;
+  if (request.url === '/health' || request.url === '/events') return;
 
   const header = request.headers['authorization'];
   if (typeof header !== 'string' || !header.startsWith('Bearer ')) {
@@ -96,7 +97,15 @@ fastify.get('/agents', async () => {
   }));
 });
 
-fastify.post<{ Params: { slug: string } }>(
+const runBodySchema = z.object({
+  input: z.object({ message: z.string() }).optional(),
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+  })).optional(),
+}).optional();
+
+fastify.post<{ Params: { slug: string }; Body: unknown }>(
   '/agents/:slug/run',
   async (request, reply) => {
     const slug = request.params.slug;
@@ -105,11 +114,26 @@ fastify.post<{ Params: { slug: string } }>(
       reply.code(404).send({ error: 'agent_not_found', slug });
       return reply;
     }
+
+    const parsed = runBodySchema.safeParse(request.body ?? {});
+    const body = parsed.success ? parsed.data : undefined;
+
     const result = await runAgent({
       skill,
       trigger: 'manual',
+      input: body?.input,
+      conversationHistory: body?.history,
       logger: request.log as unknown as typeof logger,
     });
+
+    if (result.status === 'success') {
+      coreEvents.emit('run:complete', {
+        agentSlug: result.agentSlug,
+        articleCount: result.articleIds.length,
+        costUsd: result.costUsd,
+      });
+    }
+
     return result;
   }
 );
@@ -189,7 +213,7 @@ fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
 const sourcesBodySchema = z.object({
   sources: z.array(
     z.object({
-      type: z.enum(['rss', 'perplexity_search', 'arxiv', 'api', 'custom']),
+      type: z.enum(['rss', 'perplexity_search', 'arxiv', 'db_articles', 'url_fetch', 'api', 'custom']),
       config: z.record(z.string(), z.unknown()).default({}),
     })
   ),
@@ -241,6 +265,26 @@ fastify.put<{ Params: { slug: string }; Body: unknown }>(
     return { ok: true };
   }
 );
+
+fastify.get('/events', async (request, reply) => {
+  reply.raw.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+  });
+
+  const send = (data: unknown) => {
+    reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const handler = (event: unknown) => send(event);
+  coreEvents.on('run:complete', handler);
+
+  request.raw.on('close', () => {
+    coreEvents.off('run:complete', handler);
+  });
+});
 
 async function start(): Promise<void> {
   await prisma.$connect();

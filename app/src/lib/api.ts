@@ -42,7 +42,7 @@ export interface Article {
 }
 
 export interface SourceSpec {
-  type: 'rss' | 'arxiv' | 'perplexity_search' | 'api' | 'custom';
+  type: 'rss' | 'arxiv' | 'perplexity_search' | 'db_articles' | 'url_fetch' | 'api' | 'custom';
   config: Record<string, unknown>;
 }
 
@@ -59,7 +59,7 @@ export class ApiClient {
     private readonly token: string
   ) {}
 
-  private baseUrl(): string {
+  baseUrl(): string {
     return `http://127.0.0.1:${this.port}`;
   }
 
@@ -90,6 +90,28 @@ export class ApiClient {
 
   runAgent(slug: string): Promise<RunResult> {
     return this.request<RunResult>(`/agents/${slug}/run`, { method: 'POST' });
+  }
+
+  askAgent(
+    slug: string,
+    message: string,
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<RunResult> {
+    return this.request<RunResult>(`/agents/${slug}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: { message }, history }),
+    });
+  }
+
+  subscribeEvents(onEvent: (event: { agentSlug: string; articleCount: number; costUsd: number }) => void): () => void {
+    const es = new EventSource(`${this.baseUrl()}/events`);
+    es.onmessage = (e) => {
+      try {
+        onEvent(JSON.parse(e.data));
+      } catch { /* ignore malformed */ }
+    };
+    return () => es.close();
   }
 
   getRun(id: string): Promise<RunResult> {

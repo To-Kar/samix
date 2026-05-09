@@ -1,0 +1,22 @@
+id: daily-briefing
+type: proactive
+version: "1.0"
+model:
+  primary: claude-haiku-4-5
+  fallback: ollama-llama3
+budget:
+  daily_usd_max: 0.25
+  tokens_per_run_max: 3000
+  halt_on_budget_exceeded: true
+schedule:
+  cron: "30 6 * * *"
+  timezone: Europe/Berlin
+  jitter_seconds: 30
+  catchup_on_startup: true
+sources:
+  - type: db_articles
+    config:
+      hours_back: 24
+      limit: 20
+output:
+  format: freeform_text

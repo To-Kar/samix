@@ -27,6 +27,7 @@ export interface RunAgentOptions {
   skill: Skill;
   trigger: RunTrigger;
   input?: unknown;
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   logger?: Logger;
 }
 
@@ -107,9 +108,10 @@ async function markFailed(
 async function fetchSources(
   specs: SourceSpec[],
   runId: string,
-  log: Logger
+  log: Logger,
+  input?: unknown
 ): Promise<SourceItem[]> {
-  const ctx: FetchContext = { runId, logger: log };
+  const ctx: FetchContext = { runId, logger: log, input };
   const all: SourceItem[] = [];
 
   for (const spec of specs) {
@@ -196,7 +198,7 @@ async function createArticles(runId: string, parsed: unknown): Promise<string[]>
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
-  const { skill, trigger, input } = opts;
+  const { skill, trigger, input, conversationHistory } = opts;
   const runId = randomUUID();
   const log = (opts.logger ?? rootLogger).child({
     runId,
@@ -276,14 +278,31 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   // Source fetch + snapshot persistence (only if the manifest declares any).
   let sourceItems: SourceItem[] = [];
   if (skill.manifest.sources?.length) {
-    sourceItems = await fetchSources(skill.manifest.sources, runId, log);
+    sourceItems = await fetchSources(skill.manifest.sources, runId, log, input);
+  }
+
+  const messages: NormalizedRequest['messages'] = [];
+
+  // Prepend conversation history (capped at 20 messages = 10 turns).
+  if (conversationHistory?.length) {
+    const capped = conversationHistory.slice(-20);
+    for (const msg of capped) {
+      messages.push({ role: msg.role, content: msg.content });
+    }
+  }
+
+  if (sourceItems.length) {
+    messages.push({ role: 'user', content: JSON.stringify({ items: sourceItems }, null, 2) });
+  }
+
+  // For reactive agents with user input but no sources, add the user message.
+  if (input && typeof input === 'object' && 'message' in input && !sourceItems.length && !conversationHistory?.length) {
+    messages.push({ role: 'user', content: (input as { message: string }).message });
   }
 
   const request: NormalizedRequest = {
     systemPrompt: skill.systemPrompt,
-    messages: sourceItems.length
-      ? [{ role: 'user', content: JSON.stringify({ items: sourceItems }, null, 2) }]
-      : [],
+    messages,
     maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
   };
 

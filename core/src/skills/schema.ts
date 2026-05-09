@@ -29,7 +29,7 @@ const scheduleSchema = z.object({
 });
 
 const sourceSchema = z.object({
-  type: z.enum(['rss', 'perplexity_search', 'arxiv', 'api', 'custom']),
+  type: z.enum(['rss', 'perplexity_search', 'arxiv', 'db_articles', 'url_fetch', 'api', 'custom']),
   config: z.record(z.string(), z.unknown()).default({}),
 });
 
