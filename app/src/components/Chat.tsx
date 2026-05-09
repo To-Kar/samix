@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
+import { emitTo } from '@tauri-apps/api/event';
 import type { ApiClient, Article } from '../lib/api';
 import type { AgentMode } from './ModeSelector';
 import { VoiceRecognition, speak, stopSpeaking } from '../lib/voice';
@@ -140,6 +141,9 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
       totalCostRef.current += result.costUsd;
       onCostUpdate(totalCostRef.current);
       setMessages((prev) => [...prev, assistantMsg]);
+
+      const preview = content.length > 200 ? content.slice(0, 200) + '...' : content;
+      emitTo('hud', 'hud:message', { text: preview }).catch(() => {});
 
       const voiceEnabled = localStorage.getItem('samix_voice_output') !== 'false';
       if (voiceEnabled && content) {

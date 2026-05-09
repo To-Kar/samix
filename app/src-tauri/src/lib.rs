@@ -102,6 +102,21 @@ fn capture_screen() -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
+#[tauri::command]
+fn toggle_hud(app: tauri::AppHandle) -> Result<bool, String> {
+    if let Some(win) = app.get_webview_window("hud") {
+        let visible = win.is_visible().unwrap_or(false);
+        if visible {
+            win.hide().map_err(|e| e.to_string())?;
+        } else {
+            win.show().map_err(|e| e.to_string())?;
+        }
+        Ok(!visible)
+    } else {
+        Err("HUD window not found".into())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -155,6 +170,19 @@ pub fn run() {
                 let _ = app.emit("screenshot:requested", ());
             })?;
 
+            // Global hotkey: CmdOrCtrl+Shift+H — toggle HUD overlay
+            app.global_shortcut().on_shortcut("CmdOrCtrl+Shift+H", |app, _shortcut, event| {
+                if event.state() != ShortcutState::Pressed { return; }
+                if let Some(win) = app.get_webview_window("hud") {
+                    let visible = win.is_visible().unwrap_or(false);
+                    if visible {
+                        let _ = win.hide();
+                    } else {
+                        let _ = win.show();
+                    }
+                }
+            })?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -162,6 +190,7 @@ pub fn run() {
             set_autostart,
             get_autostart,
             capture_screen,
+            toggle_hud,
             keychain::set_secret,
             keychain::has_secret,
             keychain::delete_secret,

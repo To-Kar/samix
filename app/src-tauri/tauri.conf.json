@@ -13,11 +13,27 @@
     "windows": [
       {
         "title": "Samix",
+        "label": "main",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
         "minHeight": 600,
         "visible": true
+      },
+      {
+        "title": "",
+        "label": "hud",
+        "url": "index.html",
+        "width": 420,
+        "height": 200,
+        "x": 40,
+        "y": 40,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "resizable": false
       }
     ],
     "security": {
