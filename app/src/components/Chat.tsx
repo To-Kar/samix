@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import type { ApiClient, Article } from '../lib/api';
 import type { AgentMode } from './ModeSelector';
+import { VoiceRecognition, speak, stopSpeaking } from '../lib/voice';
 
 export interface ChatHandle {
   focusInput: () => void;
@@ -42,6 +43,9 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
   const [loading, setLoading] = useState(false);
   const [articleContext, setArticleContext] = useState<Article[] | null>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const voiceRef = useRef<VoiceRecognition | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const totalCostRef = useRef(0);
@@ -136,6 +140,18 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
       totalCostRef.current += result.costUsd;
       onCostUpdate(totalCostRef.current);
       setMessages((prev) => [...prev, assistantMsg]);
+
+      const voiceEnabled = localStorage.getItem('samix_voice_output') !== 'false';
+      if (voiceEnabled && content) {
+        setSpeaking(true);
+        speak(content, {
+          rate: Number(localStorage.getItem('samix_voice_rate') || '1.0'),
+          voice: localStorage.getItem('samix_voice_name') || undefined,
+        });
+        const check = setInterval(() => {
+          if (!speechSynthesis.speaking) { setSpeaking(false); clearInterval(check); }
+        }, 200);
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -155,6 +171,26 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
     setMessages([]);
     totalCostRef.current = 0;
     onCostUpdate(0);
+  };
+
+  const toggleRecording = () => {
+    if (recording) {
+      voiceRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    try {
+      const vr = new VoiceRecognition();
+      voiceRef.current = vr;
+      setRecording(true);
+      vr.start(
+        (text) => setInput(text),
+        () => {
+          setRecording(false);
+          if (input.trim()) void send();
+        }
+      );
+    } catch { /* speech recognition unavailable */ }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -250,6 +286,14 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
               style={{ fieldSizing: 'content', maxHeight: '150px' } as React.CSSProperties}
             />
             <button
+              onClick={toggleRecording}
+              disabled={loading}
+              className={`transition-colors pb-0.5 ${recording ? 'text-samix-error animate-pulse' : 'text-samix-text-muted hover:text-samix-text-primary'}`}
+              title={recording ? 'Stop recording' : 'Voice input'}
+            >
+              &#9679;
+            </button>
+            <button
               onClick={() => void send()}
               disabled={loading || !input.trim()}
               className="text-samix-accent hover:text-samix-accent-hover disabled:opacity-30 transition-colors pb-0.5"
@@ -257,6 +301,14 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
               &#8593;
             </button>
           </div>
+          {speaking && (
+            <button
+              onClick={() => { stopSpeaking(); setSpeaking(false); }}
+              className="text-[11px] text-samix-text-muted hover:text-samix-error mt-1 transition-colors"
+            >
+              Stop speaking
+            </button>
+          )}
         </div>
       </div>
     </div>

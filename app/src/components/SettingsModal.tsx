@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { getAvailableVoices } from '../lib/voice';
 import {
   SECRET_ACCOUNTS,
   type SecretAccount,
@@ -17,6 +18,21 @@ export function SettingsModal({ onClose }: Props) {
     () => Object.fromEntries(SECRET_ACCOUNTS.map((a) => [a, false])) as Record<SecretAccount, boolean>
   );
   const [autostart, setAutostart] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => localStorage.getItem('samix_voice_output') !== 'false');
+  const [voiceRate, setVoiceRate] = useState(() => Number(localStorage.getItem('samix_voice_rate') || '1.0'));
+  const [voiceName, setVoiceName] = useState(() => localStorage.getItem('samix_voice_name') || '');
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  const loadVoices = useCallback(() => {
+    const v = getAvailableVoices();
+    if (v.length) setVoices(v);
+  }, []);
+
+  useEffect(() => {
+    loadVoices();
+    speechSynthesis.addEventListener('voiceschanged', loadVoices);
+    return () => speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+  }, [loadVoices]);
 
   async function refreshAll() {
     const entries = await Promise.all(
@@ -75,6 +91,60 @@ export function SettingsModal({ onClose }: Props) {
         </label>
         <div className="mt-2 text-[11px] text-samix-text-muted">
           Global hotkey: <kbd className="border border-samix-border rounded px-1 py-0.5 text-samix-text-primary">Cmd+Shift+J</kbd>
+        </div>
+      </section>
+
+      {/* Voice */}
+      <section>
+        <h3 className="text-[10px] uppercase tracking-widest text-samix-text-muted mb-3">Voice</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 text-xs text-samix-text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={voiceEnabled}
+              onChange={() => {
+                const next = !voiceEnabled;
+                setVoiceEnabled(next);
+                localStorage.setItem('samix_voice_output', String(next));
+              }}
+              className="accent-samix-accent"
+            />
+            Voice output enabled
+          </label>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-samix-text-muted">Voice</label>
+            <select
+              value={voiceName}
+              onChange={(e) => {
+                setVoiceName(e.target.value);
+                localStorage.setItem('samix_voice_name', e.target.value);
+              }}
+              className="bg-samix-bg border border-samix-border rounded px-2 py-1 text-xs text-samix-text-primary outline-none"
+            >
+              <option value="">System default</option>
+              {voices.map((v) => (
+                <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-samix-text-muted">
+              Speed: {voiceRate.toFixed(1)}x
+            </label>
+            <input
+              type="range"
+              min="0.8"
+              max="1.3"
+              step="0.1"
+              value={voiceRate}
+              onChange={(e) => {
+                const r = Number(e.target.value);
+                setVoiceRate(r);
+                localStorage.setItem('samix_voice_rate', String(r));
+              }}
+              className="accent-samix-accent"
+            />
+          </div>
         </div>
       </section>
     </div>
