@@ -96,6 +96,7 @@ export class PerplexityAdapter implements ModelAdapter {
 
     return {
       content,
+      contentBlocks: [{ type: 'text' as const, text: content }],
       toolCalls: [],
       citations,
       usage: {

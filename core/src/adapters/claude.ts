@@ -2,21 +2,16 @@ import Anthropic from '@anthropic-ai/sdk';
 import type {
   ModelAdapter,
   ModelId,
+  NormalizedContentBlock,
   NormalizedRequest,
   NormalizedResponse,
 } from '../types.js';
-
-// Phase 0: stub. Interface wired, but runtime is not exercised —
-// hello-world uses StaticAdapter. Kept here so Phase 1 can enable
-// it by changing the skill manifest only.
 
 interface ClaudePricing {
   inputPerMillionTokens: number;
   outputPerMillionTokens: number;
 }
 
-// VERIFY: Pricing numbers should be re-checked against the current
-// Anthropic pricing page before any real call is enabled in Phase 1.
 const PRICING: Record<string, ClaudePricing> = {
   'claude-haiku-4-5': { inputPerMillionTokens: 1.0, outputPerMillionTokens: 5.0 },
   'claude-sonnet-4-6': { inputPerMillionTokens: 3.0, outputPerMillionTokens: 15.0 },
@@ -51,33 +46,71 @@ export class ClaudeAdapter implements ModelAdapter {
   }
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
-    const response = await this.client.messages.create({
+    const apiTools = req.tools?.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.inputSchema as Anthropic.Tool['input_schema'],
+    }));
+
+    const messages = req.messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => {
+        if (m.contentBlocks?.length) {
+          const content: Anthropic.MessageParam['content'] = m.contentBlocks.map((b) => {
+            if (b.type === 'tool_use') {
+              return { type: 'tool_use' as const, id: b.id, name: b.name, input: b.input };
+            }
+            if (b.type === 'tool_result') {
+              return { type: 'tool_result' as const, tool_use_id: b.toolUseId, content: b.content, is_error: b.isError };
+            }
+            return { type: 'text' as const, text: b.text };
+          });
+          return { role: m.role as 'user' | 'assistant', content };
+        }
+        if (m.images?.length) {
+          const content: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> = [
+            { type: 'text', text: typeof m.content === 'string' ? m.content : '' },
+            ...m.images.map((img): Anthropic.ImageBlockParam => ({
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: img.mediaType,
+                data: img.base64,
+              },
+            })),
+          ];
+          return { role: m.role as 'user' | 'assistant', content };
+        }
+        return {
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        };
+      });
+
+    const params: Anthropic.MessageCreateParams = {
       model: this.sdkModelId,
       max_tokens: req.maxTokens ?? 1024,
       temperature: req.temperature,
       system: req.systemPrompt,
-      messages: req.messages
-        .filter((m) => m.role !== 'system')
-        .map((m) => {
-          if (m.images?.length) {
-            const content: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> = [
-              { type: 'text', text: m.content },
-              ...m.images.map((img): Anthropic.ImageBlockParam => ({
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: img.mediaType,
-                  data: img.base64,
-                },
-              })),
-            ];
-            return { role: m.role as 'user' | 'assistant', content };
-          }
-          return {
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          };
-        }),
+      messages,
+    };
+    if (apiTools?.length) {
+      params.tools = apiTools;
+    }
+
+    const response = await this.client.messages.create(params);
+
+    const contentBlocks: NormalizedContentBlock[] = response.content.map((block) => {
+      if (block.type === 'text') return { type: 'text' as const, text: block.text };
+      if (block.type === 'tool_use') {
+        return {
+          type: 'tool_use' as const,
+          id: block.id,
+          name: block.name,
+          input: block.input as Record<string, unknown>,
+        };
+      }
+      return { type: 'text' as const, text: '' };
     });
 
     const textBlock = response.content.find((b) => b.type === 'text');
@@ -85,6 +118,7 @@ export class ClaudeAdapter implements ModelAdapter {
 
     return {
       content,
+      contentBlocks,
       toolCalls: [],
       citations: [],
       usage: {

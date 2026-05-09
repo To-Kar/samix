@@ -5,7 +5,10 @@ import type {
   FetchContext,
   ImageAttachment,
   ModelAdapter,
+  NormalizedContentBlock,
+  NormalizedMessage,
   NormalizedRequest,
+  NormalizedResponse,
   RunContext,
   RunResult,
   RunTrigger,
@@ -20,6 +23,7 @@ import { unwrapJsonFences } from '../output/unwrap.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 import { gatherAmbient, formatAmbientBlock } from '../context/ambient.js';
+import { listTools, getTool } from '../tools/index.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -325,40 +329,104 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     }
   }
 
-  const request: NormalizedRequest = {
-    systemPrompt,
-    messages,
-    maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
-  };
+  const tools = skill.manifest.tools?.length
+    ? listTools(skill.manifest.tools)
+    : [];
+  const maxTokens = skill.manifest.budget.tokensPerRunMax || undefined;
 
   log.info(
-    { model: adapter.name, estimatedCost, spentGlobal, globalCap, sources: sourceItems.length },
+    { model: adapter.name, estimatedCost, spentGlobal, globalCap, sources: sourceItems.length, tools: tools.length },
     'run starting'
   );
 
   try {
-    const response = await adapter.generate(request);
-    const costUsd = computeCostUsd(
-      adapter,
-      response.usage.inputTokens,
-      response.usage.outputTokens
-    );
+    const MAX_TOOL_ITERATIONS = 10;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let response: NormalizedResponse | undefined;
+
+    for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+      response = await adapter.generate({
+        systemPrompt,
+        messages,
+        maxTokens,
+        tools: tools.length ? tools : undefined,
+      });
+
+      totalInputTokens += response.usage.inputTokens;
+      totalOutputTokens += response.usage.outputTokens;
+
+      const toolUses = response.contentBlocks.filter(
+        (b): b is Extract<NormalizedContentBlock, { type: 'tool_use' }> =>
+          b.type === 'tool_use'
+      );
+
+      if (toolUses.length === 0) break;
+
+      messages.push({
+        role: 'assistant',
+        content: response.content,
+        contentBlocks: response.contentBlocks,
+      });
+
+      const toolCtx = { runId, logger: log, agentSlug: skill.id };
+      const resultBlocks: NormalizedContentBlock[] = [];
+
+      for (const tu of toolUses) {
+        const tool = getTool(tu.name);
+        if (!tool) {
+          log.warn({ tool: tu.name }, 'tool_not_found');
+          resultBlocks.push({
+            type: 'tool_result',
+            toolUseId: tu.id,
+            content: `Tool "${tu.name}" not found`,
+            isError: true,
+          });
+          continue;
+        }
+        try {
+          const result = await tool.handler(tu.input, toolCtx);
+          log.info({ tool: tu.name }, 'tool_executed');
+          resultBlocks.push({
+            type: 'tool_result',
+            toolUseId: tu.id,
+            content: result,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.warn({ tool: tu.name, err: msg }, 'tool_error');
+          resultBlocks.push({
+            type: 'tool_result',
+            toolUseId: tu.id,
+            content: msg,
+            isError: true,
+          });
+        }
+      }
+
+      messages.push({ role: 'user', content: '', contentBlocks: resultBlocks });
+      log.info({ iter, toolCalls: toolUses.length }, 'tool_loop_iteration');
+    }
+
+    if (!response) {
+      throw new Error('no adapter response produced');
+    }
+
+    const costUsd = computeCostUsd(adapter, totalInputTokens, totalOutputTokens);
     const completedAt = new Date();
 
-    // Ledger always increments on a completed adapter call — the API cost
-    // was incurred regardless of whether the output validates.
     await prisma.budgetLedger.upsert({
       where: { agentId_period: { agentId: agentRow.id, period: periodStart } },
       create: {
         agentId: agentRow.id,
         period: periodStart,
-        tokensInput: response.usage.inputTokens,
-        tokensOutput: response.usage.outputTokens,
+        tokensInput: totalInputTokens,
+        tokensOutput: totalOutputTokens,
         costUsd,
       },
       update: {
-        tokensInput: { increment: response.usage.inputTokens },
-        tokensOutput: { increment: response.usage.outputTokens },
+        tokensInput: { increment: totalInputTokens },
+        tokensOutput: { increment: totalOutputTokens },
         costUsd: { increment: costUsd },
       },
     });
@@ -369,16 +437,14 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       stopReason: response.stopReason,
     });
 
-    // No schema declared → no validation, no articles, status=success.
-    // Skills like hello-world take this path.
     if (!schemaPath) {
       await prisma.agentRun.update({
         where: { id: runId },
         data: {
           status: 'success',
           output: rawOutput,
-          tokensInput: response.usage.inputTokens,
-          tokensOutput: response.usage.outputTokens,
+          tokensInput: totalInputTokens,
+          tokensOutput: totalOutputTokens,
           costUsd,
           completedAt,
         },
@@ -389,8 +455,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
         agentSlug: skill.id,
         status: 'success',
         output: { content: response.content, stopReason: response.stopReason },
-        tokensInput: response.usage.inputTokens,
-        tokensOutput: response.usage.outputTokens,
+        tokensInput: totalInputTokens,
+        tokensOutput: totalOutputTokens,
         costUsd,
         citations: response.citations,
         articleIds: [],
@@ -404,9 +470,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       schemaPath
     );
 
-    // Invalid output → status=partial, raw persisted for diagnosis, no
-    // Article rows, no delivery. The run is a "we spent money but got
-    // nothing usable" outcome — distinct from both success and failure.
     if (!validation.valid) {
       const errorSummary = (validation.errors ?? []).join('; ').slice(0, 2000);
       log.warn({ errors: validation.errors }, 'output_validation_failed');
@@ -416,8 +479,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
           status: 'partial',
           output: rawOutput,
           error: `schema_violation: ${errorSummary}`,
-          tokensInput: response.usage.inputTokens,
-          tokensOutput: response.usage.outputTokens,
+          tokensInput: totalInputTokens,
+          tokensOutput: totalOutputTokens,
           costUsd,
           completedAt,
         },
@@ -427,8 +490,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
         agentSlug: skill.id,
         status: 'partial',
         output: { content: response.content, stopReason: response.stopReason },
-        tokensInput: response.usage.inputTokens,
-        tokensOutput: response.usage.outputTokens,
+        tokensInput: totalInputTokens,
+        tokensOutput: totalOutputTokens,
         costUsd,
         error: `schema_violation: ${errorSummary}`,
         citations: response.citations,
@@ -438,7 +501,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       };
     }
 
-    // Valid output → create Article rows from parsed.items.
     const articleIds = await createArticles(runId, validation.parsed);
 
     await prisma.agentRun.update({
@@ -446,8 +508,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       data: {
         status: 'success',
         output: rawOutput,
-        tokensInput: response.usage.inputTokens,
-        tokensOutput: response.usage.outputTokens,
+        tokensInput: totalInputTokens,
+        tokensOutput: totalOutputTokens,
         costUsd,
         completedAt,
       },
@@ -459,8 +521,8 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       agentSlug: skill.id,
       status: 'success',
       output: { content: response.content, stopReason: response.stopReason },
-      tokensInput: response.usage.inputTokens,
-      tokensOutput: response.usage.outputTokens,
+      tokensInput: totalInputTokens,
+      tokensOutput: totalOutputTokens,
       costUsd,
       citations: response.citations,
       articleIds,

@@ -13,6 +13,7 @@ export class StaticAdapter implements ModelAdapter {
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
     return {
       content: req.systemPrompt,
+      contentBlocks: [{ type: 'text', text: req.systemPrompt }],
       toolCalls: [],
       citations: [],
       usage: { inputTokens: 0, outputTokens: 0 },

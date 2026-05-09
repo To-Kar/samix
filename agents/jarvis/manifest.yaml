@@ -10,5 +10,10 @@ budget:
   halt_on_budget_exceeded: true
 context:
   inject_ambient: true
+tools:
+  - get_datetime
+  - web_search
+  - list_recent_articles
+  - open_url
 output:
   format: freeform_text

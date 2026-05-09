@@ -54,6 +54,7 @@ export const manifestYamlSchema = z.object({
   sources: z.array(sourceSchema).optional(),
   output: outputSchema,
   context: contextSchema,
+  tools: z.array(z.string()).optional(),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

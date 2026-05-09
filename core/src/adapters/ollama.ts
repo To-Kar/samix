@@ -67,8 +67,10 @@ export class OllamaAdapter implements ModelAdapter {
     }
 
     const data = (await res.json()) as OllamaChatResponse;
+    const content = data.message?.content ?? '';
     return {
-      content: data.message?.content ?? '',
+      content,
+      contentBlocks: [{ type: 'text' as const, text: content }],
       toolCalls: [],
       citations: [],
       usage: {

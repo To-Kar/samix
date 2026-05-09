@@ -33,6 +33,7 @@ export interface Manifest {
   sources?: SourceSpec[];
   output: OutputSpec;
   context?: ContextSpec;
+  tools?: string[];
 }
 
 export interface ModelPreference {
@@ -108,18 +109,25 @@ export interface NormalizedMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
   images?: ImageAttachment[];
+  contentBlocks?: NormalizedContentBlock[];
 }
+
+export type NormalizedContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+  | { type: 'tool_result'; toolUseId: string; content: string; isError?: boolean };
 
 export interface NormalizedRequest {
   systemPrompt: string;
   messages: NormalizedMessage[];
   maxTokens?: number;
   temperature?: number;
-  tools?: unknown[];
+  tools?: ToolDefinition[];
 }
 
 export interface NormalizedResponse {
   content: string;
+  contentBlocks: NormalizedContentBlock[];
   toolCalls: unknown[];
   citations: Citation[];
   usage: {
@@ -127,6 +135,19 @@ export interface NormalizedResponse {
     outputTokens: number;
   };
   stopReason: string;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  handler: (input: Record<string, unknown>, ctx: ToolContext) => Promise<string>;
+}
+
+export interface ToolContext {
+  runId: string;
+  logger: Logger;
+  agentSlug: string;
 }
 
 export interface ModelAdapter {

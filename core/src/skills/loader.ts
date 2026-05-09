@@ -102,6 +102,7 @@ function normalizeManifest(m: ManifestYaml): Manifest {
     context: m.context
       ? { injectAmbient: m.context.inject_ambient }
       : undefined,
+    tools: m.tools,
   };
 }
 
