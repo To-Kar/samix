@@ -99,6 +99,9 @@ function normalizeManifest(m: ManifestYaml): Manifest {
       minItems: m.output.min_items,
       maxItems: m.output.max_items,
     },
+    context: m.context
+      ? { injectAmbient: m.context.inject_ambient }
+      : undefined,
   };
 }
 

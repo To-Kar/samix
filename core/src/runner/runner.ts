@@ -18,6 +18,7 @@ import { JsonSchemaValidator } from '../output/validator.js';
 import { unwrapJsonFences } from '../output/unwrap.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
+import { gatherAmbient, formatAmbientBlock } from '../context/ambient.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -300,8 +301,18 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     messages.push({ role: 'user', content: (input as { message: string }).message });
   }
 
+  let systemPrompt = skill.systemPrompt;
+  if (skill.manifest.context?.injectAmbient) {
+    try {
+      const ambient = await gatherAmbient();
+      systemPrompt = `${formatAmbientBlock(ambient)}\n\n${systemPrompt}`;
+    } catch (err) {
+      log.warn({ err }, 'ambient_context_failed');
+    }
+  }
+
   const request: NormalizedRequest = {
-    systemPrompt: skill.systemPrompt,
+    systemPrompt,
     messages,
     maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
   };

@@ -19,6 +19,10 @@ export interface Skill {
   systemPrompt: string;
 }
 
+export interface ContextSpec {
+  injectAmbient?: boolean;
+}
+
 export interface Manifest {
   id: string;
   type: AgentType;
@@ -28,6 +32,7 @@ export interface Manifest {
   schedule?: ScheduleSpec;
   sources?: SourceSpec[];
   output: OutputSpec;
+  context?: ContextSpec;
 }
 
 export interface ModelPreference {

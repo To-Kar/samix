@@ -40,6 +40,10 @@ const outputSchema = z.object({
   max_items: z.number().int().min(0).optional(),
 });
 
+const contextSchema = z.object({
+  inject_ambient: z.boolean().optional(),
+}).optional();
+
 export const manifestYamlSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['reactive', 'proactive']),
@@ -49,6 +53,7 @@ export const manifestYamlSchema = z.object({
   schedule: scheduleSchema.optional(),
   sources: z.array(sourceSchema).optional(),
   output: outputSchema,
+  context: contextSchema,
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

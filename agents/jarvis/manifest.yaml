@@ -8,5 +8,7 @@ budget:
   daily_usd_max: 1.00
   tokens_per_run_max: 4000
   halt_on_budget_exceeded: true
+context:
+  inject_ambient: true
 output:
   format: freeform_text
