@@ -5,6 +5,8 @@ import { webSearchTool } from './web-search.js';
 import { openUrlTool } from './open-url.js';
 import { searchNotesTool } from './search-notes.js';
 import { saveMemoryTool, recallMemoryTool } from './memory.js';
+import { runCommandTool } from './run-command.js';
+import { readScreenTool } from './read-screen.js';
 
 const tools = new Map<string, ToolDefinition>();
 
@@ -27,3 +29,5 @@ registerTool(openUrlTool);
 registerTool(searchNotesTool);
 registerTool(saveMemoryTool);
 registerTool(recallMemoryTool);
+registerTool(runCommandTool);
+registerTool(readScreenTool);

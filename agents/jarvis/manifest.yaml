@@ -18,5 +18,7 @@ tools:
   - search_notes
   - save_memory
   - recall_memory
+  - run_command
+  - read_screen
 output:
   format: freeform_text
