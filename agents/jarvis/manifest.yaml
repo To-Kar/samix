@@ -15,5 +15,6 @@ tools:
   - web_search
   - list_recent_articles
   - open_url
+  - search_notes
 output:
   format: freeform_text
