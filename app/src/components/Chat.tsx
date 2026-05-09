@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { emitTo } from '@tauri-apps/api/event';
 import type { ApiClient, Article } from '../lib/api';
 import type { AgentMode } from './ModeSelector';
-import { VoiceRecognition, WakeWordListener, speak, stopSpeaking } from '../lib/voice';
+import { VoiceRecognition, WakeWordListener, speak, stopSpeaking, playTone } from '../lib/voice';
 
 export interface ChatHandle {
   focusInput: () => void;
@@ -144,6 +144,9 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
       onCostUpdate(totalCostRef.current);
       setMessages((prev) => [...prev, assistantMsg]);
 
+      const soundEnabled = localStorage.getItem('samix_sound_effects') !== 'false';
+      if (soundEnabled) playTone('notify');
+
       const preview = content.length > 200 ? content.slice(0, 200) + '...' : content;
       emitTo('hud', 'hud:message', { text: preview }).catch(() => {});
 
@@ -183,12 +186,14 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
     if (recording) {
       voiceRef.current?.stop();
       setRecording(false);
+      playTone('deactivate');
       return;
     }
     try {
       const vr = new VoiceRecognition();
       voiceRef.current = vr;
       setRecording(true);
+      playTone('activate');
       vr.start(
         (text) => setInput(text),
         () => {

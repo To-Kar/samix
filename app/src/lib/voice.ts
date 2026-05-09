@@ -55,16 +55,68 @@ export interface SpeakOptions {
   voice?: string;
 }
 
+const PREFERRED_VOICES = [
+  'Daniel',
+  'Google UK English Male',
+  'Microsoft David',
+  'Alex',
+  'Fred',
+];
+
+function selectVoice(preference?: string): SpeechSynthesisVoice | undefined {
+  const voices = speechSynthesis.getVoices();
+  if (preference) {
+    const match = voices.find((v) => v.name.includes(preference));
+    if (match) return match;
+  }
+  for (const name of PREFERRED_VOICES) {
+    const match = voices.find((v) => v.name.includes(name));
+    if (match) return match;
+  }
+  return voices.find((v) => v.lang.startsWith('en')) ?? voices[0];
+}
+
 export function speak(text: string, opts?: SpeakOptions) {
   const u = new SpeechSynthesisUtterance(text);
   u.rate = opts?.rate ?? 1.0;
   u.pitch = opts?.pitch ?? 0.95;
-  if (opts?.voice) {
-    const v = speechSynthesis.getVoices().find((v) => v.name.includes(opts.voice!));
-    if (v) u.voice = v;
-  }
+  u.voice = selectVoice(opts?.voice) ?? null;
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
+}
+
+export function playTone(type: 'activate' | 'deactivate' | 'notify') {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    gain.gain.value = 0.15;
+    const now = ctx.currentTime;
+
+    if (type === 'activate') {
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.linearRampToValueAtTime(880, now + 0.15);
+      gain.gain.linearRampToValueAtTime(0, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } else if (type === 'deactivate') {
+      osc.frequency.setValueAtTime(660, now);
+      osc.frequency.linearRampToValueAtTime(330, now + 0.15);
+      gain.gain.linearRampToValueAtTime(0, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } else {
+      osc.frequency.setValueAtTime(587, now);
+      gain.gain.linearRampToValueAtTime(0, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+
+    osc.onended = () => ctx.close();
+  } catch { /* AudioContext unavailable */ }
 }
 
 export function stopSpeaking() {
