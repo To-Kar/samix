@@ -95,12 +95,18 @@ export class ApiClient {
   askAgent(
     slug: string,
     message: string,
-    history?: Array<{ role: 'user' | 'assistant'; content: string }>
+    opts?: {
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      images?: string[];
+    }
   ): Promise<RunResult> {
     return this.request<RunResult>(`/agents/${slug}/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: { message }, history }),
+      body: JSON.stringify({
+        input: { message, images: opts?.images },
+        history: opts?.history,
+      }),
     });
   }
 

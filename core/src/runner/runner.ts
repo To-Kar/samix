@@ -3,6 +3,7 @@ import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 import type { Logger } from 'pino';
 import type {
   FetchContext,
+  ImageAttachment,
   ModelAdapter,
   NormalizedRequest,
   RunContext,
@@ -198,6 +199,17 @@ async function createArticles(runId: string, parsed: unknown): Promise<string[]>
   return rows.map((r) => r.id);
 }
 
+function parseImageAttachments(dataUrls?: string[]): ImageAttachment[] {
+  if (!dataUrls?.length) return [];
+  return dataUrls
+    .map((url) => {
+      const match = url.match(/^data:(image\/(?:png|jpeg|gif|webp));base64,(.+)$/);
+      if (!match) return null;
+      return { mediaType: match[1] as ImageAttachment['mediaType'], base64: match[2] };
+    })
+    .filter((x): x is ImageAttachment => x !== null);
+}
+
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   const { skill, trigger, input, conversationHistory } = opts;
   const runId = randomUUID();
@@ -298,7 +310,9 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
 
   // For reactive agents with user input but no sources, add the user message.
   if (input && typeof input === 'object' && 'message' in input && !sourceItems.length && !conversationHistory?.length) {
-    messages.push({ role: 'user', content: (input as { message: string }).message });
+    const typedInput = input as { message: string; images?: string[] };
+    const images = parseImageAttachments(typedInput.images);
+    messages.push({ role: 'user', content: typedInput.message, images: images.length ? images : undefined });
   }
 
   let systemPrompt = skill.systemPrompt;

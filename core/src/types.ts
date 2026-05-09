@@ -99,9 +99,15 @@ export interface Citation {
   accessedAt: Date;
 }
 
+export interface ImageAttachment {
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+  base64: string;
+}
+
 export interface NormalizedMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  images?: ImageAttachment[];
 }
 
 export interface NormalizedRequest {

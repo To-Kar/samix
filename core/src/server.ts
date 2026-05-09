@@ -98,7 +98,10 @@ fastify.get('/agents', async () => {
 });
 
 const runBodySchema = z.object({
-  input: z.object({ message: z.string() }).optional(),
+  input: z.object({
+    message: z.string(),
+    images: z.array(z.string()).optional(),
+  }).optional(),
   history: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string(),

@@ -1,4 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import type { ApiClient, Article } from '../lib/api';
 import type { AgentMode } from './ModeSelector';
 
@@ -39,6 +41,7 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [articleContext, setArticleContext] = useState<Article[] | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const totalCostRef = useRef(0);
@@ -51,6 +54,18 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
   useEffect(() => {
     api.listArticles({ limit: 5 }).then(setArticleContext).catch(() => {});
   }, [api]);
+
+  // Listen for screenshot hotkey
+  useEffect(() => {
+    const unlisten = listen('screenshot:requested', async () => {
+      try {
+        const dataUrl = await invoke<string>('capture_screen');
+        setPendingImage(dataUrl);
+        inputRef.current?.focus();
+      } catch { /* screenshot unavailable */ }
+    });
+    return () => { void unlisten.then((fn) => fn()); };
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -94,10 +109,16 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
     setInput('');
     setLoading(true);
 
+    const images = pendingImage ? [pendingImage] : undefined;
+    setPendingImage(null);
+
     try {
       const history = buildHistory();
       const slug = MODE_SLUG[mode];
-      const result = await api.askAgent(slug, text, history.length > 0 ? history : undefined);
+      const result = await api.askAgent(slug, text, {
+        history: history.length > 0 ? history : undefined,
+        images,
+      });
 
       const content =
         result.output?.content ??
@@ -204,6 +225,17 @@ export const Chat = forwardRef<ChatHandle, Props>(function Chat({ api, mode, onC
             >
               New conversation
             </button>
+          )}
+          {pendingImage && (
+            <div className="flex items-center gap-2 mb-1">
+              <img src={pendingImage} alt="Screenshot" className="h-16 rounded border border-samix-border" />
+              <button
+                onClick={() => setPendingImage(null)}
+                className="text-[11px] text-samix-text-muted hover:text-samix-error"
+              >
+                &times; Remove
+              </button>
+            </div>
           )}
           <div className="flex items-end gap-2 bg-samix-surface border border-samix-border rounded-lg px-3 py-2">
             <textarea

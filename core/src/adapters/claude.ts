@@ -58,10 +58,26 @@ export class ClaudeAdapter implements ModelAdapter {
       system: req.systemPrompt,
       messages: req.messages
         .filter((m) => m.role !== 'system')
-        .map((m) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
+        .map((m) => {
+          if (m.images?.length) {
+            const content: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> = [
+              { type: 'text', text: m.content },
+              ...m.images.map((img): Anthropic.ImageBlockParam => ({
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: img.mediaType,
+                  data: img.base64,
+                },
+              })),
+            ];
+            return { role: m.role as 'user' | 'assistant', content };
+          }
+          return {
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          };
+        }),
     });
 
     const textBlock = response.content.find((b) => b.type === 'text');

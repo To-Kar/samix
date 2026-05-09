@@ -2,9 +2,9 @@ use serde::Serialize;
 use std::process::Child;
 use std::sync::Mutex;
 use uuid::Uuid;
-use tauri::{Manager, tray::{TrayIconBuilder, TrayIconEvent}};
+use tauri::{Manager, Emitter, tray::{TrayIconBuilder, TrayIconEvent}};
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 mod keychain;
 mod spawn;
@@ -57,6 +57,51 @@ fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn capture_screen() -> Result<String, String> {
+    let tmp = std::env::temp_dir().join("samix-screenshot.png");
+    let tmp_str = tmp.to_str().ok_or("invalid temp path")?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("screencapture")
+            .args(["-x", "-t", "png", tmp_str])
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("screencapture failed".into());
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let ps_script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms; \
+             [System.Windows.Forms.Screen]::PrimaryScreen | ForEach-Object {{ \
+               $bmp = New-Object System.Drawing.Bitmap($_.Bounds.Width, $_.Bounds.Height); \
+               $g = [System.Drawing.Graphics]::FromImage($bmp); \
+               $g.CopyFromScreen($_.Bounds.Location, [System.Drawing.Point]::Empty, $_.Bounds.Size); \
+               $bmp.Save('{}'); \
+             }}",
+            tmp_str.replace('\\', "\\\\")
+        );
+        let status = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_script])
+            .status()
+            .map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("screenshot failed".into());
+        }
+    }
+
+    let data = std::fs::read(&tmp).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&tmp);
+
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
+    Ok(format!("data:image/png;base64,{}", b64))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -100,16 +145,14 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Global hotkey: CmdOrCtrl+Shift+J
-            app.global_shortcut().on_shortcut("CmdOrCtrl+Shift+J", |app, _shortcut, _event| {
+            // Global hotkey: CmdOrCtrl+Shift+J — show window + trigger screenshot
+            app.global_shortcut().on_shortcut("CmdOrCtrl+Shift+J", |app, _shortcut, event| {
+                if event.state() != ShortcutState::Pressed { return; }
                 if let Some(window) = app.get_webview_window("main") {
-                    if window.is_visible().unwrap_or(false) {
-                        let _ = window.hide();
-                    } else {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
+                let _ = app.emit("screenshot:requested", ());
             })?;
 
             Ok(())
@@ -118,6 +161,7 @@ pub fn run() {
             get_core_config,
             set_autostart,
             get_autostart,
+            capture_screen,
             keychain::set_secret,
             keychain::has_secret,
             keychain::delete_secret,
