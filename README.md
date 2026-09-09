@@ -4,10 +4,27 @@ Local-first desktop application hosting a hierarchical multi-agent system for kn
 
 Named after Sami Frashëri (1850–1904), Albanian encyclopedist. Pronounced *sa-mix*.
 
-> This repository is at **Phase 0** — pipeline validation only. No real LLM calls, no newsletter, no newspaper UI. The goal is to prove that the skill-loader → runner → DB → HTTP → UI path works end-to-end, using a `static` model adapter that returns a literal string.
+> This repository is at **Phase 1**. Real model calls (Claude, Perplexity, local Ollama), RSS/arXiv/Perplexity sources, cron scheduling, budget caps and JSON-schema output validation are implemented and running. Results are delivered through the in-app newspaper view; no email or messenger delivery is built.
 
 For the full project values and non-negotiables, see [`docs/SAMIX_ABOUT.md`](docs/SAMIX_ABOUT.md).
-For the Phase 0 architecture, see [`docs/SAMIX_PHASE_0_SPEC.md`](docs/SAMIX_PHASE_0_SPEC.md).
+For the current architecture, see [`docs/SAMIX_PHASE_1_SPEC.md`](docs/SAMIX_PHASE_1_SPEC.md) and the honest status in [`docs/SAMIX_PHASE_1_REPORT.md`](docs/SAMIX_PHASE_1_REPORT.md).
+Architecture decisions are recorded as ADRs in [`docs/decisions/`](docs/decisions/).
+
+---
+
+## What works
+
+- **Agents are data, not code.** An agent is a directory under `agents/`: a `SKILL.md` holding the system prompt and a `manifest.yaml` declaring model, budget, schedule, sources and output schema. Adding an agent means adding a directory.
+- **Model-agnostic adapters.** Claude (Haiku, Sonnet), Perplexity Sonar, local Ollama and a `static` test adapter sit behind one interface. A new provider is one file plus one registry entry.
+- **Declared fallback.** If the primary adapter throws, the runner retries once against the manifest's `fallback:` model and prices the run against whichever adapter actually served it.
+- **Two budget gates before any provider call.** A per-agent daily cap and a global daily cap, checked against a deliberately pessimistic pre-call cost estimate. A misconfigured agent cannot spend unbounded money.
+- **Schema-validated output.** Output that violates the agent's JSON schema marks the run `partial`: no rows are written to the knowledge store, the raw response is kept for diagnosis, and the spend is still booked.
+- **Source traceability.** Every fetched item is persisted as a `SourceSnapshot` row keyed to the run.
+- **Secrets in the OS keychain.** API keys never touch the filesystem; the Tauri shell injects them into the core process at spawn time.
+
+## Not built yet
+
+No automated tests, no CI. No email or messenger delivery (dropped deliberately, see the Phase 1 report). No release installer or tray icon. Windows auto-spawn is written but untested. Verification so far is manual, against the acceptance criteria in the Phase 1 report.
 
 ---
 
@@ -19,7 +36,7 @@ For the Phase 0 architecture, see [`docs/SAMIX_PHASE_0_SPEC.md`](docs/SAMIX_PHAS
 - **Git**
 - Platform-specific Tauri prerequisites — see [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/)
 
-Phase 0 is being developed on macOS. Windows support is the Phase 1+ shipping target; no code is Mac-specific.
+Developed on macOS. Windows is the shipping target; no code is Mac-specific, but the Windows auto-spawn path is untested.
 
 ---
 
@@ -34,25 +51,21 @@ The SQLite dev DB is created at `core/data/samix-dev.db`.
 
 ---
 
-## Running in dev (Phase 0: two terminals)
+## Running in dev
 
-The Rust shell does **not** auto-spawn the core in Phase 0. Start each process manually.
-
-**Terminal 1 — core:**
+One command. The Tauri shell spawns the core itself with a generated port and token, and injects the API keys from the OS keychain.
 
 ```bash
-SAMIX_TOKEN=testtok SAMIX_PORT=4000 pnpm dev:core
+pnpm dev:app
 ```
 
-Logs should end with `ready` and `Server listening at http://127.0.0.1:4000`.
+**First run:**
 
-**Terminal 2 — app:**
+1. Open **Settings**, enter an Anthropic API key (Perplexity optional), save.
+2. Restart the app so the keys reach the core process at spawn time.
+3. Hit **Run** on `newsletter-ai`. Articles appear in the newspaper view.
 
-```bash
-SAMIX_TOKEN=testtok SAMIX_PORT=4000 pnpm dev:app
-```
-
-The Rust shell reads these same env vars and exposes them to the WebView via the `get_core_config` Tauri command. Keep the tokens consistent between the two terminals.
+**Configuring sources (optional):** the **Sources** page edits RSS URLs, arXiv categories and Perplexity queries. Saving rewrites `manifest.yaml` on disk and re-registers the scheduled job without a restart.
 
 ---
 
@@ -69,14 +82,16 @@ samix/
 │   └── prisma/    # SQLite schema + migrations
 │
 ├── agents/        # Skill definitions (data, not code)
-│   └── hello-world/
+│   ├── hello-world/        # smoke-test agent (static adapter)
+│   └── newsletter-ai/
 │       ├── SKILL.md        # system prompt + frontmatter
-│       └── manifest.yaml   # model, budget, schedule, output
+│       ├── manifest.yaml   # model, fallback, budget, schedule, sources
+│       └── schema.json     # output contract enforced by the runner
 │
 ├── docs/
 │   ├── SAMIX_ABOUT.md              # values anchor — read first
-│   ├── SAMIX_PHASE_0_SPEC.md       # Phase 0 architecture
-│   ├── SAMIX_PHASE_0_CLAUDE_CODE_HANDOFF.md  # implementation handoff
+│   ├── SAMIX_PHASE_1_SPEC.md       # current architecture
+│   ├── SAMIX_PHASE_1_REPORT.md     # what passes, what was dropped
 │   └── decisions/                  # ADRs
 │
 └── pnpm-workspace.yaml
@@ -97,18 +112,10 @@ samix/
 
 ---
 
-## Phase 0 acceptance check
+## Verifying a working install
 
-1. `pnpm dev:core` → logs show `ready` and one `skill loaded` entry for `hello-world`.
-2. `pnpm dev:app` → a Samix window opens listing the `hello-world` agent.
-3. Click **Run** → the result card shows the SKILL.md body, `status: success`, `cost: 0.0000`.
-4. `pnpm db:studio` → the `AgentRun` table has a row with `status='success'`.
-5. Ctrl-C the core terminal → within ~10 s the window shows a red "Samix Core disconnected" banner.
-
-If all five pass, Phase 0 is done.
-
----
-
-## What Phase 0 is *not*
-
-No real LLM calls, no RSS fetching, no newsletter agent, no newspaper UI, no cron triggering, no tray icon, no installer, no multi-platform build. Those are explicitly scheduled for Phase 1+. See `docs/SAMIX_PHASE_0_SPEC.md` §12 for the full out-of-scope list.
+1. `pnpm dev:app` opens the window and the core logs `adapter_ready` for each configured model.
+2. Run `newsletter-ai` → `status: success` and at least five articles with source URLs.
+3. `pnpm db:studio` → `AgentRun`, `Article` and `SourceSnapshot` rows for that run.
+4. Set the global cap to `0.01` → the next run refuses with `global_budget_exceeded` and costs nothing.
+5. Kill the core → the window shows a red "Samix Core disconnected" banner within ~10 s.

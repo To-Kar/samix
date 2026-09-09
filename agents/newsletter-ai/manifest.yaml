@@ -4,9 +4,10 @@ version: "1.0"
 
 model:
   primary: claude-haiku-4-5
-  # No fallback in this revision. Adding Ollama (llama3) or Perplexity
-  # is a manifest edit — add `fallback:` or a `routing:` map, no code
-  # change. Skills-are-data.
+  # If the primary adapter throws (bad key, rate limit, network), the runner
+  # retries once against this local model instead of failing the run.
+  # Swapping either entry is a manifest edit, no code change.
+  fallback: ollama-llama3
 
 budget:
   daily_usd_max: 0.50

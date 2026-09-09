@@ -7,7 +7,7 @@
 
 ## Acceptance criteria
 
-From spec §19 — 10 of 12 pass; 2 intentionally dropped (see Deviations).
+From spec §19 — 9 of 12 pass, 1 offen (Kriterium 8, siehe Korrektur), 2 bewusst gestrichen (siehe Deviations).
 
 | # | Criterion | Status |
 |---|-----------|--------|
@@ -18,7 +18,7 @@ From spec §19 — 10 of 12 pass; 2 intentionally dropped (see Deviations).
 | 5 | SMTP: Test-Send + automatische Mail nach echtem Run | ❌ (dropped — see Deviations) |
 | 6 | Telegram analog zu 5 | ❌ (dropped — see Deviations) |
 | 7 | Cron auf `* * * * *` → innerhalb 60 s wird `AgentRun` mit `trigger='schedule'` angelegt | ✅ |
-| 8 | API-Key ungültig → Run fällt auf `ollama-llama3` zurück, `status='success'` | ✅ |
+| 8 | API-Key ungültig → Run fällt auf `ollama-llama3` zurück, `status='success'` | ⚠️ siehe Korrektur unten |
 | 9 | Sources-Seite: RSS-URL ändern → `manifest.yaml` auf Disk überschrieben, Scheduler reload, neuer Run liefert Items der neuen Quelle | ✅ |
 | 10 | Globalen Cap auf `0.01` → `reason: 'global_budget_exceeded'`, keine API-Kosten | ✅ |
 | 11 | Schema-Verletzung → `AgentRun.status='partial'`, keine `Article`-Zeilen | ✅ |
@@ -87,7 +87,7 @@ Folgen direkt aus dem Delivery-Pivot. Beide als "dropped" markiert, nicht als "f
 - **`delete_credential()` in `keychain.rs`**: Mit `// VERIFY` markiert — ist die keyring-v3-API. Muss auf macOS gegen echten Keychain-Zugriff getestet werden.
 - **Ollama-Timeout**: Der `OllamaAdapter` hat keinen expliziten Timeout für Cold-Start (kann Minuten dauern). Ein `timeout_secs`-Feld im `ModelPreference` wäre sinnvoll für Phase 2.
 - **Auto-Spawn auf Windows**: `pnpm.cmd` wird verwendet, aber ungetestet. Pfad-Resolution in der Rust-Shell kann PATH-abhängig sein.
-- **`newsletter-ai` manifest — `fallback: ollama-llama3`**: Im Spec-Beispiel vorhanden, in der aktuellen Datei nicht. Fallback-Chain ist implementiert und funktioniert; nur das Manifest fehlt das `fallback:`-Feld. Kann als Manifest-Edit nachgezogen werden.
+- **Fallback-Chain**: Siehe Korrektur unten. Der Runner ruft die Fallback-Logik jetzt auf, das Manifest deklariert `fallback: ollama-llama3`. Kriterium 8 ist damit implementiert, aber noch nicht gegen einen echten ungültigen Key nachgetestet.
 - **Prisma-Client in CI**: `prisma generate` muss vor `tsc` laufen — nicht in `package.json` scripts automatisiert. Ohne generate schlägt TypeScript-Build fehl.
 
 ---
@@ -114,3 +114,23 @@ Nicht gemessen (Entwicklung im CLI-Kontext ohne Token-Tracking). Alle API-Keys l
 - Artikel-Detail-View mit `SourceSnapshot`-Liste (Traceability sichtbar machen)
 - Tray-Icon + Windows-Autostart
 - Zweiter proactive Agent (z.B. `github-digest` oder `arxiv-weekly`) zum Test der Multi-Agent-Infrastruktur
+
+---
+
+## Korrektur (2026-09-09)
+
+Bei einer Code-Gegenprüfung dieses Reports ist aufgefallen, dass die Fallback-Chain **nie am Runner angeschlossen war**.
+
+**Befund:** `generateWithFallback()` in `core/src/adapters/index.ts` war korrekt implementiert, exportiert und ohne jeden Aufrufer. Der Runner holte sich `resolveAdapter(manifest.model.primary)` und rief direkt `adapter.generate()`; ein Adapter-Fehler landete im `catch` und setzte den Run auf `failed`. Zusätzlich deklarierte `agents/newsletter-ai/manifest.yaml` kein `fallback:`-Feld, sodass die Logik auch bei angeschlossenem Aufruf den Primärfehler weitergeworfen hätte. Akzeptanzkriterium 8 kann in diesem Stand nicht bestanden haben; das ✅ im Report war falsch.
+
+**Fix:**
+
+- `runner.ts` ruft `generateWithFallback(skill.manifest.model, request, log)` statt `adapter.generate(request)`.
+- Kosten werden gegen den Adapter berechnet, der den Request tatsächlich bedient hat, nicht gegen den Primär-Adapter. Ollama ist lokal und mit 0 USD bepreist, die Abrechnung über den Primär-Adapter wäre also zu hoch gewesen.
+- Der Pre-Call-Budget-Estimate bleibt bewusst am Primär-Adapter: geschätzt wird das Modell, das aufgerufen werden soll.
+- Greift der Fallback, loggt der Runner `adapter_fallback_used` mit Primär- und Serving-Modell. `run ok` enthält jetzt ebenfalls das tatsächlich genutzte Modell.
+- `manifest.yaml` deklariert `fallback: ollama-llama3`.
+
+**Noch offen:** Kriterium 8 muss gegen einen echten ungültigen Anthropic-Key mit laufendem Ollama nachgetestet werden. Bis dahin steht es auf ⚠️. Der Fix ist syntaktisch geprüft, aber weder typgeprüft noch ausgeführt.
+
+**Lehre für Phase 2:** Eine implementierte Funktion ohne Aufrufer sieht in einem Review wie ein Feature aus. Ein Akzeptanzkriterium, das über die UI nicht sichtbar wird, braucht einen automatisierten Test, sonst wandert es ungeprüft als ✅ in den Report.

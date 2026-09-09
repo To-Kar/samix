@@ -12,7 +12,7 @@ import type {
   SourceItem,
   SourceSpec,
 } from '../types.js';
-import { resolveAdapter } from '../adapters/index.js';
+import { generateWithFallback, resolveAdapter } from '../adapters/index.js';
 import { resolveFetcher } from '../sources/index.js';
 import { JsonSchemaValidator } from '../output/validator.js';
 import { unwrapJsonFences } from '../output/unwrap.js';
@@ -246,7 +246,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     });
   }
 
-  const adapter = resolveAdapter(skill.manifest.model.primary);
+  // Resolved up front only to price the pre-call estimate against the model
+  // we intend to call. The adapter that actually serves the request is picked
+  // in generateWithFallback below and may be the declared fallback instead.
+  const primaryAdapter = resolveAdapter(skill.manifest.model.primary);
 
   // Global daily cap — sum across every agent's ledger for today.
   const globalCap = readGlobalCap();
@@ -255,7 +258,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     _sum: { costUsd: true },
   });
   const spentGlobal = globalSumAgg._sum.costUsd ?? 0;
-  const estimatedCost = estimateRunCostUsd(adapter, skill.manifest.budget.tokensPerRunMax);
+  const estimatedCost = estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax);
 
   if (globalCap > 0 && spentGlobal + estimatedCost > globalCap) {
     log.warn(
@@ -288,14 +291,39 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   };
 
   log.info(
-    { model: adapter.name, estimatedCost, spentGlobal, globalCap, sources: sourceItems.length },
+    {
+      model: primaryAdapter.name,
+      fallback: skill.manifest.model.fallback ?? null,
+      estimatedCost,
+      spentGlobal,
+      globalCap,
+      sources: sourceItems.length,
+    },
     'run starting'
   );
 
   try {
-    const response = await adapter.generate(request);
+    const {
+      response,
+      adapter: servingAdapter,
+      primaryError,
+    } = await generateWithFallback(skill.manifest.model, request, log);
+
+    if (primaryError) {
+      log.warn(
+        {
+          primary: primaryAdapter.name,
+          served: servingAdapter.name,
+          err: primaryError.message,
+        },
+        'adapter_fallback_used'
+      );
+    }
+
+    // Priced against the adapter that actually served the request, not the
+    // primary: fallback pricing differs (Ollama runs locally, so zero).
     const costUsd = computeCostUsd(
-      adapter,
+      servingAdapter,
       response.usage.inputTokens,
       response.usage.outputTokens
     );
@@ -339,7 +367,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
           completedAt,
         },
       });
-      log.info({ costUsd }, 'run ok (no schema)');
+      log.info({ costUsd, model: servingAdapter.name }, 'run ok (no schema)');
       return {
         runId,
         agentSlug: skill.id,
@@ -365,7 +393,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     // nothing usable" outcome — distinct from both success and failure.
     if (!validation.valid) {
       const errorSummary = (validation.errors ?? []).join('; ').slice(0, 2000);
-      log.warn({ errors: validation.errors }, 'output_validation_failed');
+      log.warn(
+        { errors: validation.errors, model: servingAdapter.name },
+        'output_validation_failed'
+      );
       await prisma.agentRun.update({
         where: { id: runId },
         data: {
@@ -409,7 +440,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       },
     });
 
-    log.info({ costUsd, articles: articleIds.length }, 'run ok');
+    log.info(
+      { costUsd, model: servingAdapter.name, articles: articleIds.length },
+      'run ok'
+    );
     return {
       runId,
       agentSlug: skill.id,
