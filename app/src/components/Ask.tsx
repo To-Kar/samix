@@ -222,7 +222,7 @@ export function Ask({ api, onOpenSource }: AskProps) {
             {(agents ?? []).filter((a) => a.type === 'reactive').map((a) => (
               <div key={a.slug} className="flex flex-col gap-1">
                 <p className="font-semibold">{a.title}</p>
-                <AgentModel api={api} slug={a.slug} version={modelVersion} />
+                <AgentModel api={api} slug={a.slug} version={modelVersion} onSaved={() => void loadAgent()} />
               </div>
             ))}
           </div>

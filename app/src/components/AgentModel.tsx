@@ -4,7 +4,7 @@ import type { ApiClient, ModelInfo } from '../lib/api';
 const select =
   'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs';
 
-export function AgentModel({ api, slug, version }: { api: ApiClient; slug: string; version: number }) {
+export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; slug: string; version: number; onSaved?: () => void }) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [primary, setPrimary] = useState('');
   const [fallback, setFallback] = useState('');
@@ -36,6 +36,7 @@ export function AgentModel({ api, slug, version }: { api: ApiClient; slug: strin
     try {
       await api.putAgentModel(slug, { primary, fallback: fallback || null });
       setMessage('Gespeichert – der nächste Lauf verwendet dieses Modell.');
+      onSaved?.();
     } catch (e) {
       setMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
     }
