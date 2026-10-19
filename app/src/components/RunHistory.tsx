@@ -51,6 +51,20 @@ export function RunHistory({ api, slug, version }: { api: ApiClient; slug: strin
                 </span>
               </div>
               <p className="text-neutral-600 dark:text-neutral-400">{detail(r)}</p>
+              {r.skippedSimilar?.length ? (
+                <details className="text-neutral-500">
+                  <summary className="cursor-pointer">
+                    {r.skippedSimilar.length} Meldung{r.skippedSimilar.length === 1 ? '' : 'en'} übersprungen (gleiche Überschrift wie schon veröffentlicht)
+                  </summary>
+                  <ul className="list-disc pl-5">
+                    {r.skippedSimilar.map((s, i) => (
+                      <li key={i}>
+                        „{s.title}“ ≈ „{s.similarTo}“
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
               {r.sourceNotes?.length ? (
                 <ul className="text-neutral-500 list-disc pl-5">
                   {r.sourceNotes.map((n, i) => (

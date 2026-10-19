@@ -44,6 +44,8 @@ export interface Manifest {
   output: OutputSpec;
   /** Skip source items already published by this agent within N days (default 14, 0 = off). */
   dedupeDays?: number;
+  /** Also skip items whose title is nearly identical to one already published (default true). */
+  dedupeSimilar?: boolean;
   /** Tell the model what the reader liked/disliked (see runner/profile.ts). */
   personalize?: boolean;
   /** Tools a reactive agent may call, by name (see tools/index.ts). */

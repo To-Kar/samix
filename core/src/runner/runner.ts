@@ -311,6 +311,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
   let sourceItems: SourceItem[] = [];
   let sourceCostUsd = 0;
   let sourceNotes: string[] = [];
+  let skippedSimilar: { title: string; url: string; similarTo: string }[] = [];
   if (skill.manifest.sources?.length) {
     const fetched = await fetchSources(skill.manifest.sources, runId, log, {
       topic: skill.manifest.topic ?? focusOf(skill.systemPrompt),
@@ -358,14 +359,18 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
   // to do, and no reason to pay for a model call. Not a failure.
   const dedupeDays = skill.manifest.dedupeDays ?? DEFAULT_DEDUPE_DAYS;
   if (sourceItems.length > 0) {
-    const { fresh, skipped } = await dropAlreadyPublished(agentRow.id, sourceItems, dedupeDays, startedAt);
-    if (skipped > 0) log.info({ skipped, fresh: fresh.length, dedupeDays }, 'already_published_skipped');
+    const dropped = await dropAlreadyPublished(agentRow.id, sourceItems, dedupeDays, startedAt, {
+      similar: skill.manifest.dedupeSimilar !== false,
+    });
+    const { fresh, skipped } = dropped;
+    skippedSimilar = dropped.skippedSimilar.slice(0, 10);
+    if (skipped > 0) log.info({ skipped, similar: dropped.skippedSimilar.length, fresh: fresh.length, dedupeDays }, 'already_published_skipped');
     sourceItems = fresh;
     if (fresh.length === 0) {
       const completedAt = new Date();
       await prisma.agentRun.update({
         where: { id: runId },
-        data: { status: 'success', output: JSON.stringify({ note: 'no_new_items', skipped }), completedAt },
+        data: { status: 'success', output: JSON.stringify({ note: 'no_new_items', skipped, skippedSimilar }), completedAt },
       });
       log.info({ skipped }, 'run ok (nothing new)');
       return {
@@ -453,6 +458,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     const rawOutput = JSON.stringify({
       content: response.content,
       stopReason: response.stopReason,
+      ...(skippedSimilar.length ? { skippedSimilar } : {}),
     });
 
     // No schema declared → no validation, no articles, status=success.

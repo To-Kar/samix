@@ -48,6 +48,8 @@ export const manifestYamlSchema = z.object({
   sources: z.array(sourceSchema).optional(),
   output: outputSchema,
   dedupe_days: z.number().int().min(0).max(365).optional(),
+  // Also skip items whose title is nearly identical to one already published (default on).
+  dedupe_similar: z.boolean().optional(),
   personalize: z.boolean().optional(),
   // Tools a reactive agent may call (names from tools/index.ts).
   tools: z

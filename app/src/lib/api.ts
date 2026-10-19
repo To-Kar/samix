@@ -44,6 +44,8 @@ export interface RunSummary {
   nothingNew: boolean;
   /** What the sources reported when the run found nothing. */
   sourceNotes?: string[];
+  /** Headlines skipped because they repeat something already published under another URL. */
+  skippedSimilar?: { title: string; similarTo: string }[];
 }
 
 export interface ReaderProfile {

@@ -582,6 +582,8 @@ export async function buildApp(deps: AppDeps) {
       nothingNew: r.status === 'success' && (r.output?.startsWith('{"note":"no_new_items"') ?? false),
       // What the sources reported when a run found nothing (see runner/runner.ts).
       sourceNotes: r.status === 'failed' ? sourceNotesOf(r.output) : [],
+      // Headlines skipped as repeats of something already published (other URL, same title).
+      skippedSimilar: skippedSimilarOf(r.output),
     }));
   });
 
@@ -1223,6 +1225,18 @@ function sourceNotesOf(output: string | null): string[] {
   try {
     const notes = (JSON.parse(output) as { sourceNotes?: unknown }).sourceNotes;
     return Array.isArray(notes) ? notes.filter((n): n is string => typeof n === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function skippedSimilarOf(output: string | null): { title: string; similarTo: string }[] {
+  if (!output) return [];
+  try {
+    const list = (JSON.parse(output) as { skippedSimilar?: unknown }).skippedSimilar;
+    return Array.isArray(list)
+      ? list.filter((x): x is { title: string; similarTo: string } => typeof x?.title === 'string' && typeof x?.similarTo === 'string')
+      : [];
   } catch {
     return [];
   }

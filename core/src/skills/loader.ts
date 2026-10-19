@@ -115,6 +115,7 @@ function normalizeManifest(m: ManifestYaml): Manifest {
       maxItems: m.output.max_items,
     },
     dedupeDays: m.dedupe_days,
+    dedupeSimilar: m.dedupe_similar,
     personalize: m.personalize,
     tools: m.tools,
     routes: m.routes,
