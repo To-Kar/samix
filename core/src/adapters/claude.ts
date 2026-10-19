@@ -2,8 +2,10 @@ import Anthropic from '@anthropic-ai/sdk';
 import type {
   ModelAdapter,
   ModelId,
+  NormalizedMessage,
   NormalizedRequest,
   NormalizedResponse,
+  ToolCall,
 } from '../types.js';
 
 interface ClaudePricing {
@@ -30,10 +32,14 @@ export class ClaudeAdapter implements ModelAdapter {
   readonly supportsSearch = false;
   readonly pricing: ClaudePricing;
 
-  private readonly client: Anthropic;
+  private readonly client: Pick<Anthropic, 'messages'>;
   private readonly sdkModelId: string;
 
-  constructor(modelId: Extract<ModelId, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>) {
+  // `client` is injectable so tests can check the wire format without a network.
+  constructor(
+    modelId: Extract<ModelId, 'claude-haiku-4-5' | 'claude-sonnet-4-6'>,
+    client?: Pick<Anthropic, 'messages'>
+  ) {
     const pricing = PRICING[modelId];
     const sdkModelId = SDK_MODEL_ID[modelId];
     if (!pricing || !sdkModelId) {
@@ -42,9 +48,11 @@ export class ClaudeAdapter implements ModelAdapter {
     this.name = modelId;
     this.pricing = pricing;
     this.sdkModelId = sdkModelId;
-    this.client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    this.client =
+      client ??
+      new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
   }
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
@@ -54,22 +62,31 @@ export class ClaudeAdapter implements ModelAdapter {
         max_tokens: req.maxTokens ?? 1024,
         temperature: req.temperature,
         system: req.systemPrompt,
-        messages: req.messages
-          .filter((m) => m.role !== 'system')
-          .map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
+        messages: toAnthropicMessages(req.messages),
+        ...(req.tools?.length
+          ? {
+              tools: req.tools.map((t) => ({
+                name: t.name,
+                description: t.description,
+                input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
+              })),
+            }
+          : {}),
       },
       req.timeoutMs ? { timeout: req.timeoutMs } : undefined
     );
 
-    const textBlock = response.content.find((b) => b.type === 'text');
-    const content = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+    const content = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('');
+    const toolCalls: ToolCall[] = response.content
+      .filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
+      .map((b) => ({ id: b.id, name: b.name, input: b.input }));
 
     return {
       content,
-      toolCalls: [],
+      toolCalls,
       citations: [],
       usage: {
         inputTokens: response.usage.input_tokens,
@@ -78,4 +95,39 @@ export class ClaudeAdapter implements ModelAdapter {
       stopReason: response.stop_reason ?? 'unknown',
     };
   }
+}
+
+// Anthropic wants tool results as `tool_result` blocks inside a *user*
+// message, and all results answering one assistant turn in the same message.
+export function toAnthropicMessages(messages: NormalizedMessage[]): Anthropic.MessageParam[] {
+  const out: Anthropic.MessageParam[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') continue;
+
+    if (m.role === 'tool') {
+      const block: Anthropic.ToolResultBlockParam = {
+        type: 'tool_result',
+        tool_use_id: m.toolCallId,
+        content: m.content,
+        ...(m.isError ? { is_error: true } : {}),
+      };
+      const last = out[out.length - 1];
+      if (last && last.role === 'user' && Array.isArray(last.content) && last.content.every((b) => b.type === 'tool_result')) {
+        last.content.push(block);
+      } else {
+        out.push({ role: 'user', content: [block] });
+      }
+    } else if (m.role === 'assistant' && m.toolCalls?.length) {
+      out.push({
+        role: 'assistant',
+        content: [
+          ...(m.content ? [{ type: 'text' as const, text: m.content }] : []),
+          ...m.toolCalls.map((tc) => ({ type: 'tool_use' as const, id: tc.id, name: tc.name, input: tc.input })),
+        ],
+      });
+    } else {
+      out.push({ role: m.role, content: m.content });
+    }
+  }
+  return out;
 }

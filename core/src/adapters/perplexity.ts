@@ -1,3 +1,4 @@
+import { assertNoTools } from './no-tools.js';
 import type {
   Citation,
   ModelAdapter,
@@ -44,6 +45,7 @@ export class PerplexityAdapter implements ModelAdapter {
   private readonly model = 'sonar';
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
+    assertNoTools('Perplexity', req);
     const apiKey = process.env.PERPLEXITY_API_KEY;
     if (!apiKey) {
       throw new Error('PERPLEXITY_API_KEY not set');

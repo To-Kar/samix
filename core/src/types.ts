@@ -114,23 +114,39 @@ export interface Citation {
   accessedAt: Date;
 }
 
-export interface NormalizedMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+// Tool use, normalised across providers (see docs/SAMIX_PHASE_3_SPEC.md §4).
+export interface ToolSpec {
+  name: string;
+  description: string;
+  /** JSON Schema of the tool's input object. */
+  inputSchema: Record<string, unknown>;
 }
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: unknown;
+  /** Set when the provider's arguments were not valid JSON; the caller reports it back to the model. */
+  parseError?: string;
+}
+
+export type NormalizedMessage =
+  | { role: 'system' | 'user'; content: string }
+  | { role: 'assistant'; content: string; toolCalls?: ToolCall[] }
+  | { role: 'tool'; toolCallId: string; content: string; isError?: boolean };
 
 export interface NormalizedRequest {
   systemPrompt: string;
   messages: NormalizedMessage[];
   maxTokens?: number;
   temperature?: number;
-  tools?: unknown[];
+  tools?: ToolSpec[];
   timeoutMs?: number;
 }
 
 export interface NormalizedResponse {
   content: string;
-  toolCalls: unknown[];
+  toolCalls: ToolCall[];
   citations: Citation[];
   usage: {
     inputTokens: number;

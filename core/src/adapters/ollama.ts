@@ -1,3 +1,4 @@
+import { assertNoTools } from './no-tools.js';
 import type {
   ModelAdapter,
   ModelId,
@@ -42,6 +43,7 @@ export class OllamaAdapter implements ModelAdapter {
   }
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
+    assertNoTools('Ollama', req);
     const messages = [
       { role: 'system', content: req.systemPrompt },
       ...req.messages.map((m) => ({ role: m.role, content: m.content })),

@@ -1,3 +1,4 @@
+import { assertNoTools } from './no-tools.js';
 import type {
   ModelAdapter,
   NormalizedRequest,
@@ -11,6 +12,7 @@ export class StaticAdapter implements ModelAdapter {
   readonly pricing = { inputPerMillionTokens: 0, outputPerMillionTokens: 0 };
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
+    assertNoTools('static', req);
     return {
       content: req.systemPrompt,
       toolCalls: [],
