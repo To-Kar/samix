@@ -19,7 +19,8 @@
           "publishedAt": { "type": "string", "format": "date-time" },
           "topic": { "type": "string" },
           "importance": { "type": "integer", "minimum": 1, "maximum": 5 },
-          "importanceReason": { "type": "string", "maxLength": 140 }
+          "importanceReason": { "type": "string", "maxLength": 140 },
+          "story": { "type": "string", "maxLength": 60 }
         }
       }
     }

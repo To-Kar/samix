@@ -95,3 +95,31 @@ describe('enforceTraceability', () => {
     expect(r.rejected[0]?.reason).toBe('duplicate');
   });
 });
+
+describe('story keys (same event, several sources)', () => {
+  const src = (n: number) => ({ url: `https://s${n}.example/x`, title: `T${n}`, sourceName: `s${n}.example`, sourceType: 'rss' as const, publishedAt: new Date('2026-10-18T08:00:00Z') });
+  const cand = (n: number, story?: string) => ({ title: `T${n}`, summary: 's', sourceUrl: `https://s${n}.example/x`, story });
+
+  it('keeps a key shared by at least two accepted articles, compared loosely', () => {
+    const { accepted } = enforceTraceability([cand(1, 'FC  Bayern gegen BVB'), cand(2, ' fc bayern gegen bvb '), cand(3)], [src(1), src(2), src(3)]);
+    expect(accepted.map((a) => a.storyKey)).toEqual(['fc bayern gegen bvb', 'fc bayern gegen bvb', undefined]);
+  });
+
+  it('drops a key that only one article carries, also when its partner was rejected as untraceable', () => {
+    const lone = enforceTraceability([cand(1, 'solo'), cand(2)], [src(1), src(2)]);
+    expect(lone.accepted.every((a) => a.storyKey === undefined)).toBe(true);
+    const partnerInvented = enforceTraceability(
+      [cand(1, 'paar'), { title: 'x', summary: 's', sourceUrl: 'https://invented.example/y', story: 'paar' }],
+      [src(1)]
+    );
+    expect(partnerInvented.accepted).toHaveLength(1);
+    expect(partnerInvented.accepted[0]!.storyKey).toBeUndefined();
+  });
+
+  it('cuts overlong keys and ignores blank ones', () => {
+    const long = 'x'.repeat(100);
+    const { accepted } = enforceTraceability([cand(1, long), cand(2, long), cand(3, '   ')], [src(1), src(2), src(3)]);
+    expect(accepted[0]!.storyKey).toHaveLength(60);
+    expect(accepted[2]!.storyKey).toBeUndefined();
+  });
+});

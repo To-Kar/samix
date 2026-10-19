@@ -13,6 +13,8 @@ export interface ArticleCandidate {
   topic?: string;
   importance?: number;
   importanceReason?: string;
+  /** Same key = the model says these articles report the same event. */
+  story?: string;
 }
 
 export interface TraceableArticle {
@@ -22,6 +24,8 @@ export interface TraceableArticle {
   // 1..5; 3 when the model gave none.
   importance: number;
   importanceReason?: string;
+  // Shared by at least two articles of the run, else undefined.
+  storyKey?: string;
   // Taken from the matching source item, not from the model's output.
   sourceUrl: string;
   sourceName: string;
@@ -72,6 +76,14 @@ export function normalizeUrl(raw: string): string | null {
 }
 
 export const DEFAULT_IMPORTANCE = 3;
+
+const MAX_STORY_KEY = 60;
+
+// Keys are the model's free text: compare them loosely.
+function normalizeStory(raw: string | undefined): string | undefined {
+  const k = raw?.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, MAX_STORY_KEY);
+  return k || undefined;
+}
 
 function clampImportance(raw: number | undefined): number {
   if (raw == null || !Number.isFinite(raw)) return DEFAULT_IMPORTANCE;
@@ -127,11 +139,18 @@ export function enforceTraceability(
       topic: c.topic,
       importance: clampImportance(c.importance),
       importanceReason: c.importanceReason,
+      storyKey: normalizeStory(c.story),
       sourceUrl: source.url,
       sourceName: source.sourceName,
       publishedAt,
     });
   }
+
+  // A "story" of one article is no story, and a key that survived only because
+  // its other articles were rejected must not dangle.
+  const sizes = new Map<string, number>();
+  for (const a of accepted) if (a.storyKey) sizes.set(a.storyKey, (sizes.get(a.storyKey) ?? 0) + 1);
+  for (const a of accepted) if (a.storyKey && (sizes.get(a.storyKey) ?? 0) < 2) a.storyKey = undefined;
 
   return { accepted, rejected };
 }

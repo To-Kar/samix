@@ -162,6 +162,7 @@ async function createArticles(
     topic: a.topic,
     importance: a.importance,
     importanceReason: a.importanceReason,
+    storyKey: a.storyKey,
   }));
 
   await prisma.article.createMany({ data: rows });

@@ -12,6 +12,7 @@ import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './
 import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { validateProjectRoot } from './projects/safePath.js';
+import { focusOf } from './skills/focus.js';
 import { reloadSkill } from './scheduler/index.js';
 import { buildReaderProfile } from './runner/profile.js';
 import { createAgent, listTemplates } from './skills/create.js';
@@ -119,6 +120,7 @@ export async function buildApp(deps: AppDeps) {
         schedule: skill?.manifest.schedule ?? null,
         model: skill?.manifest.model.primary ?? null,
         personalize: skill?.manifest.personalize ?? false,
+        topic: skill ? (skill.manifest.topic ?? focusOf(skill.systemPrompt) ?? null) : null,
         lastRun: lastRuns[i] ?? null,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,
@@ -1128,6 +1130,7 @@ function articleSummary(a: ArticleWithContent, leadParagraphs: number) {
     topic: a.topic,
     importance: a.importance ?? 3,
     importanceReason: a.importanceReason,
+    storyKey: a.storyKey,
     createdAt: a.createdAt,
     // +1 / -1, or null if the reader hasn't voted.
     vote: a.vote?.value ?? null,

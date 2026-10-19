@@ -60,6 +60,9 @@ model Article {
   // together with the reason.
   importance       Int?
   importanceReason String?
+  // Articles of one run that the model judged to report the same event share a
+  // key (verified in code: at least two articles, see output/traceability.ts).
+  storyKey    String?
   createdAt   DateTime  @default(now())
 
   content ArticleContent?

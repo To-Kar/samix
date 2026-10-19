@@ -26,7 +26,7 @@ const PROVIDERS: Provider[] = [
   { account: 'DEEPSEEK_API_KEY', name: 'DeepSeek', testModel: 'deepseek-chat', note: 'In der Regel günstiger.' },
 ];
 const OPTIONAL: Provider[] = [
-  { account: 'PERPLEXITY_API_KEY', name: 'Perplexity', testModel: 'perplexity-sonar', note: 'Nur für die (noch ruhende) Perplexity-Quelle.' },
+  { account: 'PERPLEXITY_API_KEY', name: 'Perplexity', testModel: 'perplexity-sonar', note: 'Für die allgemeine Websuche der Ressorts (kostet pro Suche extra).' },
 ];
 
 const card = 'border border-rule dark:border-rule-dark p-4 flex flex-col gap-3';

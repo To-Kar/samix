@@ -29,7 +29,8 @@ engineering<!-- /focus -->, and return a JSON object matching this shape:
       "publishedAt": "string (ISO date-time, MUST match the same input item)",
       "topic": "string (short, e.g. 'research', 'tooling', 'industry')",
       "importance": "integer 1-5 (see below)",
-      "importanceReason": "string (<=140 chars, one plain sentence: why this rank)"
+      "importanceReason": "string (<=140 chars, one plain sentence: why this rank)",
+      "story": "string (optional, <=60 chars, see below)"
     }
   ]
 }
@@ -50,6 +51,16 @@ Importance decides where the item is printed in the newspaper:
 - `importanceReason` is shown to the reader, so state the actual reason
   (e.g. "First open-weights model above X on benchmark Y"), not a
   restatement of the title.
+
+Same event, several sources: when two or more input items report the same
+event (same match, same release, same announcement), you may include up to
+three of them as separate items and give them the same short `story` key
+(e.g. "fc-bayern-gegen-dortmund-2-1"). The reader sees them as one story
+with "also reported by …". Use a key only when they really are about the same
+event, never for merely similar topics, and leave `story` out for everything
+else. Each of these items still needs its own `sourceUrl`, and the one that is
+most informative should get the highest `importance`. Do not say in a summary
+that sources "agree" or "confirm" each other; just describe the event.
 
 Hard rules — violations fail the run:
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ApiClient } from '../lib/api';
 import { ScheduleEditor, type ScheduleValue } from './ScheduleEditor';
 import { WebsiteRowsEditor, emptyRow, websiteSources, type WebsiteRow } from './WebsiteRows';
@@ -17,6 +17,12 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
   const [focus, setFocus] = useState('');
   const [rows, setRows] = useState<WebsiteRow[]>([emptyRow()]);
   const [rss, setRss] = useState('');
+  // Where the Ressort looks: the open web, chosen sites, or both.
+  const [where, setWhere] = useState<'search' | 'sites' | 'both'>('sites');
+  const [searchKey, setSearchKey] = useState(true);
+  useEffect(() => {
+    api.listModels().then((m) => setSearchKey(m.some((x) => x.id === 'perplexity-sonar' && x.keyConfigured)), () => undefined);
+  }, [api]);
   const [schedule, setSchedule] = useState<ScheduleValue | null>({
     cron: '0 6 * * *',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -28,11 +34,16 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
-  const sources = [...websiteSources(rows), ...(rssUrls.length ? [{ type: 'rss' as const, config: { urls: rssUrls, maxPerFeed: 20 } }] : [])];
+  const siteSources = [...websiteSources(rows), ...(rssUrls.length ? [{ type: 'rss' as const, config: { urls: rssUrls, maxPerFeed: 20 } }] : [])];
+  const searches = where !== 'sites';
+  const sources = [
+    ...(where === 'search' ? [] : siteSources),
+    ...(searches ? [{ type: 'perplexity_search' as const, config: { useTopic: true, recencyHours: 24 } }] : []),
+  ];
   const missing = [
     !title.trim() ? 'einen Namen' : null,
     !focus.trim() ? 'ein Thema („Worum soll es gehen?“)' : null,
-    sources.length === 0 ? 'mindestens eine Quelle (eine Webseite oder einen RSS-Feed)' : null,
+    sources.length === 0 ? 'mindestens eine Webseite oder einen RSS-Feed (oder „im Web suchen“ wählen)' : null,
   ].filter(Boolean);
   const valid = missing.length === 0;
 
@@ -74,11 +85,39 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
         </span>
       </label>
 
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-semibold">Quellen</span>
-        <WebsiteRowsEditor api={api} rows={rows} onChange={setRows} />
-        <textarea className={`${field} font-mono text-xs mt-2`} rows={2} value={rss} onChange={(e) => setRss(e.target.value)} placeholder="Optional: RSS-Feeds, eine URL pro Zeile" />
-      </div>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-xs font-semibold mb-1">Woher sollen die Artikel kommen?</legend>
+        {(
+          [
+            ['search', 'Allgemein im Web suchen', 'Samix sucht selbst nach dem Thema (Perplexity). Du musst keine Seite kennen.'],
+            ['sites', 'Nur bestimmte Seiten', 'Nur die Webseiten und Feeds, die du unten einträgst.'],
+            ['both', 'Beides', 'Deine Seiten und zusätzlich eine allgemeine Websuche.'],
+          ] as const
+        ).map(([id, label, note]) => (
+          <label key={id} className="flex items-start gap-2 text-sm">
+            <input type="radio" name="where" className="mt-1" checked={where === id} onChange={() => setWhere(id)} />
+            <span>
+              <span className="font-semibold">{label}</span>
+              <span className="block text-xs text-neutral-500">{note}</span>
+            </span>
+          </label>
+        ))}
+        {searches ? (
+          <p className="text-xs text-neutral-500">
+            Jede Suche kostet extra (geschätzt etwa 1 Cent, abgebucht vom Tageslimit des Ressorts). Das lässt sich später unter
+            „Quellen“ des Ressorts ändern.
+            {!searchKey ? <span className="text-amber-700 dark:text-amber-400"> Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter).</span> : null}
+          </p>
+        ) : null}
+      </fieldset>
+
+      {where !== 'search' ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold">Seiten und Feeds</span>
+          <WebsiteRowsEditor api={api} rows={rows} onChange={setRows} />
+          <textarea className={`${field} font-mono text-xs mt-2`} rows={2} value={rss} onChange={(e) => setRss(e.target.value)} placeholder="Optional: RSS-Feeds, eine URL pro Zeile" />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-1">
         <span className="text-xs font-semibold">Wann?</span>

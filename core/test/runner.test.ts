@@ -31,6 +31,26 @@ async function runWith(
 
 const articlesOf = (runId: string) => prisma.article.findMany({ where: { agentRunId: runId } });
 
+describe('stories', () => {
+  it('stores the story key the model gave to articles that report the same event; the schema accepts it', async () => {
+    const items = sourceItems(6);
+    useRssItems(items);
+    const out = {
+      items: items.slice(0, 5).map((it, i) => ({
+        title: `T${i}`, summary: `S${i}`, sourceUrl: it.url, topic: 'x',
+        ...(i < 2 ? { story: 'Derby 2:1' } : i === 2 ? { story: 'allein' } : {}),
+      })),
+    };
+    useAdapter(fakeAdapter('claude-haiku-4-5', async () => respond(JSON.stringify(out))));
+
+    const result = await runWith();
+
+    expect(result.status).toBe('success');
+    const rows = (await articlesOf(result.runId)).sort((a, b) => a.title.localeCompare(b.title));
+    expect(rows.map((r) => r.storyKey)).toEqual(['derby 2:1', 'derby 2:1', null, null, null]);
+  });
+});
+
 describe('traceable output', () => {
   it('writes articles whose URL, source and date come from the fetched items', async () => {
     const items = sourceItems(6);

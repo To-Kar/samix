@@ -15,7 +15,7 @@ export function explainFailure(error: string | null | undefined): string {
   if (error && AUTH_ERROR.test(error)) return AUTH_TEXT;
   switch (error) {
     case 'no_source_items':
-      return 'Keine Quelle lieferte Beiträge (Netzwerk oder Quellen prüfen). Es wurde nichts bezahlt.';
+      return 'Keine Quelle lieferte Beiträge (Netzwerk, Quellen oder – bei der Websuche – Perplexity-Schlüssel und Tageslimit prüfen). Das Modell wurde nicht aufgerufen.';
     case 'already_running':
       return 'Es lief bereits ein Lauf.';
     case 'budget_exceeded':

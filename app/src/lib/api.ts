@@ -18,6 +18,8 @@ export interface AgentSummary {
   schedule: ScheduleInfo | null;
   model: string | null;
   personalize: boolean;
+  /** What the Ressort is about; null if unknown. */
+  topic: string | null;
   lastRun: { startedAt: string; status: string; error: string | null; costUsd: number } | null;
   createdAt: string;
   updatedAt: string;

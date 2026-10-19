@@ -30,6 +30,10 @@ export function Sources({ api, slug }: SourcesProps) {
   const [arxivCategories, setArxivCategories] = useState('');
   const [arxivQuery, setArxivQuery] = useState('');
   const [perplexityQueries, setPerplexityQueries] = useState('');
+  const [webSearch, setWebSearch] = useState(false);
+  const [recency, setRecency] = useState(24);
+  const [topic, setTopic] = useState<string | null>(null);
+  const [searchKey, setSearchKey] = useState(true);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -43,6 +47,11 @@ export function Sources({ api, slug }: SourcesProps) {
       setArxivCategories(toLines((arxiv?.config['categories'] as string[] | undefined) ?? []));
       setArxivQuery((arxiv?.config['query'] as string | undefined) ?? '');
       setPerplexityQueries(toLines((perplexity?.config['queries'] as string[] | undefined) ?? []));
+      setWebSearch(perplexity?.config['useTopic'] === true);
+      setRecency(Number(perplexity?.config['recencyHours'] ?? 24));
+      const [agents, models] = await Promise.all([api.listAgents(), api.listModels()]);
+      setTopic(agents.find((a) => a.slug === slug)?.topic ?? null);
+      setSearchKey(models.some((m) => m.id === 'perplexity-sonar' && m.keyConfigured));
       setWebsites(rowsFromSources(list));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
@@ -80,9 +89,9 @@ export function Sources({ api, slug }: SourcesProps) {
       }
 
       const queries = fromLines(perplexityQueries);
-      if (queries.length > 0) {
+      if (queries.length > 0 || webSearch) {
         const existing = sources.find((s) => s.type === 'perplexity_search');
-        updated.push({ type: 'perplexity_search', config: { ...existing?.config, queries, recencyHours: existing?.config['recencyHours'] ?? 24 } });
+        updated.push({ type: 'perplexity_search', config: { ...existing?.config, queries, useTopic: webSearch, recencyHours: recency } });
       }
 
       await api.putSources(slug, updated);
@@ -131,9 +140,41 @@ export function Sources({ api, slug }: SourcesProps) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className={legend}>Perplexity-Suche</legend>
-        <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder="AI agent architectures 2026" />
-        <p className="text-xs text-neutral-400">Eine Suchanfrage pro Zeile. Braucht einen Perplexity-Schlüssel (Einrichtung) und kostet pro Lauf extra.</p>
+        <legend className={legend}>Allgemeine Websuche</legend>
+        <label className="flex items-start gap-2 text-xs">
+          <input type="checkbox" className="mt-0.5" checked={webSearch} onChange={(e) => setWebSearch(e.target.checked)} />
+          <span>
+            Darf zusätzlich allgemein im Web nach dem Thema suchen
+            {topic ? (
+              <>
+                {' '}
+                (Thema: <em>{topic}</em>)
+              </>
+            ) : (
+              <span className="text-neutral-400"> – dieses Ressort hat kein gespeichertes Thema; trage unten Suchanfragen ein</span>
+            )}
+          </span>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+          Nur Ergebnisse der letzten
+          <select value={recency} onChange={(e) => setRecency(Number(e.target.value))} className={`${area} w-auto`}>
+            <option value={24}>24 Stunden</option>
+            <option value={72}>3 Tage</option>
+            <option value={168}>7 Tage</option>
+          </select>
+        </label>
+        <label className="text-xs text-neutral-600 dark:text-neutral-400">Weitere Suchanfragen (eine pro Zeile, optional)</label>
+        <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder="Bundesliga Spieltag Ergebnisse" />
+        <p className="text-xs text-neutral-400">
+          Jede Suche kostet extra (geschätzt etwa 1 Cent, abgebucht vom Tageslimit des Ressorts). Die gefundenen Seiten werden
+          wie andere Quellen geprüft: ohne Datum und ohne abrufbare URL erscheint nichts. Ohne Haken und ohne Anfragen sucht
+          das Ressort nur auf den Seiten und Feeds oben.
+        </p>
+        {(webSearch || perplexityQueries.trim()) && !searchKey ? (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter). Ohne ihn findet die Suche nichts.
+          </p>
+        ) : null}
       </fieldset>
 
       {saveMessage ? (
