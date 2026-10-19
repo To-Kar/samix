@@ -454,6 +454,29 @@ Mutationsproben erfasst: Budget-Gate vor dem Routing, Delegaten-Allowlist, `ephe
 - Keine Planung über mehrere Schritte, keine Ketten von Delegaten.
 - Oberfläche nur in Chromium, keine Komponententests.
 
+### Status 3b (2026-10-19) — Projekt-Assistent (nur lesen)
+
+Spec: `docs/SAMIX_PHASE_3B_SPEC.md`. Als zweiter Delegat des Orchestrators gebaut, damit der Eingang einen Nutzen hat. Core: 310 Tests; die Oberfläche im Browser mit dem echten Core und einem Fake-Modell gesehen.
+
+| Plan | Umsetzung |
+|---|---|
+| Freigabe | `Project` (Migration), `GET/POST /projects`, `PUT /projects/:id` (Haken „an Modell senden erlaubt“), `DELETE`. Ohne Haken liefern die Tools nichts; Widerruf wirkt sofort. `/`, Laufwerkswurzeln und der Home-Ordner selbst werden abgelehnt |
+| Pfadsicherheit | `projects/safePath.ts`: nur relative Pfade, kein `..`/`\`/NUL/absolut, `realpath` muss in der echten Wurzel liegen (Symlinks nach außen, Geschwisterordner mit gleichem Präfix), Symlinks werden beim Auflisten/Suchen übersprungen, Ausschlüsse (`.git`, `node_modules`, `.ssh`, `.env*`, Schlüsseldateien …) gelten auch über Symlinks. Nur Text, ≤ 500 KB, ≤ 8000 Zeichen je Lesevorgang |
+| Tools | `list_projects`, `list_files`, `search_files` (einfache Textsuche), `read_file` (mit Zeilennummern) |
+| Zitate | Quell-ID `file:<projekt>:<pfad>`; dieselbe Code-Prüfung wie bei Artikeln (nur in **dieser** Frage gelieferte Dateien, sonst keine Antwort); Zitat zeigt Pfad und Projekt (keine Zeilen). Manifest `empty_answer` ersetzt den „nichts gefunden“-Text je Agent |
+| Agent/Orchestrator | `agents/projekt-assistent`; `orchestrator` listet ihn unter `delegates:` |
+| UI | Bereich „Projekte“ (freigeben, Haken, entfernen), Datei-Zitate ohne Reader-Link, Datenfluss-Hinweis |
+
+Mutationsproben erfasst: `..`-Prüfung, `realpath`-Prüfung (inkl. Präfix ohne Trennzeichen), Ausschluss über Symlink-Ziel, `.env`-Muster, Binär- und Größengrenze, Freigabe-Prüfung, Zitierprüfung, Home-Ordner. Nicht erfasst (gleichwertig, weil doppelt abgesichert): der Ausschluss nach Namen vor `realpath` und das explizite Überspringen von Symlinks (Dirent meldet sie ohnehin nicht als Datei/Ordner).
+
+**Nicht verifiziert / offen:**
+- **Kriterium 7 der Spec:** Antwortqualität, Tool-Nutzung und Prompt-Injection-Verhalten echter Modelle bei fremdem Code sind nicht geprüft.
+- **Heuristik, keine Garantie:** Die Ausschlussliste findet keine Geheimnisse in gewöhnlich benannten Dateien (z. B. ein Token in `config.json`). Was gelesen wird, geht an den Modellanbieter.
+- Windows-Pfade (Laufwerksbuchstaben, Groß-/Kleinschreibung, `\`) sind nur durch Ablehnung abgedeckt, auf Windows nicht getestet; macOS ebenfalls nicht (nur Linux).
+- Der Ordner wird per eingetipptem Pfad freigegeben (kein Ordner-Dialog).
+- Bestehende Installationen: `seedAgents` überschreibt nie. Ein schon kopierter `orchestrator` kennt `projekt-assistent` nicht, bis `delegates:` in seiner `manifest.yaml` ergänzt wird; `projekt-assistent` selbst wird neu kopiert und ist direkt über `agent: projekt-assistent` ansprechbar.
+- Zitate nur auf Dateiebene; keine Schreib-/Ausführ-Tools (**3c** bleibt offen und braucht ein eigenes Spec mit Freigabe je Aktion).
+
 ## Phase 5 — Öffentliche Veröffentlichung
 
 - **macOS:** Apple-Developer-Programm, Developer-ID-Signatur, Notarisierung [Unverified: aktuelle Kosten und Ablauf bei Apple prüfen].

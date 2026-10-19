@@ -201,6 +201,8 @@ export interface ListArticlesQuery {
 
 export interface AnswerCitation {
   number: number;
+  /** Absent: an article. `file`: a file of a released project (title = path, sourceName = project). */
+  kind?: 'file';
   articleId: string;
   title: string;
   sourceName: string | null;
@@ -225,6 +227,16 @@ export interface Proposal {
 export interface RouteInfo {
   kind: 'delegate' | 'show_notes' | 'propose_refresh';
   agent?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  path: string;
+  allowModelAccess: boolean;
+  /** False when the folder is gone or no longer allowed. */
+  exists: boolean;
+  createdAt: string;
 }
 
 export interface Note {
@@ -419,6 +431,22 @@ export class ApiClient {
 
   ask(question: string, conversationId?: string): Promise<AskResult> {
     return this.json<AskResult>('POST', '/ask', { question, conversationId });
+  }
+
+  listProjects(): Promise<Project[]> {
+    return this.request<Project[]>('/projects');
+  }
+
+  addProject(body: { name: string; path: string; allowModelAccess: boolean }): Promise<Project> {
+    return this.json<Project>('POST', '/projects', body);
+  }
+
+  setProjectAccess(id: string, allowModelAccess: boolean): Promise<Project> {
+    return this.json<Project>('PUT', `/projects/${encodeURIComponent(id)}`, { allowModelAccess });
+  }
+
+  deleteProject(id: string): Promise<void> {
+    return this.request<void>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
   listNotes(): Promise<Note[]> {

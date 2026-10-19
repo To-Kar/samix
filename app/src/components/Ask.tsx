@@ -13,6 +13,7 @@ import { explainAsk, explainFailure } from '../lib/explain';
 import { formatShortDate, formatUsd, hostnameOf } from '../lib/format';
 import { AgentModel } from './AgentModel';
 import { Notes } from './Notes';
+import { Projects } from './Projects';
 
 // Questions go to the orchestrator; the Q&A agent answers behind it.
 export const ORCHESTRATOR = 'orchestrator';
@@ -35,6 +36,7 @@ export function Ask({ api, onOpenSource }: AskProps) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modelVersion, setModelVersion] = useState(0);
+  const [released, setReleased] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   const loadList = useCallback(async () => {
@@ -148,12 +150,13 @@ export function Ask({ api, onOpenSource }: AskProps) {
 
       <section className="min-w-0 max-w-[68ch] flex flex-col gap-6">
         <header>
-          <h2 className="font-serif font-bold text-3xl leading-tight">Frag deine Zeitung</h2>
+          <h2 className="font-serif font-bold text-3xl leading-tight">Fragen</h2>
           <p className="text-sm text-ink-soft dark:text-ink-soft-dark mt-1">
-            Antworten stammen ausschließlich aus den bereits gesammelten Artikeln und nennen ihre Quellen.
+            Antworten stammen ausschließlich aus deinen gesammelten Artikeln und den freigegebenen Projektordnern und nennen ihre Quellen.
             {models.length
               ? ` Deine Frage und gefundene Artikelauszüge werden an ${models.length > 1 ? 'die Modelle' : 'das Modell'} ${models.map((m) => `„${m}“`).join(' und ')} gesendet.`
               : ''}
+            {released > 0 ? ' Aus freigegebenen Projekten gelesene Dateiausschnitte gehen ebenfalls an das Modell.' : ''}
           </p>
         </header>
 
@@ -225,6 +228,12 @@ export function Ask({ api, onOpenSource }: AskProps) {
           </div>
         </details>
         <details className="text-xs">
+          <summary className="cursor-pointer uppercase tracking-wider">Projekte</summary>
+          <div className="mt-2">
+            <Projects api={api} onChanged={setReleased} />
+          </div>
+        </details>
+        <details className="text-xs">
           <summary className="cursor-pointer uppercase tracking-wider">Notizen</summary>
           <div className="mt-2">
             <Notes api={api} />
@@ -256,7 +265,8 @@ function Answer({
   api: ApiClient;
 }) {
   const refs = new Set(message.citations.map((c) => c.number));
-  const order = message.citations.map((c) => c.articleId);
+  // Only articles open in the reader; project files are shown by path.
+  const order = message.citations.filter((c) => c.kind !== 'file').map((c) => c.articleId);
   const open = (c: AnswerCitation) => onOpenSource(c.articleId, order);
 
   if (message.status !== 'ok') {
@@ -286,7 +296,7 @@ function Answer({
               aria-label={`Quelle ${p.ref} öffnen`}
               onClick={() => {
                 const c = message.citations.find((x) => x.number === p.ref);
-                if (c) open(c);
+                if (c && c.kind !== 'file') open(c);
               }}
             >
               [{p.ref}]
@@ -300,13 +310,22 @@ function Answer({
             <li key={c.articleId} className="flex gap-2">
               <span className="font-bold">[{c.number}]</span>
               <span>
-                <button className="text-left font-semibold hover:underline" onClick={() => open(c)}>
-                  {c.title}
-                </button>
-                <span className="text-ink-soft dark:text-ink-soft-dark">
-                  {' · '}
-                  {[c.sourceName ?? hostnameOf(c.url), formatShortDate(c.publishedAt)].filter(Boolean).join(' · ')}
-                </span>
+                {c.kind === 'file' ? (
+                  <>
+                    <span className="font-mono font-semibold">{c.title}</span>
+                    <span className="text-ink-soft dark:text-ink-soft-dark"> · Projekt {c.sourceName}</span>
+                  </>
+                ) : (
+                  <>
+                    <button className="text-left font-semibold hover:underline" onClick={() => open(c)}>
+                      {c.title}
+                    </button>
+                    <span className="text-ink-soft dark:text-ink-soft-dark">
+                      {' · '}
+                      {[c.sourceName ?? hostnameOf(c.url), formatShortDate(c.publishedAt)].filter(Boolean).join(' · ')}
+                    </span>
+                  </>
+                )}
               </span>
             </li>
           ))}

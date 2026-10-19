@@ -1,7 +1,7 @@
 # Samix — Phase 3b Spec: Projekt-Assistent (nur lesen)
 
 **Stand:** 2026-10-19 · **Bezug:** `SAMIX_PHASE_3_SPEC.md` §9, `SAMIX_PHASE_4_SPEC.md`, `SAMIX_ABOUT.md`
-**Status:** Entwurf → umgesetzt (Abnahme in `SAMIX_ROADMAP.md`, „Status 3b“)
+**Status:** umgesetzt (Abnahme in `SAMIX_ROADMAP.md`, „Status 3b“)
 
 > Kennzeichnung: **[Unverified]** / **[Inference]** wie im Rest des Projekts.
 

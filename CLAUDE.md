@@ -14,6 +14,7 @@ The repo ships in named phases. Each phase has a spec + a Claude Code handoff do
 
 - **Phase 0 — merged.** Pipeline validation with a `static` adapter returning a literal string. Proved skill-loader → runner → DB → HTTP → UI works end-to-end. See `docs/SAMIX_PHASE_0_SPEC.md` and `docs/SAMIX_PHASE_0_REPORT.md`.
 - **Phase 1 — in progress.** First real proactive agent (`newsletter-ai`): real Claude Haiku calls, RSS + Arxiv sources (Perplexity adapter+fetcher are wired but dormant — manifest edit away), JSON-schema output validation that creates `Article` rows, OS-keychain secrets, live cron scheduler. Spec: `docs/SAMIX_PHASE_1_SPEC.md`. Playbook: `docs/SAMIX_PHASE_1_CLAUDE_CODE_HANDOFF.md`. **Pivot:** SMTP + Telegram delivery channels were dropped from Phase 1 — the in-app Newspaper UI is the delivery surface. The original spec/handoff still describe delivery channels; treat those sections as superseded.
+- **Phase 3b — done** (read-only project assistant, `docs/SAMIX_PHASE_3B_SPEC.md`): released folders, path-safe read-only tools, file citations; second delegate of the orchestrator. 3c (coding agent) is not built and needs its own spec.
 - **Phase 4 — done** (orchestrator + visible notes, see `docs/SAMIX_PHASE_4_SPEC.md` and the roadmap status): `POST /ask` goes through the `orchestrator` agent, which picks exactly one action per question; notes are written only by the reader. Not verified: any real model's routing.
 - **Phase 3a — done** ("Frag deine Zeitung", see `docs/SAMIX_PHASE_3_SPEC.md` and the roadmap status): the first reactive agent — questions answered only from collected articles, via read-only tools and enforced citations. 3b (read-only project assistant) and 3c (coding agent) are specified only. Not verified: any real model's tool use.
 - **Phase 2c — done** (see roadmap status): votes + reader profile, dedupe across runs, create/enable/rename Ressorts (agents) from a template, per-agent schedule/sources/model editing, run history. Not done: OpenAI adapter, deleting agents.
@@ -93,7 +94,13 @@ A "Ressort" is a proactive agent. `POST /agents` (`skills/create.ts`) writes a n
 
 `agents/orchestrator` is a reactive agent with `routes:` (which actions) and `delegates:` (which agents it may hand a question to) instead of `tools:`. `runner/orchestrate.ts` makes **one** routing call (max 2 with a reminder); the core executes the chosen action and the reader sees only its result. A delegate runs through `askAgent` (`ephemeral`, caller-supplied `history`) with its own `AgentRun`, budget and gates. `runner/turn.ts` holds the bookkeeping `askAgent` and `routeQuestion` share. `MemoryNote`s (`memory/notes.ts`, `/notes`) are written only through the notes API by the reader and read by agents through the `read_notes` tool, if their manifest lists it.
 
+### Project files (Phase 3b)
+
+`Project` rows are folders the reader released; `allowModelAccess` must be on or no tool returns anything. All filesystem access goes through `projects/safePath.ts` (relative paths only, `realpath` inside the real root, exclusions, symlinks skipped, size caps) and is read-only. Tool results surface `file:<projectId>:<path>` source ids; `converse.ts` validates them exactly like article ids.
+
 ### Non-obvious runtime invariants
+
+- **Project files are read-only, released per folder, and never reached by path tricks.** Do not add a tool that takes an absolute path or writes, and do not bypass `resolveInProject`. The exclusion list is a heuristic, not a guarantee.
 
 - **The orchestrator has no voice and no side effects.** Its model never writes user-visible text, never picks a delegate outside `delegates:`, and cannot start anything that costs money or changes data: `propose_refresh` only returns a proposal the reader confirms in the UI. Notes are not citable (they surface no article ids) and the model cannot write them.
 
