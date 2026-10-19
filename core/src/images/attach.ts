@@ -4,7 +4,7 @@
 
 import type { Logger } from 'pino';
 import { prisma } from '../db/prisma.js';
-import type { SourceItem } from '../types.js';
+import { findSourceItem, type SourceIndex } from '../sources/match.js';
 import { fetchImage } from './fetchImage.js';
 
 const CONCURRENCY = 4;
@@ -14,24 +14,9 @@ export interface CreatedArticle {
   sourceUrl?: string | null;
 }
 
-/** Comparable form of a URL: no fragment, no trailing slash. */
-export function urlKey(url: string): string {
-  try {
-    const u = new URL(url);
-    u.hash = '';
-    return u.toString().replace(/\/$/, '');
-  } catch {
-    return url.trim();
-  }
-}
-
-export async function attachImages(articles: CreatedArticle[], items: SourceItem[], log: Logger): Promise<number> {
-  const imageBySource = new Map<string, string>();
-  for (const item of items) {
-    if (item.imageUrl) imageBySource.set(urlKey(item.url), item.imageUrl);
-  }
+export async function attachImages(articles: CreatedArticle[], sources: SourceIndex, log: Logger): Promise<number> {
   const jobs = articles.flatMap((a) => {
-    const imageUrl = a.sourceUrl ? imageBySource.get(urlKey(a.sourceUrl)) : undefined;
+    const imageUrl = findSourceItem(sources, a.sourceUrl)?.imageUrl;
     return imageUrl ? [{ articleId: a.id, imageUrl }] : [];
   });
 

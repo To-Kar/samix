@@ -14,6 +14,7 @@ import type {
 } from '../types.js';
 import { generateWithFallback, resolveAdapter } from '../adapters/index.js';
 import { resolveFetcher } from '../sources/index.js';
+import { findSourceItem, indexSourceItems, type SourceIndex } from '../sources/match.js';
 import { attachImages, type CreatedArticle } from '../images/attach.js';
 import { JsonSchemaValidator } from '../output/validator.js';
 import { unwrapJsonFences } from '../output/unwrap.js';
@@ -184,7 +185,9 @@ interface ParsedArticle {
 
 // Create Article rows from the validated parsed output. Returns the new
 // rows (id + sourceUrl). Assumes the validator already enforced the shape.
-async function createArticles(runId: string, parsed: unknown): Promise<CreatedArticle[]> {
+// sourceName comes from the fetched item the article cites, never from the
+// model; null when its sourceUrl matches no item.
+async function createArticles(runId: string, parsed: unknown, sources: SourceIndex): Promise<CreatedArticle[]> {
   if (!parsed || typeof parsed !== 'object') return [];
   const items = (parsed as { items?: ParsedArticle[] }).items;
   if (!Array.isArray(items) || items.length === 0) return [];
@@ -195,6 +198,7 @@ async function createArticles(runId: string, parsed: unknown): Promise<CreatedAr
     title: item.title,
     summary: item.summary,
     sourceUrl: item.sourceUrl,
+    sourceName: findSourceItem(sources, item.sourceUrl)?.sourceName ?? null,
     publishedAt: item.publishedAt ? new Date(item.publishedAt) : null,
     topic: item.topic,
   }));
@@ -434,10 +438,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     }
 
     // Valid output → create Article rows from parsed.items, then attach
-    // the images their source items declared.
-    const articles = await createArticles(runId, validation.parsed);
+    // the images their source items declared. Both match by sourceUrl.
+    const sources = indexSourceItems(sourceItems);
+    const articles = await createArticles(runId, validation.parsed, sources);
     const articleIds = articles.map((a) => a.id);
-    await attachImages(articles, sourceItems, log);
+    await attachImages(articles, sources, log);
 
     await prisma.agentRun.update({
       where: { id: runId },
