@@ -74,6 +74,17 @@ describe('search_articles', () => {
     expect(r.map((x: { articleId: string }) => x.articleId).sort()).toEqual([ids['ki-chip'], ids['phone']].sort());
   });
 
+  it('finds other forms and compounds of a word: "Chip" finds KI-Chips, "Modelle" finds Modell', async () => {
+    const found = async (query: string) => {
+      const r = parse(await call('search_articles', { query }));
+      return Array.isArray(r) ? r.map((x: { articleId: string }) => x.articleId) : [];
+    };
+    expect(await found('Chip')).toEqual(expect.arrayContaining([ids['ki-chip'], ids['body-only']]));
+    expect(await found('Modelle')).toContain(ids['oss']);
+    // short words stay exact: "Skiing" is not "Ski"
+    expect(await found('Ski')).not.toContain(ids['ski']);
+  });
+
   it('ranks title hits above summary hits, all words above one, then newest first', async () => {
     const r = parse(await call('search_articles', { query: 'offenes Modell' }));
     expect(r[0]).toMatchObject({ articleId: ids['oss'], ressort: 'Tech & KI' });

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ensureArticleContent } from '../content/articleContent.js';
 import { parseBlocks, type ContentBlock } from '../content/blocks.js';
 import { prisma } from '../db/prisma.js';
-import { keywordMatcher, queryTerms } from '../text/keywords.js';
+import { queryTerms, termMatcher, tokenize } from '../text/keywords.js';
 import type { ToolContext, ToolDefinition, ToolResult } from './types.js';
 
 // Read-only tools over the articles Samix has collected (spec §5). Output is
@@ -72,7 +72,7 @@ const searchArticles: ToolDefinition<z.infer<typeof searchInput>> = {
   spec: {
     name: 'search_articles',
     description:
-      'Keyword search over the articles Samix has collected (titles, summaries, topics and cached full texts). Whole words, case-insensitive. Returns short summaries with an articleId; use get_article for details. If nothing matches, try other words.',
+      'Keyword search over the articles Samix has collected (titles, summaries, topics and cached full texts). Case-insensitive. Words of 4+ letters also match other word forms and compounds ("Chip" finds "Chips", "Chiphersteller"; "Modelle" finds "Modell"); short words like "KI" match exactly. Returns short summaries with an articleId; use get_article for details. If nothing matches, try other words.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -89,7 +89,7 @@ const searchArticles: ToolDefinition<z.infer<typeof searchInput>> = {
   async run(input, ctx) {
     const terms = queryTerms(input.query);
     if (terms.length === 0) return fail('the query contains no searchable words');
-    const matchers = terms.map((t) => keywordMatcher([t]));
+    const matchers = terms.map((t) => termMatcher(t));
     const since = input.since ? new Date(input.since) : undefined;
 
     const rows = await prisma.article.findMany({
@@ -108,14 +108,18 @@ const searchArticles: ToolDefinition<z.infer<typeof searchInput>> = {
     const scored = rows
       .map((a) => {
         const body = a.content?.status === 'ok' ? plainText(parseBlocks(a.content.blocks)) : '';
+        const title = tokenize(a.title);
+        const topic = a.topic ? tokenize(a.topic) : null;
+        const summary = tokenize(a.summary);
+        const bodyTokens = body ? tokenize(body) : null;
         let score = 0;
         let matched = 0;
         const hitTerms: string[] = [];
         matchers.forEach((m, i) => {
-          const inTitle = m(a.title);
-          const inTopic = a.topic ? m(a.topic) : false;
-          const inSummary = m(a.summary);
-          const inBody = body ? m(body) : false;
+          const inTitle = m(title);
+          const inTopic = topic ? m(topic) : false;
+          const inSummary = m(summary);
+          const inBody = bodyTokens ? m(bodyTokens) : false;
           const s = (inTitle ? 3 : 0) + (inTopic ? 2 : 0) + (inSummary ? 2 : 0) + (inBody ? 1 : 0);
           if (s > 0) {
             score += s;
