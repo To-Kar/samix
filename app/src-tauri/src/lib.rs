@@ -103,6 +103,8 @@ async fn restart_core(app: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // Folder picker for releasing a project (Einrichtung → Projektordner).
+        .plugin(tauri_plugin_dialog::init())
         // Launched at login with --hidden: start in the menu bar, window closed.
         .plugin(tauri_plugin_autostart::Builder::new().args(["--hidden"]).build())
         .setup(|app| {

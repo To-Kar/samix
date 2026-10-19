@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, Project } from '../lib/api';
+import { folderName, inTauri, pickFolder } from '../lib/native';
 
 // Folders released for the read-only project assistant. Releasing is an
 // explicit act: nothing is readable until the box is ticked, and un-ticking or
@@ -42,6 +43,18 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
       setPath('');
       setAllow(false);
     });
+
+  const choose = async () => {
+    setError(null);
+    try {
+      const picked = await pickFolder();
+      if (!picked) return;
+      setPath(picked);
+      setName((n) => n.trim() || folderName(picked));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const input = 'border border-rule dark:border-rule-dark bg-transparent px-2 py-1';
 
@@ -93,6 +106,11 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
             value={path}
             onChange={(e) => setPath(e.target.value)}
           />
+          {inTauri() ? (
+            <button type="button" className="uppercase tracking-wider hover:underline" onClick={() => void choose()}>
+              Ordner wählen …
+            </button>
+          ) : null}
         </div>
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={allow} onChange={(e) => setAllow(e.target.checked)} />
