@@ -1,15 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { Settings } from './components/Settings';
 import { Newspaper } from './components/Newspaper';
 import { Sources } from './components/Sources';
+import { Reader } from './components/Reader';
+
+type View =
+  | { kind: 'paper' }
+  | { kind: 'settings' }
+  | { kind: 'sources' }
+  | { kind: 'reader'; id: string; order: string[] };
 
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showSources, setShowSources] = useState(false);
+  const [view, setView] = useState<View>({ kind: 'paper' });
+  // Bumped whenever the front page becomes visible again, so it reloads
+  // (e.g. a lead story's text was fetched while reading).
+  const [paperToken, setPaperToken] = useState(0);
+
+  // The window has one scroll position shared by all views: remember where the
+  // front page was when an article is opened, and go back there.
+  const paperScroll = useRef(0);
+
+  const fromReader = view.kind === 'reader';
+  const goPaper = useCallback(() => {
+    setView({ kind: 'paper' });
+    setPaperToken((t) => t + 1);
+    if (fromReader) requestAnimationFrame(() => window.scrollTo({ top: paperScroll.current }));
+  }, [fromReader]);
 
   useEffect(() => {
     initApi()
@@ -21,7 +41,7 @@ export default function App() {
 
   if (initError) {
     return (
-      <main className="min-h-full bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 p-8">
+      <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark p-8">
         <h1 className="text-2xl font-semibold mb-2">Samix</h1>
         <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 p-4 text-red-800 dark:text-red-200 text-sm">
           <div className="font-medium mb-1">Core config unavailable</div>
@@ -38,59 +58,73 @@ export default function App() {
 
   if (!api) {
     return (
-      <main className="min-h-full flex items-center justify-center text-sm text-neutral-500">
+      <main className="min-h-full flex items-center justify-center text-sm text-ink-soft dark:text-ink-soft-dark bg-paper dark:bg-paper-dark">
         Connecting…
       </main>
     );
   }
 
+  const topBtn = 'px-2 py-1 text-xs uppercase tracking-wider hover:underline';
+
   return (
-    <main className="min-h-full bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col">
+    <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark flex flex-col">
       <ConnectionBanner api={api} />
-      <div className="max-w-3xl w-full mx-auto px-6 py-8 flex flex-col gap-6">
-        <header className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold">Samix</h1>
-            <p className="text-sm text-neutral-500">Today's news, curated locally.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setShowSources((v) => !v);
-                setShowSettings(false);
-              }}
-              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              {showSources ? 'Close sources' : 'Sources'}
-            </button>
-            <button
-              onClick={() => {
-                setShowSettings((v) => !v);
-                setShowSources(false);
-              }}
-              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              {showSettings ? 'Close settings' : 'Settings'}
-            </button>
-          </div>
-        </header>
-        {showSettings ? (
-          <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
-              Secrets
+      <div className="max-w-6xl w-full mx-auto px-6 pt-3 pb-12 flex flex-col gap-4">
+        <div className="flex justify-end gap-1">
+          <button
+            className={topBtn}
+            onClick={() => (view.kind === 'sources' ? goPaper() : setView({ kind: 'sources' }))}
+          >
+            {view.kind === 'sources' ? 'Sources schließen' : 'Sources'}
+          </button>
+          <button
+            className={topBtn}
+            onClick={() => (view.kind === 'settings' ? goPaper() : setView({ kind: 'settings' }))}
+          >
+            {view.kind === 'settings' ? 'Einstellungen schließen' : 'Einstellungen'}
+          </button>
+        </div>
+
+        {view.kind === 'settings' ? (
+          <section className="max-w-3xl">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
+              Einstellungen
             </h2>
             <Settings />
           </section>
-        ) : showSources ? (
-          <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
+        ) : null}
+
+        {view.kind === 'sources' ? (
+          <section className="max-w-3xl">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
               Sources
             </h2>
             <Sources api={api} />
           </section>
-        ) : (
-          <Newspaper api={api} />
-        )}
+        ) : null}
+
+        {view.kind === 'reader' ? (
+          <Reader
+            api={api}
+            articleId={view.id}
+            order={view.order}
+            onClose={goPaper}
+            onNavigate={(id) => setView({ kind: 'reader', id, order: view.order })}
+          />
+        ) : null}
+
+        {/* Stays mounted while another view is open, so the loaded edition
+            survives a visit to the reader. */}
+        <div hidden={view.kind !== 'paper'}>
+          <Newspaper
+            api={api}
+            refreshToken={paperToken}
+            onOpen={(id, order) => {
+              paperScroll.current = window.scrollY;
+              setView({ kind: 'reader', id, order });
+            }}
+          />
+        </div>
       </div>
     </main>
   );

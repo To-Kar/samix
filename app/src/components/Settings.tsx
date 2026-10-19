@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LEAD_PARAGRAPH_OPTIONS, getLeadParagraphs, setLeadParagraphs } from '../lib/prefs';
 import {
   SECRET_ACCOUNTS,
   type SecretAccount,
@@ -71,7 +72,37 @@ export function Settings() {
           </div>
         </section>
       ))}
+      <LeadLength />
     </div>
+  );
+}
+
+function LeadLength() {
+  const [value, setValue] = useState(getLeadParagraphs);
+  return (
+    <section className="flex flex-col gap-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Newspaper</h3>
+      <label className="flex items-center gap-3 text-xs">
+        <span className="font-medium text-neutral-700 dark:text-neutral-300">
+          Lead story excerpt (paragraphs)
+        </span>
+        <select
+          value={value}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            setValue(n);
+            setLeadParagraphs(n);
+          }}
+          className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+        >
+          {LEAD_PARAGRAPH_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
   );
 }
 

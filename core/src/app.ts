@@ -497,10 +497,10 @@ type ArticleWithContent = Awaited<
   ReturnType<typeof prisma.article.findMany<{ include: { content: true } }>>
 >[number];
 
-// Listing shape: metadata plus, for lead stories whose text is already
-// cached, an excerpt for the front page.
+// Listing shape: metadata plus, for articles whose text is already cached, an
+// excerpt. Which article is printed as the lead is the UI's layout decision;
+// the lead stories are the ones the core pre-loads after a run.
 function articleSummary(a: ArticleWithContent, leadParagraphs: number) {
-  const isLead = (a.importance ?? 3) >= 4;
   const contentOk = a.content?.status === 'ok';
   return {
     id: a.id,
@@ -521,7 +521,7 @@ function articleSummary(a: ArticleWithContent, leadParagraphs: number) {
         }
       : null,
     excerpt:
-      isLead && contentOk && leadParagraphs > 0
+      contentOk && leadParagraphs > 0
         ? leadExcerpt(parseBlocks(a.content!.blocks), leadParagraphs)
         : null,
   };

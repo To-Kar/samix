@@ -100,7 +100,7 @@ describe('editions', () => {
     expect((await app.inject({ url: '/articles/nope', headers: AUTH })).statusCode).toBe(404);
   });
 
-  it('adds an excerpt only for lead stories whose text is cached', async () => {
+  it('adds an excerpt for articles whose text is cached (and only those)', async () => {
     const lead = await prisma.article.findFirstOrThrow({ where: { title: 'lead' } });
     const blocks = [
       { type: 'paragraph', text: 'One.' },

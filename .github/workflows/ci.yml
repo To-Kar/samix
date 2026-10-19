@@ -24,6 +24,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter samix-core typecheck
       - run: pnpm --filter samix-core test
+      - run: pnpm --filter samix-app test
       - run: pnpm --filter samix-app build
 
   tauri:

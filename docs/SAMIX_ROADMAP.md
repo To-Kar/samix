@@ -236,6 +236,32 @@ Ausgaben wachsen unbegrenzt (Report-Empfehlung). Konfigurierbare Aufbewahrung (D
 8. Quelle `website` mit nur einer URL liefert die neuesten Artikel mit Datum; mit Filter nur passende. Getestet an mindestens drei verschiedenen Nachrichtenseiten (eine davon chip.de), ohne seitenspezifischen Code.
 9. Vorschau im Quellen-Editor zeigt Treffer und Methode vor dem Speichern.
 
+### Status 2a (2026-10-19)
+
+Umgesetzt, mit Tests: Wichtigkeit (1–5, im Modell-Output, mit Begründung), Ausgaben-API, Volltext-Extraktor mit lokal gecachten Bildern, abgesicherter Abruf (SSRF-Schutz), Webseiten-Quelle (Feed → Sitemap → Seitenlinks, Stichwortfilter, `robots.txt`), Vorschau im Quellen-Editor, Zeitungs-Titelseite, Reader, Aufbewahrungsfrist für Volltexte, DeepSeek-Adapter.
+
+Exit-Kriterien:
+
+| # | Kriterium | Stand |
+|---|---|---|
+| 1 | Titelseite: 1–2 Aufmacher mit Anriss, Artikel-Blöcke, „Kurz notiert“ | ✅ im Browser (Chromium) mit echtem Core und Demodaten geprüft; **nicht** mit einem echten Lauf |
+| 2 | Klick öffnet den Reader in der App, Volltext vollständig | ✅ Extraktion gegen eine Fixture getestet; **nicht** gegen echte Seiten (kein Netz in der Entwicklungsumgebung) |
+| 3 | Nicht extrahierbar → ehrlicher Hinweis + Browser-Link | ✅ |
+| 4 | Kein fremdes HTML wird als HTML gerendert | ✅ Blöcke, nur Text; per Test |
+| 5 | WebView macht keine Anfragen an fremde Domains | ⚠️ Abweichung: `blob:` wurde in `img-src` ergänzt (Bilder laufen über den Core und werden per `fetch` + Token geladen). Im Tauri-Fenster **nicht** geprüft |
+| 6 | Layout bei 800 px und Vollbild, hell und dunkel, macOS und Windows | ⚠️ in Chromium geprüft; **nicht** in WKWebView (macOS) und WebView2 (Windows) |
+| 7 | Bilder im Reader vom lokalen Core | ✅ |
+| 8 | Webseiten-Quelle an ≥ 3 Seiten getestet, davon chip.de | ❌ **nicht verifiziert**: die Entwicklungsumgebung hat kein Netz. Getestet nur mit Fixtures für alle drei Strategien |
+| 9 | Vorschau im Quellen-Editor | ✅ |
+
+**Bewusst nicht umgesetzt / offen:**
+- Filter `semantic` (Modell entscheidet) ist nicht implementiert; ein Manifest damit wird mit klarer Fehlermeldung abgelehnt. Nach Phase 2c verschoben.
+- Die zuletzt erfolgreiche Methode pro Seite wird nur im Speicher gemerkt, nicht dauerhaft.
+- Reine JavaScript-Seiten funktionieren nicht (kein Browser-Rendering); die Vorschau sagt das.
+- Inline-Formatierung und Links im Artikeltext werden zu Klartext vereinfacht.
+- Die Sprache der Oberfläche ist uneinheitlich: Zeitung und Reader sind deutsch, Quellen und Einstellungen englisch. Die Zusammenfassungen sind so englisch oder deutsch wie der Prompt in `SKILL.md` (aktuell Englisch).
+- Der Aufmacher-Anriss ist in den Einstellungen einstellbar (Absätze); gespeichert nur im Browser-Speicher der App.
+
 ### Rechtlicher Hinweis
 
 [Unverified — keine Rechtsberatung] Volltexte lokal für den eigenen Gebrauch zu speichern entspricht dem, was Read-Later-Apps tun. Für die Veröffentlichung in Phase 5 muss geprüft werden, ob das so bleiben kann (Urheberrecht, Nutzungsbedingungen der Quellen).

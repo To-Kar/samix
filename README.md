@@ -22,9 +22,13 @@ Architecture decisions are recorded as ADRs in [`docs/decisions/`](docs/decision
 - **Source traceability.** Every fetched item is persisted as a `SourceSnapshot` row keyed to the run.
 - **Secrets in the OS keychain.** API keys never touch the filesystem; the Tauri shell injects them into the core process at spawn time.
 
+- **A newspaper, not a feed.** Each run is an edition: a lead story with the opening of the original text, article blocks, and short notices, ordered by the model's importance rating (with its stated reason). Click an article to read the full original text inside the app, with images. If the text can't be fetched (paywall, JavaScript-only page, blocked) the reader says so and offers the browser.
+- **Websites as sources.** Enter `chip.de`, optionally with keywords: Samix finds the newest articles via the site's feed, its sitemap, or its headline links, without site-specific code. A preview in the Sources page shows what would be fetched.
+- **Safe fetching.** Links in feeds are third-party input. Every fetch (pages, images, feeds) refuses loopback, private and link-local addresses, checks each redirect, and caps size. Page text becomes structured blocks, never raw HTML; images are downloaded by the core and shown from the local cache.
+
 ## Not built yet
 
-No email or messenger delivery (dropped deliberately, see the Phase 1 report). No release installer or tray icon. Windows auto-spawn is written but untested, and CI has not run yet on a real runner. Core logic has automated tests (`pnpm --filter samix-core test`); UI and the Tauri shell are verified manually. See `docs/SAMIX_ROADMAP.md` for the plan.
+No email or messenger delivery (dropped deliberately, see the Phase 1 report). No release installer or tray icon. Windows auto-spawn is written but untested, and CI has not run yet on a real runner. The website source and full-text extraction are tested against fixtures only, not yet against live sites; the UI is verified in Chromium, not yet in the Tauri WebViews. The `semantic` keyword filter is not implemented. Core logic has automated tests (`pnpm --filter samix-core test`); UI and the Tauri shell are verified manually. See `docs/SAMIX_ROADMAP.md` for the plan.
 
 ---
 
@@ -65,7 +69,7 @@ pnpm dev:app
 
 **First run:**
 
-1. Open **Settings**, enter an Anthropic API key (Perplexity optional), save.
+1. Open **Settings**, enter an API key for the model you use (Anthropic, or DeepSeek; Perplexity optional), save. To use DeepSeek, set `model.primary: deepseek-chat` in `agents/newsletter-ai/manifest.yaml`; check its price and model name first (see `core/src/adapters/deepseek.ts`).
 2. Restart the app so the keys reach the core process at spawn time.
 3. Hit **Run** on `newsletter-ai`. Articles appear in the newspaper view.
 

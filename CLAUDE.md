@@ -14,7 +14,8 @@ The repo ships in named phases. Each phase has a spec + a Claude Code handoff do
 
 - **Phase 0 — merged.** Pipeline validation with a `static` adapter returning a literal string. Proved skill-loader → runner → DB → HTTP → UI works end-to-end. See `docs/SAMIX_PHASE_0_SPEC.md` and `docs/SAMIX_PHASE_0_REPORT.md`.
 - **Phase 1 — in progress.** First real proactive agent (`newsletter-ai`): real Claude Haiku calls, RSS + Arxiv sources (Perplexity adapter+fetcher are wired but dormant — manifest edit away), JSON-schema output validation that creates `Article` rows, OS-keychain secrets, live cron scheduler. Spec: `docs/SAMIX_PHASE_1_SPEC.md`. Playbook: `docs/SAMIX_PHASE_1_CLAUDE_CODE_HANDOFF.md`. **Pivot:** SMTP + Telegram delivery channels were dropped from Phase 1 — the in-app Newspaper UI is the delivery surface. The original spec/handoff still describe delivery channels; treat those sections as superseded.
-- Do not pull Phase 2+ features forward (tray icon, autostart, OpenAI adapter, voting, orchestrator, coding agents, mobile) — the out-of-scope lists in the phase specs are load-bearing.
+- **Phase 1.5 / 2a — done** (see `docs/SAMIX_ROADMAP.md`, which supersedes the phase specs' out-of-scope lists where it differs): stabilisation, newspaper UI + reader, full-text extraction, website sources, DeepSeek adapter. Next: 2b (bundled desktop app, macOS Apple Silicon + Windows).
+- Do not pull later-phase features forward (tray icon, autostart, voting, orchestrator, coding agents, mobile, semantic filter) without checking the roadmap first.
 
 ## Dev platform note
 
@@ -45,7 +46,7 @@ The Tauri shell spawns the core itself (`app/src-tauri/src/spawn.rs`) with a fre
 
 ### Testing
 
-`pnpm --filter samix-core test` (vitest). Each test file gets its own migrated temp SQLite DB (`core/test/setup.ts`); providers and fetchers are replaced with fakes via `registerAdapter` / `registerFetcher`. Covered: budget gates, fallback chain, traceability, no-source gate, schema → `partial`, per-agent lock, interrupted-run recovery, catch-up, migrator. Not covered: HTTP routes, the Tauri shell, the UI. Anything claimed as a passing acceptance criterion should have a test or a documented manual check.
+`pnpm --filter samix-core test` (vitest). Each test file gets its own migrated temp SQLite DB (`core/test/setup.ts`); providers and fetchers are replaced with fakes via `registerAdapter` / `registerFetcher`. Covered: budget gates, fallback chain, traceability, no-source gate, schema → `partial`, per-agent lock, interrupted-run recovery, catch-up, migrator, HTTP routes (`fastify.inject`), safe fetching, extraction, media, website discovery, DeepSeek adapter. Network is replaced by `test/net.ts` (`useFakeNet`). The app has `pnpm --filter samix-app test` for layout logic only. Not covered: the Tauri shell and the React components (checked by hand in Chromium: run the core, then `VITE_SAMIX_PORT=… VITE_SAMIX_TOKEN=… pnpm --filter samix-app exec vite`). Anything claimed as a passing acceptance criterion should have a test or a documented manual check.
 
 ## Architecture
 
@@ -79,6 +80,9 @@ Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `
 - **Cost is computed locally from token counts + adapter pricing table**, not trusted from the provider response. If you add an adapter, set `pricing` accurately or the `BudgetLedger` will lie.
 - **Articles must be traceable (`src/output/traceability.ts`).** A schema-valid article is only stored if its URL matches an item fetched in *this* run; URL, source name and date are taken from that item, never from the model. Too few survivors (< `output.min_items`) → run is `partial`. Do not move this check into the prompt.
 - **No sources, no model call.** A skill that declares `sources` but fetched zero items fails with `no_source_items` before any adapter call.
+- **Every fetch of a third-party URL goes through `net/safeFetch.ts`** (feeds, pages, images, sitemaps). It refuses non-public addresses on every redirect hop and caps size. Never call `fetch` on a URL that came from a feed or a page.
+- **No HTML from the web reaches the UI.** Pages are reduced to blocks (`content/blocks.ts`); the UI renders them as React text. Images are stored by the core (type sniffed from bytes, SVG refused) and served via `GET /media/:id`, which needs the token, so the UI loads them with `fetch` and shows `blob:` URLs.
+- **Editions:** one successful run that produced articles = one edition. Which article is the lead is the UI's layout decision (`app/src/lib/layout.ts`); the core pre-loads the full text of the two most important ones after a run (`runner/hooks.ts`, registered only by `server.ts`).
 - **One run per agent at a time** (in-process lock in `runner.ts`); a second trigger is recorded as `failed: already_running`. Runs left `running` by a dead process are marked `failed: interrupted` at startup.
 - **The budget gate is pre-call.** In Phase 1 it becomes the only thing between a buggy skill and a real bill — the check must stay *before* `adapter.generate`.
 
@@ -89,6 +93,8 @@ Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `
 | `SAMIX_TOKEN` | Shared secret between Rust shell and core. **Required** on both processes. |
 | `SAMIX_PORT` | Loopback port. `0` = let OS pick; in dev we use a fixed port so the Tauri shell can reuse it. |
 | `DATABASE_URL` | SQLite `file:` URL. Optional: defaults in code to `core/data/samix-dev.db` (absolute). Relative paths resolve against `core/prisma/`, so prefer absolute. |
+| `DEEPSEEK_API_KEY` | Keychain account / env var for the DeepSeek adapter. Price, model and URL are overridable via `SAMIX_DEEPSEEK_PRICE_IN/OUT`, `SAMIX_DEEPSEEK_MODEL`, `SAMIX_DEEPSEEK_URL`; defaults are marked unverified in `adapters/deepseek.ts`. |
+| `SAMIX_CONTENT_RETENTION_DAYS` / `SAMIX_MEDIA_DIR` | Cached full texts and images expire after this many days (default 90); media dir defaults to `media/` next to the database. |
 | `SAMIX_PARENT_PID` | Set by the Tauri shell. The core exits when this process is gone. |
 | `SAMIX_OLLAMA_URL` / `SAMIX_OLLAMA_MODEL` | Ollama endpoint and model tag. Defaults `http://127.0.0.1:11434` / `llama3`. |
 | `SAMIX_LOG_LEVEL` | Pino level (`debug` / `info` / `warn` / `error`). Default `info`. |
