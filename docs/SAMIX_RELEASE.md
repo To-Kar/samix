@@ -51,7 +51,7 @@ Warum noch nicht: Ein falsch konfigurierter Updater (falscher öffentlicher Schl
 ## 5. Vor einer öffentlichen Weitergabe zu klären (Entscheidungen für dich)
 
 - **Lizenz:** Es gibt keine `LICENSE`-Datei. Ohne Lizenz dürfen andere den Code nicht nutzen oder weitergeben. Welche (oder keine, wenn Samix privat bleibt) das sein soll, entscheidest du; ich wähle keine. Die Lizenzen aller Abhängigkeiten (npm, Rust, Schriften, Icons) sind **nicht geprüft**.
-- **Datenschutz / Datenfluss:** Die App schickt Fragen, Artikelauszüge, freigegebene Dateiausschnitte und Notizen (nur wo erlaubt) an die gewählten Modellanbieter, und Suchbegriffe an Perplexity (Websuche). Ein Text dazu für Endnutzer fehlt; die Oberfläche nennt den Datenfluss an den jeweiligen Stellen.
+- **Datenschutz / Datenfluss:** Die App schickt Fragen, Artikelauszüge, freigegebene Dateiausschnitte und Notizen (nur wo erlaubt) an die gewählten Modellanbieter, und Suchbegriffe an Perplexity (Websuche). Ein Entwurf für Endnutzer steht in `docs/SAMIX_PRIVACY.md` (rechtlich ungeprüft); die Oberfläche nennt den Datenfluss zusätzlich an den jeweiligen Stellen.
 - **Quellen / Urheberrecht:** Samix speichert Volltexte lokal (Cache, Standard 90 Tage) und zeigt Zusammenfassungen. Die rechtliche Einordnung steht als offene Frage im Roadmap-Abschnitt „Rechtlicher Hinweis"; sie ist nicht geklärt.
 - **Kosten:** Nutzer tragen ihre API-Kosten selbst. Preise sind in der App einstellbar, aber die eingebauten ungeprüft; das gehört vor einer Weitergabe geprüft.
 - **Zweck „Frag dein Projekt":** Er liest Dateien nach ausdrücklicher Freigabe. Der Ausschluss sensibler Dateien ist eine Heuristik (siehe Roadmap), keine Garantie; das muss Nutzern gesagt werden.
