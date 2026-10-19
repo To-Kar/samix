@@ -1,0 +1,4 @@
+# One line ending everywhere. Without this, Git on Windows checks text files
+# out with CRLF, and vitest then fails to parse scripts with a `#!` line
+# (scripts/version.mjs via core/test/version.test.ts).
+* text=auto eol=lf

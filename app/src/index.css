@@ -2,20 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light dark;
-}
+/* Theme variables are written onto <html> by src/theme/apply.ts. */
 
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+}
+
+body {
+  @apply bg-paper text-ink font-ui;
+}
+
+::selection {
+  @apply bg-mark text-ink;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--focus));
+  outline-offset: 2px;
+}
+
+/* Theme or mode switches happen instantly; nothing animates while reading. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* Controls of the appearance panel: borders in `line` (≥ 3:1), text in `ink`. */
+  .samix-button {
+    @apply rounded-theme border border-line bg-paper-raised px-3 py-1 text-sm text-ink hover:bg-mark disabled:opacity-40 aria-pressed:outline aria-pressed:outline-2 aria-pressed:-outline-offset-2 aria-pressed:outline-accent;
+  }
+  .samix-input {
+    @apply w-full rounded-theme border border-line bg-paper-raised px-2 py-1.5 text-sm text-ink placeholder:text-ink-soft disabled:opacity-50;
+  }
+  .samix-label {
+    @apply text-sm font-semibold uppercase tracking-wide text-ink-soft;
+  }
+  .samix-hint {
+    @apply text-sm text-ink-soft;
+  }
+  /* Banners: colour plus a word ("Fehler:", "Warnung:", "Hinweis:"). */
+  .samix-error {
+    @apply rounded-theme border border-danger bg-danger-paper px-3 py-2 text-sm text-danger;
+  }
+  .samix-warning {
+    @apply rounded-theme border border-warning bg-warning-paper px-3 py-2 text-sm text-warning;
+  }
+  .samix-note {
+    @apply rounded-theme border border-line bg-paper-raised px-3 py-2 text-sm text-ink;
+  }
+
+  /* Long-form text: body face, size, leading and measure from the theme. */
+  .samix-prose {
+    font-family: var(--font-body);
+    font-size: var(--body-size);
+    line-height: var(--body-leading);
+    max-width: var(--measure);
+  }
+  [data-hyphens='true'] .samix-prose {
+    hyphens: auto;
+  }
+  [data-paragraph='space'] .samix-prose > p + p {
+    margin-top: 0.75em;
+  }
+  [data-paragraph='indent'] .samix-prose > p + p {
+    text-indent: 1.5em;
+  }
+  /* Justified text only where lines are long enough not to tear, and only
+     when the engine really hyphenates the language (theme/hyphenation.ts). */
+  @media (min-width: 40rem) {
+    [data-justify='true'][data-hyphenation='true'] .samix-prose > p {
+      text-align: justify;
+    }
+  }
+
+  .samix-headline {
+    font-family: var(--font-head);
+    font-weight: var(--head-weight);
+    text-wrap: balance;
+  }
+
+  /* Pictures take the theme's treatment (greyscale newsprint, sepia book …). */
+  [data-image-treatment='grayscale'] .samix-photo {
+    filter: grayscale(1) contrast(1.05);
+  }
+  [data-image-treatment='sepia'] .samix-photo {
+    filter: sepia(0.4) saturate(0.8);
+  }
+  [data-image-treatment='muted'] .samix-photo {
+    filter: saturate(0.45);
+  }
+  [data-image-treatment='dimmed'] .samix-photo {
+    filter: brightness(0.72) saturate(0.8);
+  }
 }

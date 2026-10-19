@@ -7,6 +7,7 @@ import { Agents } from './components/Agents';
 import { Reader } from './components/Reader';
 import { Ask } from './components/Ask';
 import { ModelHint } from './components/ModelHint';
+import { useI18n } from './i18n/I18nProvider';
 
 type View =
   | { kind: 'paper' }
@@ -20,6 +21,7 @@ export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [view, setView] = useState<View>({ kind: 'paper' });
+  const { t } = useI18n();
   // Bumped whenever the front page becomes visible again, so it reloads
   // (e.g. a lead story's text was fetched while reading).
   const [paperToken, setPaperToken] = useState(0);
@@ -51,16 +53,14 @@ export default function App() {
 
   if (initError) {
     return (
-      <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark p-8">
+      <main className="min-h-full bg-paper text-ink p-8">
         <h1 className="text-2xl font-semibold mb-2">Samix</h1>
-        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 p-4 text-red-800 dark:text-red-200 text-sm">
-          <div className="font-medium mb-1">Core config unavailable</div>
-          <div className="font-mono text-xs">{initError}</div>
-          <div className="mt-2 text-xs">
-            Make sure <code>pnpm dev:core</code> is running and that{' '}
-            <code>SAMIX_PORT</code> + <code>SAMIX_TOKEN</code> were passed to the
-            Tauri process.
+        <div className="rounded-lg border border-danger bg-danger-paper p-4 text-danger text-sm">
+          <div className="font-medium mb-1">
+            {t.status.error} {t.app.coreConfigUnavailable}
           </div>
+          <div className="font-mono text-xs">{initError}</div>
+          <div className="mt-2 text-xs">{t.app.coreConfigHint('pnpm dev:core', 'SAMIX_PORT + SAMIX_TOKEN')}</div>
         </div>
       </main>
     );
@@ -68,8 +68,8 @@ export default function App() {
 
   if (!api) {
     return (
-      <main className="min-h-full flex items-center justify-center text-sm text-ink-soft dark:text-ink-soft-dark bg-paper dark:bg-paper-dark">
-        Connecting…
+      <main className="min-h-full flex items-center justify-center text-sm text-ink-soft bg-paper">
+        {t.app.connecting}
       </main>
     );
   }
@@ -77,35 +77,35 @@ export default function App() {
   const topBtn = 'px-2 py-1 text-xs uppercase tracking-wider hover:underline';
 
   return (
-    <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark flex flex-col">
+    <main className="min-h-full bg-paper text-ink flex flex-col">
       <ConnectionBanner api={api} />
       <div className="max-w-6xl w-full mx-auto px-6 pt-3 pb-12 flex flex-col gap-4">
         <ModelHint api={api} refreshKey={view.kind} />
-        <div className="flex justify-end gap-1">
+        <nav className="flex justify-end gap-1" aria-label={t.app.navLabel}>
           <button
             className={topBtn}
             onClick={() => (view.kind === 'ask' ? goPaper() : setView({ kind: 'ask' }))}
           >
-            {view.kind === 'ask' ? 'Fragen schließen' : 'Fragen'}
+            {view.kind === 'ask' ? t.app.askClose : t.app.ask}
           </button>
           <button
             className={topBtn}
             onClick={() => (view.kind === 'agents' ? goPaper() : setView({ kind: 'agents' }))}
           >
-            {view.kind === 'agents' ? 'Ressorts schließen' : 'Ressorts'}
+            {view.kind === 'agents' ? t.app.ressortsClose : t.app.ressorts}
           </button>
           <button
             className={topBtn}
             onClick={() => (view.kind === 'settings' ? goPaper() : setView({ kind: 'settings' }))}
           >
-            {view.kind === 'settings' ? 'Einrichtung schließen' : 'Einrichtung'}
+            {view.kind === 'settings' ? t.app.setupClose : t.app.setup}
           </button>
-        </div>
+        </nav>
 
         {view.kind === 'settings' ? (
           <section className="max-w-3xl">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
-              Einrichtung
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft mb-3">
+              {t.app.setup}
             </h2>
             <Settings api={api} />
           </section>
@@ -113,8 +113,8 @@ export default function App() {
 
         {view.kind === 'agents' ? (
           <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
-              Ressorts
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft mb-3">
+              {t.app.ressorts}
             </h2>
             <Agents api={api} onChanged={() => setPaperToken((t) => t + 1)} />
           </section>

@@ -1,6 +1,8 @@
 // Turns the few schedules people actually want into cron expressions and
 // back, so the UI doesn't make anyone write cron. Anything else stays "custom".
 
+import type { Messages } from '../i18n/messages';
+
 export type Recurrence =
   | { kind: 'daily'; hour: number; minute: number }
   | { kind: 'weekly'; weekday: number; hour: number; minute: number }
@@ -33,19 +35,16 @@ export function buildCron(r: Recurrence): string {
   }
 }
 
-export const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-const WEEKDAYS_ADVERB = ['sonntags', 'montags', 'dienstags', 'mittwochs', 'donnerstags', 'freitags', 'samstags'];
-
 const two = (n: number) => String(n).padStart(2, '0');
 
-export function describeCron(cron: string): string {
+export function describeCron(t: Messages, cron: string): string {
   const r = parseCron(cron);
   switch (r.kind) {
     case 'daily':
-      return `täglich um ${two(r.hour)}:${two(r.minute)}`;
+      return t.schedule.daily(`${two(r.hour)}:${two(r.minute)}`);
     case 'weekly':
-      return `${WEEKDAYS_ADVERB[r.weekday]} um ${two(r.hour)}:${two(r.minute)}`;
+      return t.schedule.weekly(r.weekday, `${two(r.hour)}:${two(r.minute)}`);
     case 'custom':
-      return `Cron: ${r.cron}`;
+      return t.schedule.custom(r.cron);
   }
 }

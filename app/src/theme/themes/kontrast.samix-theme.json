@@ -1,0 +1,91 @@
+{
+  "format": "samix-theme/1",
+  "id": "kontrast",
+  "name": "Kontrast",
+  "version": 1,
+  "author": "Samix",
+  "stance": "Maximale Unterscheidbarkeit: Schwarz auf Weiß, kräftige Linien, unterstrichene Links, nichts nur über Farbe.",
+  "l10n": {
+    "en": {
+      "name": "Contrast",
+      "stance": "Maximum distinction: black on white, strong rules, underlined links, nothing by colour alone."
+    }
+  },
+  "contrast": "AAA",
+  "modes": {
+    "light": {
+      "paper": "#ffffff",
+      "paper-raised": "#ffffff",
+      "ink": "#000000",
+      "ink-soft": "#2e2e2e",
+      "rule": "#000000",
+      "line": "#000000",
+      "accent": "#0a3a9e",
+      "on-accent": "#ffffff",
+      "mark": "#ffe14d",
+      "focus": "#0a3a9e",
+      "danger": "#8b0000",
+      "danger-paper": "#ffffff",
+      "warning": "#5a3c00",
+      "warning-paper": "#ffffff"
+    },
+    "dark": {
+      "paper": "#000000",
+      "paper-raised": "#000000",
+      "ink": "#ffffff",
+      "ink-soft": "#e2e2e2",
+      "rule": "#ffffff",
+      "line": "#ffffff",
+      "accent": "#9ad7ff",
+      "on-accent": "#000000",
+      "mark": "#1f4fa8",
+      "focus": "#ffe14d",
+      "danger": "#ffaaaa",
+      "danger-paper": "#000000",
+      "warning": "#ffe14d",
+      "warning-paper": "#000000"
+    }
+  },
+  "type": {
+    "headline": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 700,
+      "style": "normal"
+    },
+    "body": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 400
+    },
+    "ui": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 400
+    },
+    "serif": {
+      "family": "Source Serif 4"
+    },
+    "size": 20,
+    "leading": 1.6,
+    "measure": 60,
+    "headlineCase": "normal",
+    "kicker": "uppercase"
+  },
+  "shape": {
+    "radius": 0,
+    "rule": "solid",
+    "ruleWidth": 2,
+    "columnRules": true,
+    "mastheadRule": "thick"
+  },
+  "layout": {
+    "density": "normal",
+    "columns": 2,
+    "paragraph": "space",
+    "justify": false,
+    "hyphens": false
+  },
+  "images": {
+    "show": "always",
+    "treatment": "none",
+    "captionsAlways": true
+  }
+}

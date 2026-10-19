@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { AgentSummary, ApiClient } from '../lib/api';
 import { describeCron } from '../lib/cron';
-import { RUN_STATUS } from '../lib/explain';
-import { formatDateTime, formatUsd } from '../lib/format';
+import { runStatus } from '../lib/explain';
+import { useFormat, useI18n } from '../i18n/I18nProvider';
 import { AgentModel } from './AgentModel';
 import { NewAgentForm } from './NewAgentForm';
 import { ProfilePanel } from './ProfilePanel';
@@ -20,7 +20,7 @@ interface Props {
 }
 
 const btn =
-  'rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40';
+  'rounded border border-line px-3 py-1 text-xs hover:bg-ink/5 disabled:opacity-40';
 
 export function Agents({ api, onChanged }: Props) {
   const [agents, setAgents] = useState<AgentSummary[] | null>(null);
@@ -28,6 +28,9 @@ export function Agents({ api, onChanged }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [version, setVersion] = useState(0);
+  const { t } = useI18n();
+  const f = useFormat();
+  const a_ = t.agents;
 
   const refresh = useCallback(async () => {
     try {
@@ -76,36 +79,40 @@ export function Agents({ api, onChanged }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-neutral-500">
-          Jedes Ressort hat eigene Quellen, einen eigenen Zeitplan und sein eigenes Tageslimit.
+        <p className="text-xs text-ink-soft">
+          {a_.intro}
         </p>
         <button className={btn} onClick={() => setCreating(true)}>
-          + Neues Ressort
+          {a_.create}
         </button>
       </div>
 
-      {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}
-      {!agents ? <p className="text-sm text-neutral-400">Lädt …</p> : null}
+      {error ? (
+        <p className="text-xs text-danger font-mono" role="alert">
+          {t.status.error} {error}
+        </p>
+      ) : null}
+      {!agents ? <p className="text-sm text-ink-soft">{a_.loading}</p> : null}
 
-      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 border-y border-neutral-200 dark:border-neutral-800">
+      <ul className="flex flex-col divide-y divide-rule border-y border-rule">
         {agents?.map((a) => (
           <li key={a.slug} className={`py-3 flex flex-col gap-1 ${a.enabled ? '' : 'opacity-60'}`}>
             <div className="flex items-baseline gap-3">
-              <button className="font-serif font-bold text-lg text-left hover:underline" onClick={() => setSelected(selected === a.slug ? null : a.slug)}>
+              <button className="font-head font-bold text-lg text-left hover:underline" onClick={() => setSelected(selected === a.slug ? null : a.slug)}>
                 {a.title}
               </button>
-              <span className="text-xs text-neutral-500">{a.schedule ? describeCron(a.schedule.cron) : 'nur manuell'}</span>
+              <span className="text-xs text-ink-soft">{a.schedule ? describeCron(t, a.schedule.cron) : a_.manualOnly}</span>
               <label className="ml-auto flex items-center gap-2 text-xs">
                 <input type="checkbox" checked={a.enabled} onChange={() => void toggle(a)} />
-                aktiv
+                {a_.active}
               </label>
             </div>
-            {a.description ? <p className="text-xs text-neutral-500">{a.description}</p> : null}
-            <p className="text-xs text-neutral-500">
-              {a.model ?? 'kein Modell'}
+            {a.description ? <p className="text-xs text-ink-soft">{a.description}</p> : null}
+            <p className="text-xs text-ink-soft">
+              {a.model ?? a_.noModel}
               {a.lastRun
-                ? ` · letzter Lauf ${formatDateTime(a.lastRun.startedAt)}: ${RUN_STATUS[a.lastRun.status]?.label ?? a.lastRun.status} (${formatUsd(a.lastRun.costUsd)})`
-                : ' · noch kein Lauf'}
+                ? a_.lastRun(f.dateTime(a.lastRun.startedAt), runStatus(t, a.lastRun.status)?.label ?? a.lastRun.status, f.usd(a.lastRun.costUsd))
+                : a_.noRun}
             </p>
 
             {current?.slug === a.slug ? (
@@ -121,7 +128,7 @@ export function Agents({ api, onChanged }: Props) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 border-b border-neutral-200 dark:border-neutral-800 pb-1">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-soft border-b border-rule pb-1">
         {title}
       </h4>
       {children}
@@ -139,15 +146,18 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
   const [topic, setTopic] = useState(agent.topic ?? '');
   const [topicMessage, setTopicMessage] = useState<string | null>(null);
   const [removeMessage, setRemoveMessage] = useState<string | null>(null);
+  const { t } = useI18n();
+  const a_ = t.agents;
+  const failed = (e: unknown) => a_.saveFailed(e instanceof Error ? e.message : String(e));
 
   const saveTitle = async () => {
     setTitleMessage(null);
     try {
       await api.renameAgent(agent.slug, title);
-      setTitleMessage('Umbenannt.');
+      setTitleMessage(a_.renamed);
       onChanged();
     } catch (e) {
-      setTitleMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setTitleMessage(failed(e));
     }
   };
 
@@ -155,27 +165,21 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
     setTopicMessage(null);
     try {
       await api.setAgentTopic(agent.slug, topic);
-      setTopicMessage('Gespeichert – gilt ab dem nächsten Lauf (und für die Websuche).');
+      setTopicMessage(a_.topicSaved);
       onChanged();
     } catch (e) {
-      setTopicMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setTopicMessage(failed(e));
     }
   };
 
   const remove = async () => {
-    if (
-      !window.confirm(
-        `Ressort „${agent.title}“ entfernen?\n\nEs verschwindet aus der Zeitung und läuft nicht mehr. Die Dateien werden nur zur Seite gelegt (Ordner „.removed“ im Agenten-Ordner), bereits geholte Artikel und der Verlauf bleiben in der Datenbank.`
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(a_.confirmRemove(agent.title))) return;
     setRemoveMessage(null);
     try {
       await api.removeAgent(agent.slug);
       onChanged();
     } catch (e) {
-      setRemoveMessage(`Entfernen fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setRemoveMessage(a_.removeFailed(e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -183,84 +187,84 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
     setMessage(null);
     try {
       await api.putSchedule(agent.slug, schedule);
-      setMessage('Zeitplan gespeichert.');
+      setMessage(a_.scheduleSaved);
       onChanged();
     } catch (e) {
-      setMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setMessage(failed(e));
     }
   };
 
   return (
-    <div className="mt-4 mb-2 flex flex-col gap-6 pl-4 border-l-2 border-neutral-200 dark:border-neutral-800">
-      <Section title="Name">
+    <div className="mt-4 mb-2 flex flex-col gap-6 pl-4 border-l-2 border-rule">
+      <Section title={a_.name}>
         <div className="flex items-center gap-3">
           <input
-            className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-sm w-64"
+            className="rounded border border-line bg-paper-raised px-2 py-1 text-sm w-64"
             value={title}
             maxLength={60}
             onChange={(e) => setTitle(e.target.value)}
-            aria-label="Name des Ressorts"
+            aria-label={a_.nameLabel}
           />
           <button className={btn} onClick={() => void saveTitle()} disabled={!title.trim() || title.trim() === agent.title}>
-            Umbenennen
+            {a_.rename}
           </button>
-          {titleMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{titleMessage}</span> : null}
+          {titleMessage ? <span className="text-xs text-ink-soft">{titleMessage}</span> : null}
         </div>
       </Section>
       {agent.topic !== null ? (
-        <Section title="Thema">
+        <Section title={a_.topic}>
           <div className="flex flex-col gap-2">
             <textarea
-              className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-sm w-full max-w-xl"
+              className="rounded border border-line bg-paper-raised px-2 py-1 text-sm w-full max-w-xl"
               rows={2}
               maxLength={400}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              aria-label="Thema des Ressorts"
+              aria-label={a_.topicLabel}
             />
             <div className="flex items-center gap-3">
               <button className={btn} onClick={() => void saveTopic()} disabled={!topic.trim() || topic.trim() === agent.topic}>
-                Thema speichern
+                {a_.saveTopic}
               </button>
-              {topicMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{topicMessage}</span> : null}
+              {topicMessage ? <span className="text-xs text-ink-soft">{topicMessage}</span> : null}
             </div>
-            <p className="text-xs text-neutral-400">Das Modell wählt aus den abgerufenen Beiträgen die zu diesem Thema passenden aus; die Websuche sucht danach.</p>
+            <p className="text-xs text-ink-soft">{a_.topicHint}</p>
           </div>
         </Section>
       ) : null}
-      <Section title="Zeitplan">
+      <Section title={a_.schedule}>
         <ScheduleEditor value={schedule} onChange={setSchedule} />
         <div className="flex items-center gap-3">
           <button className={btn} onClick={() => void saveSchedule()}>
-            Zeitplan speichern
+            {a_.saveSchedule}
           </button>
-          {message ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{message}</span> : null}
+          {message ? <span className="text-xs text-ink-soft">{message}</span> : null}
         </div>
-        <p className="text-xs text-neutral-400">
-          Verpasste Läufe (Rechner aus oder im Ruhezustand) werden nachgeholt, sobald Samix wieder läuft.
+        <p className="text-xs text-ink-soft">
+          {a_.catchUp}
         </p>
       </Section>
-      <Section title="Quellen">
+      <Section title={a_.sources}>
         <Sources api={api} slug={agent.slug} />
       </Section>
-      <Section title="Modell">
+      <Section title={a_.model}>
         <AgentModel api={api} slug={agent.slug} version={version} />
       </Section>
-      <Section title="Dein Profil">
+      <Section title={a_.profile}>
         <ProfilePanel api={api} agent={agent} onChanged={onChanged} />
       </Section>
-      <Section title="Läufe">
+      <Section title={a_.runs}>
         <RunHistory api={api} slug={agent.slug} version={version} />
       </Section>
-      <Section title="Entfernen">
+      <Section title={a_.remove}>
         <div className="flex items-center gap-3">
-          <button className={`${btn} text-red-700 dark:text-red-400`} onClick={() => void remove()}>
-            Ressort entfernen
+          <button className={`${btn} text-danger`} onClick={() => void remove()}>
+            {a_.removeRessort}
           </button>
-          {removeMessage ? <span className="text-xs text-red-600 dark:text-red-400">{removeMessage}</span> : null}
+          {removeMessage ? <span className="text-xs text-danger">{removeMessage}</span> : null}
         </div>
-        <p className="text-xs text-neutral-400">
-          Nichts wird gelöscht: die Dateien kommen in den Ordner „.removed“, Artikel und Verlauf bleiben in der Datenbank.
+        <p className="text-xs text-ink-soft">
+          {a_.removeHint}
         </p>
       </Section>
     </div>

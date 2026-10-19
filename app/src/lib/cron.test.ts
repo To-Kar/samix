@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildCron, describeCron, parseCron } from './cron';
+import { MESSAGES } from '../i18n/messages';
 
 describe('cron helpers', () => {
   it('recognises daily and weekly schedules', () => {
@@ -20,8 +21,9 @@ describe('cron helpers', () => {
   });
 
   it('describes in German', () => {
-    expect(describeCron('0 6 * * *')).toBe('täglich um 06:00');
-    expect(describeCron('15 8 * * 1')).toBe('montags um 08:15');
-    expect(describeCron('*/15 * * * *')).toBe('Cron: */15 * * * *');
+    expect(describeCron(MESSAGES.de, '0 6 * * *')).toBe('täglich um 06:00');
+    expect(describeCron(MESSAGES.de, '15 8 * * 1')).toBe('montags um 08:15');
+    expect(describeCron(MESSAGES.de, '*/15 * * * *')).toBe('Cron: */15 * * * *');
+    expect(describeCron(MESSAGES.en, '15 8 * * 1')).toBe('Mondays at 08:15');
   });
 });

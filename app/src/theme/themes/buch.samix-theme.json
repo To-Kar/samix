@@ -1,0 +1,89 @@
+{
+  "format": "samix-theme/1",
+  "id": "buch",
+  "name": "Buch",
+  "version": 1,
+  "author": "Samix",
+  "stance": "Sepia, Blocksatz mit Silbentrennung, Einzug statt Leerzeile: die Ruhe eines gedruckten Buches.",
+  "l10n": {
+    "en": {
+      "name": "Book",
+      "stance": "Sepia, justified and hyphenated, indents instead of blank lines: the calm of a printed book."
+    }
+  },
+  "modes": {
+    "light": {
+      "paper": "#f4ecd8",
+      "paper-raised": "#f9f3e3",
+      "ink": "#3b2f22",
+      "ink-soft": "#665542",
+      "rule": "#d9c9a3",
+      "line": "#8a7652",
+      "accent": "#7a4a12",
+      "on-accent": "#f9f3e3",
+      "mark": "#e8d49a",
+      "focus": "#7a4a12",
+      "danger": "#962d1c",
+      "danger-paper": "#f1d9c9",
+      "warning": "#664700",
+      "warning-paper": "#eedfb5"
+    },
+    "dark": {
+      "paper": "#1f1a13",
+      "paper-raised": "#28221a",
+      "ink": "#e6d8bc",
+      "ink-soft": "#ad9c7f",
+      "rule": "#3d3427",
+      "line": "#7d6d55",
+      "accent": "#dba65e",
+      "on-accent": "#1f1a13",
+      "mark": "#4d3d20",
+      "focus": "#dba65e",
+      "danger": "#eba08a",
+      "danger-paper": "#3d1c14",
+      "warning": "#e8c26e",
+      "warning-paper": "#362b12"
+    }
+  },
+  "type": {
+    "headline": {
+      "family": "Literata",
+      "weight": 600,
+      "style": "normal"
+    },
+    "body": {
+      "family": "Literata",
+      "weight": 400
+    },
+    "ui": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "sans": {
+      "family": "Source Sans 3"
+    },
+    "size": 19,
+    "leading": 1.6,
+    "measure": 60,
+    "headlineCase": "normal",
+    "kicker": "small-caps"
+  },
+  "shape": {
+    "radius": 2,
+    "rule": "hairline",
+    "ruleWidth": 1,
+    "columnRules": false,
+    "mastheadRule": "single"
+  },
+  "layout": {
+    "density": "normal",
+    "columns": 2,
+    "paragraph": "indent",
+    "justify": true,
+    "hyphens": true
+  },
+  "images": {
+    "show": "always",
+    "treatment": "sepia"
+  }
+}

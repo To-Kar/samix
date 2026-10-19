@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { ApiClient, ModelInfo } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 
 const select =
-  'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs';
+  'rounded border border-line bg-paper-raised px-2 py-1 text-xs';
 
 export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; slug: string; version: number; onSaved?: () => void }) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [primary, setPrimary] = useState('');
   const [fallback, setFallback] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const { t } = useI18n();
+  const m_ = t.agentModel;
 
   useEffect(() => {
     let live = true;
@@ -28,24 +31,24 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
     };
   }, [api, slug, version]);
 
-  const label = (m: ModelInfo) => `${m.id}${m.keyEnv ? (m.keyConfigured ? ' – Schlüssel vorhanden' : ' – kein Schlüssel') : ' – lokal'}`;
+  const label = (m: ModelInfo) => `${m.id}${m.keyEnv ? (m.keyConfigured ? m_.keyPresent : m_.noKey) : m_.local}`;
   const selected = models.find((m) => m.id === primary);
 
   const save = async () => {
     setMessage(null);
     try {
       await api.putAgentModel(slug, { primary, fallback: fallback || null });
-      setMessage('Gespeichert – der nächste Lauf verwendet dieses Modell.');
+      setMessage(m_.saved);
       onSaved?.();
     } catch (e) {
-      setMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setMessage(m_.saveFailed(e instanceof Error ? e.message : String(e)));
     }
   };
 
   return (
     <div className="flex flex-col gap-3">
       <label className="flex items-center gap-3 text-xs">
-        <span className="w-24 font-medium">Hauptmodell</span>
+        <span className="w-24 font-medium">{m_.primary}</span>
         <select className={select} value={primary} onChange={(e) => setPrimary(e.target.value)}>
           {models.map((m) => (
             <option key={m.id} value={m.id}>
@@ -55,9 +58,9 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
         </select>
       </label>
       <label className="flex items-center gap-3 text-xs">
-        <span className="w-24 font-medium">Ersatzmodell</span>
+        <span className="w-24 font-medium">{m_.fallback}</span>
         <select className={select} value={fallback} onChange={(e) => setFallback(e.target.value)}>
-          <option value="">keines</option>
+          <option value="">{m_.none}</option>
           {models
             .filter((m) => m.id !== primary)
             .map((m) => (
@@ -68,19 +71,19 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
         </select>
       </label>
       {selected && !selected.keyConfigured ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          Für {selected.id} fehlt der Schlüssel ({selected.keyEnv}). Bitte zuerst unter „Einrichtung“ eintragen.
+        <p className="text-xs text-warning">
+          {m_.missingKey(selected.id, selected.keyEnv ?? '')}
         </p>
       ) : null}
       <div className="flex items-center gap-3">
         <button
           onClick={() => void save()}
           disabled={!primary}
-          className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+          className="rounded border border-line px-3 py-1 text-xs hover:bg-ink/5 disabled:opacity-40"
         >
-          Modell speichern
+          {m_.save}
         </button>
-        {message ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{message}</span> : null}
+        {message ? <span className="text-xs text-ink-soft">{message}</span> : null}
       </div>
     </div>
   );

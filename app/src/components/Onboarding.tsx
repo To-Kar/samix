@@ -4,16 +4,13 @@ import { setSecret, type SecretAccount } from '../lib/keychain';
 import { restartCore } from '../lib/native';
 import { setOnboarded } from '../lib/prefs';
 import { explainFailure } from '../lib/explain';
+import { useI18n } from '../i18n/I18nProvider';
 
 const NEWSLETTER_SLUG = 'newsletter-ai';
 const LOCAL_MODEL = 'ollama-llama3';
 
-// What to offer, in this order, with a plain-language description.
-const CHOICES: { id: string; title: string; note: string }[] = [
-  { id: 'claude-haiku-4-5', title: 'Claude Haiku (Anthropic)', note: 'Braucht einen API-Schlüssel von Anthropic.' },
-  { id: 'deepseek-chat', title: 'DeepSeek', note: 'Braucht einen API-Schlüssel von DeepSeek; in der Regel günstiger.' },
-  { id: LOCAL_MODEL, title: 'Nur lokal (Ollama)', note: 'Kein Schlüssel und keine Kosten, aber Ollama muss auf diesem Rechner installiert sein und laufen.' },
-];
+// What to offer, in this order (descriptions in i18n/ns/onboarding.ts).
+const CHOICES = ['claude-haiku-4-5', 'deepseek-chat', LOCAL_MODEL];
 
 interface Props {
   api: ApiClient;
@@ -28,12 +25,14 @@ export function Onboarding({ api, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [step, setStep] = useState<string | null>(null);
+  const { t } = useI18n();
+  const o = t.onboarding;
 
   useEffect(() => {
     api.listModels().then(setModels, (e: unknown) => setMessage(e instanceof Error ? e.message : String(e)));
   }, [api]);
 
-  const available = CHOICES.filter((c) => models?.some((m) => m.id === c.id));
+  const available = CHOICES.filter((id) => models?.some((m) => m.id === id));
   const info = models?.find((m) => m.id === choice);
   const needsKey = Boolean(info?.keyEnv);
 
@@ -44,19 +43,19 @@ export function Onboarding({ api, onDone }: Props) {
     try {
       if (info.keyEnv) {
         if (!key.trim()) {
-          setMessage('Bitte den API-Schlüssel eintragen.');
+          setMessage(o.enterKey);
           return;
         }
-        setStep('Schlüssel wird gespeichert …');
+        setStep(o.savingKey);
         await setSecret(info.keyEnv as SecretAccount, key.trim());
-        setStep('Samix wird neu gestartet …');
+        setStep(o.restarting);
         const result = await restartCore();
         if (!result.restarted) {
-          setMessage(`Der Schlüssel ist gespeichert, aber der Core wurde nicht neu gestartet: ${result.reason}. Beende die App und starte sie neu; dann geht es hier weiter.`);
+          setMessage(o.notRestarted(result.reason));
           return;
         }
         // Prove the key works before anything is paid for or configured.
-        setStep('Schlüssel wird getestet …');
+        setStep(o.testingKey);
         let test = null;
         for (let i = 0; i < 8 && !test; i++) {
           try {
@@ -66,11 +65,11 @@ export function Onboarding({ api, onDone }: Props) {
           }
         }
         if (!test || !test.ok) {
-          setMessage(`Der Schlüssel funktioniert nicht: ${test ? explainFailure(test.error) : 'Der Core antwortet nicht.'}`);
+          setMessage(o.keyFails(test ? explainFailure(t, test.error) : o.coreSilent));
           return;
         }
       }
-      setStep('Modell wird für alle Agenten eingestellt …');
+      setStep(o.settingModel);
       await api.useModel(choice, true);
       await api.putAgentModel(NEWSLETTER_SLUG, {
         primary: choice,
@@ -89,22 +88,19 @@ export function Onboarding({ api, onDone }: Props) {
 
   return (
     <div className="mx-auto max-w-xl py-10">
-      <h2 className="font-serif font-bold text-3xl mb-2">Willkommen bei Samix</h2>
-      <p className="text-ink-soft dark:text-ink-soft-dark mb-6">
-        Samix sammelt Artikel aus deinen Quellen und fasst sie mit einem Sprachmodell zusammen. Welches soll es benutzen?
-        Das lässt sich später unter „Einrichtung“ ändern.
-      </p>
+      <h2 className="font-head font-bold text-3xl mb-2">{o.welcome}</h2>
+      <p className="text-ink-soft mb-6">{o.intro}</p>
 
       <div className="flex flex-col gap-3 mb-6">
-        {available.map((c) => (
+        {available.map((id) => (
           <label
-            key={c.id}
-            className={`flex gap-3 border p-3 cursor-pointer ${choice === c.id ? 'border-ink dark:border-ink-dark' : 'border-rule dark:border-rule-dark'}`}
+            key={id}
+            className={`flex gap-3 border p-3 cursor-pointer ${choice === id ? 'border-ink' : 'border-rule'}`}
           >
-            <input type="radio" name="model" checked={choice === c.id} onChange={() => setChoice(c.id)} />
+            <input type="radio" name="model" checked={choice === id} onChange={() => setChoice(id)} />
             <span>
-              <span className="font-bold block">{c.title}</span>
-              <span className="text-sm text-ink-soft dark:text-ink-soft-dark">{c.note}</span>
+              <span className="font-bold block">{o.choices[id]?.title ?? id}</span>
+              <span className="text-sm text-ink-soft">{o.choices[id]?.note}</span>
             </span>
           </label>
         ))}
@@ -112,34 +108,37 @@ export function Onboarding({ api, onDone }: Props) {
 
       {needsKey ? (
         <label className="block mb-6">
-          <span className="block text-sm font-bold mb-1">API-Schlüssel</span>
+          <span className="block text-sm font-bold mb-1">{o.apiKey}</span>
           <input
             type="password"
             value={key}
             onChange={(e) => setKey(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void finish()}
-            placeholder="wird im Schlüsselbund des Betriebssystems gespeichert"
-            className="w-full border border-rule dark:border-rule-dark bg-transparent px-3 py-2 font-mono text-sm"
+            placeholder={o.keyPlaceholder}
+            className="w-full border border-rule bg-transparent px-3 py-2 font-mono text-sm"
             autoComplete="off"
           />
         </label>
       ) : null}
 
-      <ol className="mb-4 text-xs text-ink-soft dark:text-ink-soft-dark flex gap-4">
-        <li>1 Anbieter wählen</li>
-        <li>2 Schlüssel einfügen</li>
-        <li>3 Test</li>
-        <li>4 Erste Ausgabe</li>
+      <ol className="mb-4 text-xs text-ink-soft flex gap-4">
+        {o.steps.map((s) => (
+          <li key={s}>{s}</li>
+        ))}
       </ol>
       {step ? <p className="mb-4 text-sm" role="status">{step}</p> : null}
-      {message ? <p className="mb-4 text-sm text-red-700 dark:text-red-400">{message}</p> : null}
+      {message ? (
+        <p className="mb-4 text-sm text-danger" role="alert">
+          {t.status.error} {message}
+        </p>
+      ) : null}
 
       <button
         onClick={() => void finish()}
         disabled={busy || !models}
-        className="border border-ink dark:border-ink-dark px-4 py-2 font-bold hover:bg-ink hover:text-paper dark:hover:bg-ink-dark dark:hover:text-paper-dark disabled:opacity-40"
+        className="border border-ink px-4 py-2 font-bold hover:bg-ink hover:text-paper disabled:opacity-40"
       >
-        {busy ? 'Einen Moment …' : 'Weiter und erste Ausgabe erstellen'}
+        {busy ? o.wait : o.go}
       </button>
     </div>
   );

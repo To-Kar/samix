@@ -1,0 +1,530 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "samix-theme/1",
+  "title": "Samix-Theme",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "id",
+    "name",
+    "version",
+    "modes",
+    "type",
+    "shape",
+    "layout",
+    "images"
+  ],
+  "properties": {
+    "format": {
+      "const": "samix-theme/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{2,32}$"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "stance": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "l10n": {
+      "type": "object",
+      "description": "Übersetzungen von name und stance, Schlüssel = Sprachcode (z. B. \"en\").",
+      "propertyNames": {
+        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "stance": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "contrast": {
+      "enum": [
+        "AA",
+        "AAA"
+      ],
+      "description": "Kontrastziel für Text: AA = 4,5 : 1, AAA = 7 : 1. Standard AA."
+    },
+    "darkOnly": {
+      "type": "boolean"
+    },
+    "lightPartner": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{2,32}$",
+      "description": "Theme-ID, die bei „System folgen“ im hellen Fall gilt (nur bei darkOnly)."
+    },
+    "modes": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "light": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paper",
+            "paper-raised",
+            "ink",
+            "ink-soft",
+            "rule",
+            "line",
+            "accent",
+            "on-accent",
+            "mark",
+            "focus",
+            "danger",
+            "danger-paper",
+            "warning",
+            "warning-paper"
+          ],
+          "properties": {
+            "paper": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "paper-raised": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "ink": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "ink-soft": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "rule": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "line": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "accent": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "on-accent": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "mark": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "focus": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "danger": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "danger-paper": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "warning": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "warning-paper": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          }
+        },
+        "dark": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paper",
+            "paper-raised",
+            "ink",
+            "ink-soft",
+            "rule",
+            "line",
+            "accent",
+            "on-accent",
+            "mark",
+            "focus",
+            "danger",
+            "danger-paper",
+            "warning",
+            "warning-paper"
+          ],
+          "properties": {
+            "paper": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "paper-raised": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "ink": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "ink-soft": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "rule": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "line": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "accent": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "on-accent": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "mark": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "focus": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "danger": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "danger-paper": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "warning": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "warning-paper": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            }
+          }
+        }
+      }
+    },
+    "type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "headline",
+        "body",
+        "ui",
+        "size",
+        "leading",
+        "measure"
+      ],
+      "properties": {
+        "headline": {
+          "type": "object",
+          "required": [
+            "family"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "family": {
+              "enum": [
+                "Newsreader",
+                "Source Serif 4",
+                "Source Sans 3",
+                "Literata",
+                "EB Garamond",
+                "Atkinson Hyperlegible"
+              ]
+            },
+            "weight": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 800
+            },
+            "style": {
+              "enum": [
+                "normal",
+                "italic"
+              ]
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "required": [
+            "family"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "family": {
+              "enum": [
+                "Newsreader",
+                "Source Serif 4",
+                "Source Sans 3",
+                "Literata",
+                "EB Garamond",
+                "Atkinson Hyperlegible"
+              ]
+            },
+            "weight": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 800
+            },
+            "style": {
+              "enum": [
+                "normal",
+                "italic"
+              ]
+            }
+          }
+        },
+        "ui": {
+          "type": "object",
+          "required": [
+            "family"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "family": {
+              "enum": [
+                "Newsreader",
+                "Source Serif 4",
+                "Source Sans 3",
+                "Literata",
+                "EB Garamond",
+                "Atkinson Hyperlegible"
+              ]
+            },
+            "weight": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 800
+            },
+            "style": {
+              "enum": [
+                "normal",
+                "italic"
+              ]
+            }
+          }
+        },
+        "serif": {
+          "type": "object",
+          "required": [
+            "family"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "family": {
+              "enum": [
+                "Newsreader",
+                "Source Serif 4",
+                "Source Sans 3",
+                "Literata",
+                "EB Garamond",
+                "Atkinson Hyperlegible"
+              ]
+            },
+            "weight": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 800
+            },
+            "style": {
+              "enum": [
+                "normal",
+                "italic"
+              ]
+            }
+          }
+        },
+        "sans": {
+          "type": "object",
+          "required": [
+            "family"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "family": {
+              "enum": [
+                "Newsreader",
+                "Source Serif 4",
+                "Source Sans 3",
+                "Literata",
+                "EB Garamond",
+                "Atkinson Hyperlegible"
+              ]
+            },
+            "weight": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 800
+            },
+            "style": {
+              "enum": [
+                "normal",
+                "italic"
+              ]
+            }
+          }
+        },
+        "size": {
+          "type": "number",
+          "minimum": 16,
+          "maximum": 24
+        },
+        "leading": {
+          "type": "number",
+          "minimum": 1.4,
+          "maximum": 1.9
+        },
+        "measure": {
+          "type": "integer",
+          "minimum": 45,
+          "maximum": 75
+        },
+        "headlineCase": {
+          "enum": [
+            "normal"
+          ]
+        },
+        "kicker": {
+          "enum": [
+            "normal",
+            "uppercase",
+            "small-caps"
+          ]
+        }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "radius": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "rule": {
+          "enum": [
+            "none",
+            "hairline",
+            "solid",
+            "ornament"
+          ]
+        },
+        "ruleWidth": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "columnRules": {
+          "type": "boolean"
+        },
+        "mastheadRule": {
+          "enum": [
+            "none",
+            "single",
+            "double",
+            "thick",
+            "short"
+          ]
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "density": {
+          "enum": [
+            "compact",
+            "normal",
+            "airy"
+          ]
+        },
+        "columns": {
+          "enum": [
+            1,
+            2,
+            3
+          ]
+        },
+        "paragraph": {
+          "enum": [
+            "space",
+            "indent"
+          ]
+        },
+        "justify": {
+          "type": "boolean"
+        },
+        "hyphens": {
+          "type": "boolean"
+        }
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "show": {
+          "enum": [
+            "always",
+            "lead-only",
+            "never"
+          ]
+        },
+        "treatment": {
+          "enum": [
+            "none",
+            "grayscale",
+            "sepia",
+            "muted",
+            "dimmed"
+          ]
+        },
+        "captionsAlways": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

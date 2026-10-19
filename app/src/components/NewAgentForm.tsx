@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ApiClient } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 import { ScheduleEditor, type ScheduleValue } from './ScheduleEditor';
 import { WebsiteRowsEditor, emptyRow, websiteSources, type WebsiteRow } from './WebsiteRows';
 
@@ -10,9 +11,11 @@ interface Props {
 }
 
 const field =
-  'w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400';
+  'w-full rounded border border-line bg-paper-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus';
 
 export function NewAgentForm({ api, onCreated, onCancel }: Props) {
+  const { t } = useI18n();
+  const n = t.newAgent;
   const [title, setTitle] = useState('');
   const [focus, setFocus] = useState('');
   const [rows, setRows] = useState<WebsiteRow[]>([emptyRow()]);
@@ -41,9 +44,9 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
     ...(searches ? [{ type: 'perplexity_search' as const, config: { useTopic: true, recencyHours: 24 } }] : []),
   ];
   const missing = [
-    !title.trim() ? 'einen Namen' : null,
-    !focus.trim() ? 'ein Thema („Worum soll es gehen?“)' : null,
-    sources.length === 0 ? 'mindestens eine Webseite oder einen RSS-Feed (oder „im Web suchen“ wählen)' : null,
+    !title.trim() ? n.missingName : null,
+    !focus.trim() ? n.missingTopic : null,
+    sources.length === 0 ? n.missingSource : null,
   ].filter(Boolean);
   const valid = missing.length === 0;
 
@@ -62,89 +65,90 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
-      <h3 className="font-serif font-bold text-xl">Neues Ressort</h3>
+      <h3 className="font-head font-bold text-xl">{n.title}</h3>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-semibold">Name</span>
-        <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. Chip · KI" maxLength={60} />
+        <span className="text-xs font-semibold">{n.name}</span>
+        <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={n.namePlaceholder} maxLength={60} />
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-semibold">Worum soll es gehen?</span>
+        <span className="text-xs font-semibold">{n.topic}</span>
         <textarea
           className={field}
           rows={2}
           value={focus}
           onChange={(e) => setFocus(e.target.value)}
           maxLength={400}
-          placeholder="z. B. Künstliche Intelligenz, Sprachmodelle und ihre Anwendung im Alltag"
+          placeholder={n.topicPlaceholder}
         />
-        <span className="text-xs text-neutral-500">
-          Das Sprachmodell wählt aus den abgerufenen Beiträgen die passenden aus. Stichwörter an den Quellen filtern
-          vorher kostenlos.
+        <span className="text-xs text-ink-soft">
+          {n.topicHint}
         </span>
       </label>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-semibold mb-1">Woher sollen die Artikel kommen?</legend>
+        <legend className="text-xs font-semibold mb-1">{n.where}</legend>
         {(
           [
-            ['search', 'Allgemein im Web suchen', 'Samix sucht selbst nach dem Thema (Perplexity). Du musst keine Seite kennen.'],
-            ['sites', 'Nur bestimmte Seiten', 'Nur die Webseiten und Feeds, die du unten einträgst.'],
-            ['both', 'Beides', 'Deine Seiten und zusätzlich eine allgemeine Websuche.'],
+            ['search', n.whereSearch, n.whereSearchNote],
+            ['sites', n.whereSites, n.whereSitesNote],
+            ['both', n.whereBoth, n.whereBothNote],
           ] as const
         ).map(([id, label, note]) => (
           <label key={id} className="flex items-start gap-2 text-sm">
             <input type="radio" name="where" className="mt-1" checked={where === id} onChange={() => setWhere(id)} />
             <span>
               <span className="font-semibold">{label}</span>
-              <span className="block text-xs text-neutral-500">{note}</span>
+              <span className="block text-xs text-ink-soft">{note}</span>
             </span>
           </label>
         ))}
         {searches ? (
-          <p className="text-xs text-neutral-500">
-            Jede Suche kostet extra (geschätzt etwa 0,25 Cent, abgebucht vom Tageslimit des Ressorts). Das lässt sich später unter
-            „Quellen“ des Ressorts ändern.
-            {!searchKey ? <span className="text-amber-700 dark:text-amber-400"> Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter).</span> : null}
+          <p className="text-xs text-ink-soft">
+            {n.searchCost}
+            {!searchKey ? <span className="text-warning">{n.noSearchKey}</span> : null}
           </p>
         ) : null}
       </fieldset>
 
       {where !== 'search' ? (
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold">Seiten und Feeds</span>
+          <span className="text-xs font-semibold">{n.sites}</span>
           <WebsiteRowsEditor api={api} rows={rows} onChange={setRows} />
-          <textarea className={`${field} font-mono text-xs mt-2`} rows={2} value={rss} onChange={(e) => setRss(e.target.value)} placeholder="Optional: RSS-Feeds, eine URL pro Zeile" />
+          <textarea className={`${field} font-mono text-xs mt-2`} rows={2} value={rss} onChange={(e) => setRss(e.target.value)} placeholder={n.rssPlaceholder} />
         </div>
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <span className="text-xs font-semibold">Wann?</span>
+        <span className="text-xs font-semibold">{n.when}</span>
         <ScheduleEditor value={schedule} onChange={setSchedule} />
       </div>
 
-      <p className="text-xs text-neutral-500">
-        Beim Anlegen wird nichts abgerufen und nichts bezahlt. Kosten entstehen erst, wenn du „Neue Artikel holen“
-        drückst oder der Zeitplan greift. Pro Ressort gilt ein eigenes Tageslimit.
+      <p className="text-xs text-ink-soft">
+        {n.costHint}
       </p>
 
-      {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-danger font-mono" role="alert">
+          {t.status.error} {error}
+        </p>
+      ) : null}
       {!valid ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
-          Zum Anlegen fehlt noch: {missing.join(', ')}.
+        <p className="text-xs text-warning" role="status">
+          {n.missing(missing.join(', '))}
         </p>
       ) : null}
       <div className="flex gap-3">
         <button
           onClick={() => void create()}
           disabled={!valid || busy}
-          className="border border-ink dark:border-ink-dark px-4 py-1.5 text-sm font-bold hover:bg-ink hover:text-paper dark:hover:bg-ink-dark dark:hover:text-paper-dark disabled:opacity-40"
+          className="border border-ink px-4 py-1.5 text-sm font-bold hover:bg-ink hover:text-paper disabled:opacity-40"
         >
-          {busy ? 'Legt an …' : 'Ressort anlegen'}
+          {busy ? n.creating : n.create}
         </button>
         <button onClick={onCancel} className="px-3 py-1.5 text-sm hover:underline">
-          Abbrechen
+          {n.cancel}
         </button>
       </div>
     </div>

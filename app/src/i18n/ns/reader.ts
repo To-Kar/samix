@@ -1,0 +1,76 @@
+// Reader view.
+
+export const de = {
+  reader: {
+    back: '← Zur Zeitung',
+    position: (n: number, of: number) => `${n} von ${of}`,
+    prev: '‹ Zurück',
+    next: 'Weiter ›',
+    loading: 'Lädt …',
+    readingMinutes: (n: number) => `${n} Min. Lesezeit`,
+    aiSummary: 'KI-Zusammenfassung',
+    whyTop: (reason: string) => `Warum oben: ${reason}`,
+    moreOrLess: 'Mehr oder weniger davon?',
+    originalText: 'Originaltext',
+    originalFrom: (site: string, ok: boolean, when: string) => ` von ${site} · ${ok ? 'abgerufen' : 'Abruf'} am ${when}`,
+    originalLoading: 'Originaltext wird geladen …',
+    noFullText: 'Der Volltext ist hier nicht verfügbar.',
+    openOriginal: 'Original im Browser öffnen ↗',
+    refetch: 'Neu laden',
+    provenance: 'Quellennachweis',
+    noProvenance: 'Keine zugehörige Quelle im Lauf gefunden.',
+    foundAt: (when: string) => `gefunden am ${when}`,
+    content: {
+      content_too_short:
+        'Es konnte nur sehr wenig Text gelesen werden. Möglicherweise steckt der Artikel hinter einer Paywall oder einem Login, oder die Seite braucht JavaScript.',
+      no_article_found: 'Auf der Seite wurde kein Artikeltext erkannt.',
+      bad_content_type: 'Die Adresse führt nicht zu einer Webseite (z. B. ein PDF).',
+      blocked: 'Die Adresse ist nicht abrufbar. Aus Sicherheitsgründen werden nur öffentliche Webadressen geladen.',
+      network: 'Die Seite ist nicht erreichbar (Netzwerk, DNS oder falsche Adresse). „Neu laden“ versucht es noch einmal.',
+      timeout: 'Die Seite hat nicht rechtzeitig geantwortet. „Neu laden“ versucht es noch einmal.',
+      too_large: 'Die Seite ist zu groß.',
+      no_source_url: 'Zu diesem Artikel gibt es keine Adresse.',
+      refused: (code: string) =>
+        `Die Seite verweigert den automatischen Abruf (${code}). Das kann eine Paywall oder ein Bot-Schutz sein.`,
+      http: (code: string) => `Die Seite antwortete mit ${code}.`,
+      failed: (detail: string) => `Abruf fehlgeschlagen (${detail}).`,
+    },
+  },
+};
+
+export const en: typeof de = {
+  reader: {
+    back: '← Back to the newspaper',
+    position: (n, of) => `${n} of ${of}`,
+    prev: '‹ Previous',
+    next: 'Next ›',
+    loading: 'Loading …',
+    readingMinutes: (n) => `${n} min read`,
+    aiSummary: 'AI summary',
+    whyTop: (reason) => `Why on top: ${reason}`,
+    moreOrLess: 'More or less of this?',
+    originalText: 'Original text',
+    originalFrom: (site, ok, when) => ` from ${site} · ${ok ? 'fetched' : 'fetch attempted'} ${when}`,
+    originalLoading: 'Loading the original text …',
+    noFullText: 'The full text is not available here.',
+    openOriginal: 'Open original in browser ↗',
+    refetch: 'Reload',
+    provenance: 'Provenance',
+    noProvenance: 'No matching source found in the run.',
+    foundAt: (when) => `found ${when}`,
+    content: {
+      content_too_short:
+        'Only very little text could be read. The article may be behind a paywall or login, or the page needs JavaScript.',
+      no_article_found: 'No article text was recognised on the page.',
+      bad_content_type: 'The address does not lead to a web page (e.g. a PDF).',
+      blocked: 'This address cannot be fetched. For safety, only public web addresses are loaded.',
+      network: 'The page is not reachable (network, DNS or wrong address). “Reload” tries again.',
+      timeout: 'The page did not answer in time. “Reload” tries again.',
+      too_large: 'The page is too large.',
+      no_source_url: 'This article has no address.',
+      refused: (code) => `The page refuses automated fetching (${code}). This may be a paywall or bot protection.`,
+      http: (code) => `The page answered with ${code}.`,
+      failed: (detail) => `Fetch failed (${detail}).`,
+    },
+  },
+};
