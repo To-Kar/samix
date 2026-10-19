@@ -98,7 +98,10 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       } else if (result.status === 'partial') {
         setRunMessage(`Keine Ausgabe: ${explainPartial(result.error)}`);
       } else {
-        setRunMessage(`Lauf fehlgeschlagen: ${explainFailure(result.error)}`);
+        const notes = (result.output as { sourceNotes?: string[] } | null)?.sourceNotes ?? [];
+        setRunMessage(
+          `Lauf fehlgeschlagen: ${explainFailure(result.error)}${notes.length ? `\nWas die Quellen gemeldet haben:\n${notes.map((n) => `• ${n}`).join('\n')}` : ''}`
+        );
         setRunSetupHint(needsSetup_(result.error));
       }
       setEditionId('latest');
@@ -214,7 +217,7 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
 
       {runMessage ? (
         <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm flex flex-wrap items-center gap-3">
-          <span>{runMessage}</span>
+          <span className="whitespace-pre-line">{runMessage}</span>
           {runSetupHint ? (
             <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
               Einrichtung öffnen

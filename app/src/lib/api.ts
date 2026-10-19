@@ -40,6 +40,8 @@ export interface RunSummary {
   articleCount: number;
   sourceCount: number;
   nothingNew: boolean;
+  /** What the sources reported when the run found nothing. */
+  sourceNotes?: string[];
 }
 
 export interface ReaderProfile {

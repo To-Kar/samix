@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildApp } from '../src/app.js';
 import { prisma } from '../src/db/prisma.js';
 import { runAgent } from '../src/runner/runner.js';
 import { logger } from '../src/logger.js';
@@ -123,6 +124,56 @@ describe('PerplexitySearchFetcher', () => {
 
   it('is registered for the runner', () => {
     expect(resolveFetcher('perplexity_search')).toBeInstanceOf(PerplexitySearchFetcher);
+  });
+});
+
+describe('diagnostics', () => {
+  it('reads the date from JSON-LD when the page has no meta tag, and counts what it dropped', async () => {
+    routes['https://ld.example/z'] = {
+      headers: { 'content-type': 'text/html' },
+      body: '<html><head><title>LD</title><script type="application/ld+json">{"@graph":[{"@type":"NewsArticle","datePublished":"2026-10-19T05:00:00+02:00"}]}</script></head><body><p>x</p></body></html>',
+    };
+    fakeSearch([searchResponse([{ url: 'https://ld.example/z', title: 'LD' }, { url: 'https://undated.example/c', title: 'U' }, { url: 'https://gone.example/q', title: 'G' }])]);
+    const notes: string[] = [];
+    const items = await new PerplexitySearchFetcher().fetch({ queries: ['a'] }, ctx({ note: (m: string) => notes.push(m) }));
+    expect(items.map((i) => i.url)).toEqual(['https://ld.example/z']);
+    expect(items[0]!.publishedAt?.toISOString()).toBe('2026-10-19T03:00:00.000Z');
+    expect(notes.at(-1)).toMatch(/3 Treffer, 1 verwendbar, 2 ohne erkennbares Veröffentlichungsdatum verworfen, 1 Seiten nicht abrufbar/);
+  });
+
+  it('notes the HTTP status of a rejected search, and an empty result', async () => {
+    fakeSearch([new Response('{"error":"invalid api key"}', { status: 401 }), searchResponse([])]);
+    const notes: string[] = [];
+    await new PerplexitySearchFetcher().fetch({ queries: ['a', 'b'] }, ctx({ note: (m: string) => notes.push(m) }));
+    expect(notes[0]).toMatch(/HTTP 401.*invalid api key/);
+    expect(notes.at(-1)).toMatch(/keine Treffer/);
+  });
+
+  it('puts what the sources said on a failed run: in the result, the stored run and the runs listing', async () => {
+    registerFetcher('perplexity_search', () => new PerplexitySearchFetcher());
+    fakeSearch([new Response('nope', { status: 403 })]);
+    const skill = makeSkill({ withSources: false });
+    skill.manifest.sources = [{ type: 'perplexity_search', config: { useTopic: true } }];
+    skill.manifest.topic = 'Fußball';
+    await seedAgent(skill);
+
+    const result = await runAgent({ skill, trigger: 'manual', logger });
+
+    expect(result).toMatchObject({ status: 'failed', error: 'no_source_items' });
+    expect((result.output as { sourceNotes: string[] }).sourceNotes[0]).toMatch(/HTTP 403/);
+    const app = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+    const runs = (await app.inject({ url: `/runs?agent=${skill.id}`, headers: { authorization: 'Bearer tok' } })).json();
+    expect(runs[0].sourceNotes[0]).toMatch(/HTTP 403/);
+  });
+
+  it('turns a missing key into a note instead of a silent empty run', async () => {
+    registerFetcher('perplexity_search', () => new PerplexitySearchFetcher());
+    vi.stubEnv('PERPLEXITY_API_KEY', '');
+    const skill = makeSkill({ withSources: false });
+    skill.manifest.sources = [{ type: 'perplexity_search', config: { useTopic: true } }];
+    await seedAgent(skill);
+    const result = await runAgent({ skill, trigger: 'manual', logger });
+    expect((result.output as { sourceNotes: string[] }).sourceNotes).toEqual(['perplexity_search: PERPLEXITY_API_KEY not set']);
   });
 });
 

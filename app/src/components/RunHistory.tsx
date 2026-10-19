@@ -51,6 +51,13 @@ export function RunHistory({ api, slug, version }: { api: ApiClient; slug: strin
                 </span>
               </div>
               <p className="text-neutral-600 dark:text-neutral-400">{detail(r)}</p>
+              {r.sourceNotes?.length ? (
+                <ul className="text-neutral-500 list-disc pl-5">
+                  {r.sourceNotes.map((n, i) => (
+                    <li key={i}>{n}</li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           );
         })}

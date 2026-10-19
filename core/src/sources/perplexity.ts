@@ -1,6 +1,6 @@
-import { parseHTML } from 'linkedom';
 import { z } from 'zod';
 import { extractArticle } from '../content/extract.js';
+import { pageMeta } from './website.js';
 import { safeFetch } from '../net/safeFetch.js';
 import { normalizeUrl } from '../output/traceability.js';
 import type { FetchContext, SourceFetcher, SourceItem } from '../types.js';
@@ -83,6 +83,7 @@ export class PerplexitySearchFetcher implements SourceFetcher<PerplexitySearchCo
       // Never search without room in the budget; the run continues with what other sources gave.
       if (ctx.reserve && !(await ctx.reserve(perSearch))) {
         ctx.logger.warn({ query }, 'perplexity_search_skipped_budget');
+        ctx.note?.('Websuche übersprungen: Das Tageslimit des Ressorts (oder das globale Limit) lässt keine weitere Suche zu.');
         break;
       }
       try {
@@ -105,6 +106,7 @@ export class PerplexitySearchFetcher implements SourceFetcher<PerplexitySearchCo
         if (!res.ok) {
           const text = await res.text().catch(() => '');
           ctx.logger.warn({ query, status: res.status, body: text.slice(0, 300) }, 'perplexity_search_http_error');
+          ctx.note?.(`Websuche „${query.slice(0, 50)}“: Perplexity antwortete mit HTTP ${res.status}${text ? ` – ${text.replace(/\s+/g, ' ').slice(0, 150)}` : ''}`);
           continue;
         }
         // A request that was answered is billed, whether or not it found anything usable.
@@ -121,12 +123,16 @@ export class PerplexitySearchFetcher implements SourceFetcher<PerplexitySearchCo
           found.set(key, { url: r.url, title: r.title ?? '', date: parseDate(r.date), query });
         }
       } catch (err) {
-        ctx.logger.warn({ query, err: err instanceof Error ? err.message : String(err) }, 'perplexity_search_error');
+        const message = err instanceof Error ? err.message : String(err);
+        ctx.logger.warn({ query, err: message }, 'perplexity_search_error');
+        ctx.note?.(`Websuche „${query.slice(0, 50)}“: ${message}`);
       }
     }
 
     const candidates = [...found.values()].slice(0, config.maxItems);
-    return enrich(candidates, ctx);
+    const items = await enrich(candidates, ctx);
+    if (candidates.length === 0) ctx.note?.('Websuche: Perplexity lieferte keine Treffer.');
+    return items;
   }
 }
 
@@ -139,13 +145,23 @@ async function enrich(
 ): Promise<SourceItem[]> {
   const out: SourceItem[] = [];
   let next = 0;
+  let unreadable = 0;
+  let undated = 0;
+  let firstError: string | undefined;
   const worker = async () => {
     for (;;) {
       const c = candidates[next++];
       if (!c) return;
-      const page = await readPage(c.url).catch(() => null);
+      let page: Awaited<ReturnType<typeof readPage>> | null = null;
+      try {
+        page = await readPage(c.url);
+      } catch (err) {
+        unreadable++;
+        firstError ??= err instanceof Error ? err.message : String(err);
+      }
       const publishedAt = c.date ?? page?.publishedAt;
       if (!publishedAt) {
+        undated++;
         ctx.logger.info({ url: c.url }, 'perplexity_result_dropped_no_date');
         continue;
       }
@@ -163,34 +179,33 @@ async function enrich(
     }
   };
   await Promise.all(Array.from({ length: EXCERPT_CONCURRENCY }, worker));
+  if (candidates.length > 0) {
+    ctx.note?.(
+      `Websuche: ${candidates.length} Treffer, ${out.length} verwendbar` +
+        (undated ? `, ${undated} ohne erkennbares Veröffentlichungsdatum verworfen` : '') +
+        (unreadable ? `, ${unreadable} Seiten nicht abrufbar${firstError ? ` (z. B. ${firstError.slice(0, 100)})` : ''}` : '')
+    );
+  }
   // Keep the order Perplexity returned them in.
   const rank = new Map(candidates.map((c, i) => [c.url, i]));
   return out.sort((a, b) => (rank.get(a.url) ?? 0) - (rank.get(b.url) ?? 0));
 }
 
-async function readPage(url: string): Promise<{ title?: string; excerpt?: string; publishedAt?: Date } | null> {
+async function readPage(url: string): Promise<{ title?: string; excerpt?: string; publishedAt?: Date }> {
   const res = await safeFetch(url, { maxBytes: EXCERPT_MAX_BYTES, timeoutMs: 8000, contentType: /html/i, accept: 'text/html' });
   const html = res.body.toString('utf8');
-  const { document } = parseHTML(html);
-  const meta = (sel: string) => document.querySelector(sel)?.getAttribute('content') ?? undefined;
-  const dateRaw =
-    meta('meta[property="article:published_time"]') ??
-    meta('meta[name="date"]') ??
-    meta('meta[itemprop="datePublished"]') ??
-    document.querySelector('time[datetime]')?.getAttribute('datetime') ??
-    undefined;
-  const title = meta('meta[property="og:title"]') ?? document.querySelector('title')?.textContent ?? undefined;
-
-  let excerpt = meta('meta[property="og:description"]') ?? meta('meta[name="description"]');
+  // Title, description and date from the page's own metadata (meta tags, JSON-LD, <time>).
+  const meta = pageMeta(html);
+  let excerpt = meta.description;
   if (!excerpt) {
     const article = extractArticle(html, res.finalUrl);
     const first = article?.blocks.find((b) => b.type === 'paragraph');
     excerpt = first && 'text' in first ? first.text : undefined;
   }
   return {
-    title: title?.trim() || undefined,
+    title: meta.title,
     excerpt: excerpt?.replace(/\s+/g, ' ').trim().slice(0, EXCERPT_CHARS) || undefined,
-    publishedAt: parseDate(dateRaw),
+    publishedAt: meta.publishedAt,
   };
 }
 

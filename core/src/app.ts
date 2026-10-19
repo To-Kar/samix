@@ -468,6 +468,8 @@ export async function buildApp(deps: AppDeps) {
       // A run that found nothing new says so in its output; the raw model
       // output of other runs is not part of this listing.
       nothingNew: r.status === 'success' && (r.output?.startsWith('{"note":"no_new_items"') ?? false),
+      // What the sources reported when a run found nothing (see runner/runner.ts).
+      sourceNotes: r.status === 'failed' ? sourceNotesOf(r.output) : [],
     }));
   });
 
@@ -1103,6 +1105,16 @@ const errorMessage = (err: unknown): string =>
     : err instanceof Error
       ? err.message
       : String(err);
+
+function sourceNotesOf(output: string | null): string[] {
+  if (!output) return [];
+  try {
+    const notes = (JSON.parse(output) as { sourceNotes?: unknown }).sourceNotes;
+    return Array.isArray(notes) ? notes.filter((n): n is string => typeof n === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 const previewItem = (i: SourceItem) => ({
   title: i.title,

@@ -42,6 +42,7 @@ export interface RunAgentOptions {
 
 interface FailureShape {
   costUsd?: number;
+  output?: unknown;
   runId: string;
   agentSlug: string;
   error: string;
@@ -54,7 +55,7 @@ function buildFailureResult(f: FailureShape): RunResult {
     runId: f.runId,
     agentSlug: f.agentSlug,
     status: 'failed',
-    output: null,
+    output: f.output ?? null,
     tokensInput: 0,
     tokensOutput: 0,
     costUsd: f.costUsd ?? 0,
@@ -69,11 +70,12 @@ function buildFailureResult(f: FailureShape): RunResult {
 async function markFailed(
   runId: string,
   error: string,
-  completedAt: Date
+  completedAt: Date,
+  output?: unknown
 ): Promise<void> {
   await prisma.agentRun.update({
     where: { id: runId },
-    data: { status: 'failed', error, completedAt },
+    data: { status: 'failed', error, completedAt, ...(output === undefined ? {} : { output: JSON.stringify(output) }) },
   });
 }
 
@@ -87,8 +89,9 @@ async function fetchSources(
   runId: string,
   log: Logger,
   paid: { topic?: string; reserve: (estimateUsd: number) => Promise<boolean> }
-): Promise<{ items: SourceItem[]; costUsd: number }> {
+): Promise<{ items: SourceItem[]; costUsd: number; notes: string[] }> {
   let costUsd = 0;
+  const notes: string[] = [];
   const ctx: FetchContext = {
     runId,
     logger: log,
@@ -97,6 +100,9 @@ async function fetchSources(
     spend: (usd, note) => {
       costUsd += usd;
       log.info({ usd, note }, 'source_cost');
+    },
+    note: (message) => {
+      if (notes.length < 20) notes.push(message.slice(0, 300));
     },
   };
   const all: SourceItem[] = [];
@@ -112,14 +118,13 @@ async function fetchSources(
       log.info({ type: spec.type, count: items.length }, 'source_fetched');
       all.push(...items);
     } catch (err) {
-      log.warn(
-        { type: spec.type, err: err instanceof Error ? err.message : String(err) },
-        'source_fetch_failed'
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      log.warn({ type: spec.type, err: message }, 'source_fetch_failed');
+      ctx.note?.(`${spec.type}: ${message}`);
     }
   }
 
-  if (all.length === 0) return { items: all, costUsd };
+  if (all.length === 0) return { items: all, costUsd, notes };
 
   await prisma.sourceSnapshot.createMany({
     data: all.map((item) => ({
@@ -133,7 +138,7 @@ async function fetchSources(
     })),
   });
 
-  return { items: all, costUsd };
+  return { items: all, costUsd, notes };
 }
 
 function resolveSchemaPath(skill: Skill): string | undefined {
@@ -305,6 +310,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
   // Source fetch + snapshot persistence (only if the manifest declares any).
   let sourceItems: SourceItem[] = [];
   let sourceCostUsd = 0;
+  let sourceNotes: string[] = [];
   if (skill.manifest.sources?.length) {
     const fetched = await fetchSources(skill.manifest.sources, runId, log, {
       topic: skill.manifest.topic ?? focusOf(skill.systemPrompt),
@@ -322,6 +328,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     });
     sourceItems = fetched.items;
     sourceCostUsd = fetched.costUsd;
+    sourceNotes = fetched.notes;
     if (sourceCostUsd > 0) {
       // Booked at once: the money is gone whatever the model makes of the items.
       await recordSpend(agentRow.id, startedAt, { inputTokens: 0, outputTokens: 0 }, sourceCostUsd);
@@ -333,14 +340,15 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
   // the model with nothing to ground it on costs money and invites invented
   // articles, so the run stops here, before any provider call.
   if (skill.manifest.sources?.length && sourceItems.length === 0) {
-    log.warn({ sources: skill.manifest.sources.length }, 'no_source_items; refusing to call model');
+    log.warn({ sources: skill.manifest.sources.length, notes: sourceNotes }, 'no_source_items; refusing to call model');
     const completedAt = new Date();
-    await markFailed(runId, 'no_source_items', completedAt);
+    await markFailed(runId, 'no_source_items', completedAt, { sourceNotes });
     return buildFailureResult({
       runId,
       agentSlug: skill.id,
       error: 'no_source_items',
       costUsd: sourceCostUsd,
+      output: { sourceNotes },
       startedAt,
       completedAt,
     });

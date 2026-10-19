@@ -203,6 +203,8 @@ export interface FetchContext {
   reserve?(estimateUsd: number): Promise<boolean>;
   /** Paid sources report what a request cost; the runner books it to the ledger and the run. */
   spend?(costUsd: number, note: string): void;
+  /** A plain-language remark about what a source did (shown to the reader when a run finds nothing). */
+  note?(message: string): void;
 }
 
 export interface SourceFetcher<C = unknown> {
