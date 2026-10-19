@@ -5,14 +5,18 @@ import type {
   ApiClient,
   ConversationMessage,
   ConversationSummary,
+  Proposal,
   TraceStep,
 } from '../lib/api';
 import { splitAnswer } from '../lib/answer';
-import { explainAsk } from '../lib/explain';
+import { explainAsk, explainFailure } from '../lib/explain';
 import { formatShortDate, formatUsd, hostnameOf } from '../lib/format';
 import { AgentModel } from './AgentModel';
+import { Notes } from './Notes';
 
-export const ASK_AGENT = 'frag-die-zeitung';
+// Questions go to the orchestrator; the Q&A agent answers behind it.
+export const ORCHESTRATOR = 'orchestrator';
+export const QA_AGENT = 'frag-die-zeitung';
 
 interface AskProps {
   api: ApiClient;
@@ -23,7 +27,7 @@ interface AskProps {
 const smallBtn = 'text-xs uppercase tracking-wider hover:underline disabled:opacity-30 disabled:no-underline';
 
 export function Ask({ api, onOpenSource }: AskProps) {
-  const [agent, setAgent] = useState<AgentSummary | null | undefined>(undefined);
+  const [agents, setAgents] = useState<AgentSummary[] | undefined>(undefined);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -38,8 +42,7 @@ export function Ask({ api, onOpenSource }: AskProps) {
   }, [api]);
 
   const loadAgent = useCallback(async () => {
-    const all = await api.listAgents();
-    setAgent(all.find((a) => a.slug === ASK_AGENT) ?? null);
+    setAgents(await api.listAgents());
   }, [api]);
 
   useEffect(() => {
@@ -104,7 +107,13 @@ export function Ask({ api, onOpenSource }: AskProps) {
     }
   };
 
-  const off = agent === null || (agent && !agent.enabled);
+  // The entry point: the orchestrator if installed and on, else the Q&A agent directly.
+  const orch = agents?.find((a) => a.slug === ORCHESTRATOR && a.enabled);
+  const qa = agents?.find((a) => a.slug === QA_AGENT);
+  const entry = orch ?? qa;
+  const titleOf = (slug?: string) => agents?.find((a) => a.slug === slug)?.title ?? slug ?? '';
+  const off = agents !== undefined && (!entry || !entry.enabled);
+  const models = [...new Set([orch?.model, qa?.model].filter(Boolean))] as string[];
 
   return (
     <div className="grid gap-8 md:grid-cols-[14rem_1fr]">
@@ -142,21 +151,21 @@ export function Ask({ api, onOpenSource }: AskProps) {
           <h2 className="font-serif font-bold text-3xl leading-tight">Frag deine Zeitung</h2>
           <p className="text-sm text-ink-soft dark:text-ink-soft-dark mt-1">
             Antworten stammen ausschließlich aus den bereits gesammelten Artikeln und nennen ihre Quellen.
-            {agent?.model
-              ? ` Deine Frage und gefundene Artikelauszüge werden an das Modell „${agent.model}“ gesendet.`
+            {models.length
+              ? ` Deine Frage und gefundene Artikelauszüge werden an ${models.length > 1 ? 'die Modelle' : 'das Modell'} ${models.map((m) => `„${m}“`).join(' und ')} gesendet.`
               : ''}
           </p>
         </header>
 
         {off ? (
           <p className="border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" role="status">
-            {agent === null ? 'Die Auskunft ist in dieser Installation nicht vorhanden.' : explainAsk('agent_disabled')}
+            {!entry ? 'Die Auskunft ist in dieser Installation nicht vorhanden.' : explainAsk('agent_disabled')}
           </p>
         ) : null}
 
         <div className="flex flex-col gap-6" aria-live="polite">
           {messages.map((m) => (m.role === 'user' ? <Question key={m.id} text={m.content} /> : (
-            <Answer key={m.id} message={m} onOpenSource={onOpenSource} />
+            <Answer key={m.id} message={m} onOpenSource={onOpenSource} titleOf={titleOf} api={api} />
           )))}
           {pending ? (
             <>
@@ -205,9 +214,20 @@ export function Ask({ api, onOpenSource }: AskProps) {
         </form>
 
         <details className="text-xs" onToggle={() => setModelVersion((v) => v + 1)}>
-          <summary className="cursor-pointer uppercase tracking-wider">Modell</summary>
+          <summary className="cursor-pointer uppercase tracking-wider">Modelle</summary>
+          <div className="mt-2 flex flex-col gap-4">
+            {[orch, qa].filter((a): a is AgentSummary => !!a).map((a) => (
+              <div key={a.slug} className="flex flex-col gap-1">
+                <p className="font-semibold">{a.title}</p>
+                <AgentModel api={api} slug={a.slug} version={modelVersion} />
+              </div>
+            ))}
+          </div>
+        </details>
+        <details className="text-xs">
+          <summary className="cursor-pointer uppercase tracking-wider">Notizen</summary>
           <div className="mt-2">
-            <AgentModel api={api} slug={ASK_AGENT} version={modelVersion} />
+            <Notes api={api} />
           </div>
         </details>
         <div ref={endRef} />
@@ -224,7 +244,17 @@ function Question({ text }: { text: string }) {
   );
 }
 
-function Answer({ message, onOpenSource }: { message: ConversationMessage; onOpenSource: AskProps['onOpenSource'] }) {
+function Answer({
+  message,
+  onOpenSource,
+  titleOf,
+  api,
+}: {
+  message: ConversationMessage;
+  onOpenSource: AskProps['onOpenSource'];
+  titleOf: (slug?: string) => string;
+  api: ApiClient;
+}) {
   const refs = new Set(message.citations.map((c) => c.number));
   const order = message.citations.map((c) => c.articleId);
   const open = (c: AnswerCitation) => onOpenSource(c.articleId, order);
@@ -240,6 +270,11 @@ function Answer({ message, onOpenSource }: { message: ConversationMessage; onOpe
 
   return (
     <article className="flex flex-col gap-3">
+      {message.route?.kind === 'delegate' ? (
+        <p className="text-xs uppercase tracking-wider text-ink-soft dark:text-ink-soft-dark">
+          Weitergeleitet an: {titleOf(message.route.agent)}
+        </p>
+      ) : null}
       <p className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
         {splitAnswer(message.content, refs).map((p, i) =>
           'text' in p ? (
@@ -277,6 +312,9 @@ function Answer({ message, onOpenSource }: { message: ConversationMessage; onOpe
           ))}
         </ol>
       ) : null}
+      {(message.proposals ?? []).map((p) => (
+        <ProposalButton key={p.ressort} proposal={p} api={api} />
+      ))}
       <Trace message={message} />
     </article>
   );
@@ -308,5 +346,38 @@ function Trace({ message }: { message: ConversationMessage }) {
         </ol>
       </div>
     </details>
+  );
+}
+
+// A Ressort refresh costs money, so it only runs after this click.
+function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient }) {
+  const [state, setState] = useState<{ kind: 'idle' } | { kind: 'running' } | { kind: 'done'; text: string }>({ kind: 'idle' });
+  const run = async () => {
+    setState({ kind: 'running' });
+    try {
+      const r = await api.runAgent(proposal.ressort);
+      const n = r.articleIds?.length ?? 0;
+      setState({
+        kind: 'done',
+        text:
+          r.status === 'success'
+            ? `Fertig: ${n} neue Artikel (${formatUsd(r.costUsd)}). Du findest sie in der Zeitung.`
+            : `${r.status === 'partial' ? 'Teilweise' : 'Fehlgeschlagen'}: ${explainFailure(r.error)}`,
+      });
+    } catch (e) {
+      setState({ kind: 'done', text: `Fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  };
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <button
+        className="border border-ink dark:border-ink-dark px-3 py-1 text-xs uppercase tracking-wider hover:underline disabled:opacity-40"
+        disabled={state.kind !== 'idle'}
+        onClick={() => void run()}
+      >
+        {state.kind === 'running' ? 'Läuft …' : `„${proposal.title}“ jetzt aktualisieren`}
+      </button>
+      {state.kind === 'done' ? <span role="status">{state.text}</span> : null}
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 # Samix — Phase 4 Spec: Orchestrator und sichtbares Gedächtnis
 
 **Stand:** 2026-10-19 · **Bezug:** `SAMIX_ABOUT.md` (Werte), `SAMIX_ROADMAP.md` (Phase 4), `SAMIX_PHASE_3_SPEC.md`
-**Status:** Entwurf, Zuschnitt vom Auftraggeber bestätigt (§1)
+**Status:** umgesetzt (Abnahme in `SAMIX_ROADMAP.md`, „Status 4“); Zuschnitt vom Auftraggeber bestätigt (§1)
 
 > Kennzeichnung wie im Rest des Projekts: Aussagen, die ich nicht prüfen konnte, stehen als **[Unverified]** / **[Inference]** da.
 
@@ -61,7 +61,7 @@ Tool `read_notes` (Registry, nur lesen, keine Argumente) → alle Notizen, begre
    - `propose_refresh`: Core prüft, dass das Ressort existiert und aktiv ist; liefert `proposals: [{kind:'refresh', ressort, title}]`. **Nichts wird gestartet.**
 5. Speichern: `AgentRun` des Orchestrators (Kosten nur des Routing-Aufrufs, Ablauf inkl. `delegateRunId`); Gesprächsnachrichten im Gespräch des **Orchestrators**; Zitate/Vorschläge an der Antwortnachricht. `costUsd` der Antwort = Routing + Delegat.
 
-Fehler als Status: `model_without_tools`, `budget_exceeded`/`global_budget_exceeded`, `agent_disabled`, `already_running`, `no_route`, `delegate_not_allowed`, `delegate_unavailable` (Delegat fehlt/aus), `unknown_ressort`, plus alle Status des Delegaten unverändert.
+Fehler als Status: `model_without_tools`, `budget_exceeded`/`global_budget_exceeded`, `agent_disabled`, `already_running`, `no_route`, `invalid_routes` (Manifest bietet keine nutzbare Aktion an), `delegate_unavailable` (Delegat fehlt), `unknown_ressort` (fehlt oder aus), plus alle Status des Delegaten unverändert. Wählt das Modell einen Agenten, der nicht in `delegates:` steht, bekommt es das als Tool-Fehler zurück und hat einen weiteren Versuch (insgesamt höchstens 2 Routing-Aufrufe); danach `no_route`.
 
 ## 6. Sicherheit
 

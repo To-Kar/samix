@@ -4,7 +4,7 @@ Local-first desktop application hosting a hierarchical multi-agent system for kn
 
 Named after Sami Frashëri (1850–1904), Albanian encyclopedist. Pronounced *sa-mix*.
 
-> Built so far: the newspaper (proactive agents with RSS/arXiv/website sources, full-text reader, votes, Ressorts), a bundled desktop app for macOS and Windows, and **Phase 3a "Frag deine Zeitung"** (questions answered only from the collected articles, with checked citations). Real-model behaviour and the macOS/Windows builds are not verified from the development environment; see `docs/SAMIX_ROADMAP.md` for the honest status of each phase.
+> Built so far: the newspaper (proactive agents with RSS/arXiv/website sources, full-text reader, votes, Ressorts), a bundled desktop app for macOS and Windows, **Phase 3a "Frag deine Zeitung"** (questions answered only from the collected articles, with checked citations) and **Phase 4** (an orchestrating entry point plus visible notes). Real-model behaviour and the macOS/Windows builds are not verified from the development environment; see `docs/SAMIX_ROADMAP.md` for the honest status of each phase.
 
 For the full project values and non-negotiables, see [`docs/SAMIX_ABOUT.md`](docs/SAMIX_ABOUT.md).
 For the current architecture, see [`docs/SAMIX_PHASE_1_SPEC.md`](docs/SAMIX_PHASE_1_SPEC.md) and the honest status in [`docs/SAMIX_PHASE_1_REPORT.md`](docs/SAMIX_PHASE_1_REPORT.md).

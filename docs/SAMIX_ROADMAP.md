@@ -428,7 +428,31 @@ Abnahme gegen die Spec-Kriterien (§10): 1–8 erfüllt (Tests; Mutationsproben 
 
 ## Phase 4 — Orchestrator & Cross-Agent-Memory (v3.0)
 
-Hierarchisch delegierender Router, gemeinsames Gedächtnis über Agenten hinweg. Eigenes Spec vor Start.
+Spec: `docs/SAMIX_PHASE_4_SPEC.md`. Zuschnitt (vom Auftraggeber gewählt): **ein Eingang, der weiterleitet** (kein Mehrschritt-Planer) und **sichtbare Notizen des Nutzers** als Gedächtnis (kein automatisches Lernen).
+
+### Status 4 (2026-10-19)
+
+Gebaut (Core: 282 Tests, App: 14), die Oberfläche im Browser mit dem echten Core und einem Fake-Modell angesehen:
+
+| Plan (Spec) | Umsetzung |
+|---|---|
+| Notizen (§4) | `MemoryNote` (Migration), `GET/POST /notes`, `DELETE /notes/:id`, höchstens 100 Stück à 500 Zeichen; Bereich „Notizen“ in „Fragen“; Tool `read_notes` (nur lesen, liefert keine Artikel-IDs, also nie zitierbar); „Frag deine Zeitung“ darf es laut Manifest nutzen |
+| Orchestrator (§5) | `runner/orchestrate.ts` + `agents/orchestrator`: **ein** Routing-Aufruf wählt genau eine Aktion (`delegate`, `show_notes`, `propose_refresh`, per Manifest `routes:`/`delegates:` freigegeben). Angezeigt wird nur das Ergebnis der Aktion, nie Modelltext des Routers; Text statt Tool → eine Erinnerung, dann `no_route` |
+| Delegation | Der Delegat läuft über `askAgent` (`ephemeral`, mit den Gesprächszügen als Verlauf) mit **eigenem** `AgentRun`, eigenem Budget und eigenen Gates; seine geprüften Zitate und sein Status werden unverändert übernommen. Die Antwort zeigt die Summe der Kosten |
+| Vorschlag statt Aktion | `propose_refresh` startet **nichts**; die Oberfläche zeigt einen Knopf, der erst nach Klick `POST /agents/:slug/run` auslöst |
+| Gemeinsame Bausteine | `runner/turn.ts` (Sperre, Gespräch, Verlauf, `AgentRun`) und `runner/budget.ts`, von `askAgent` und dem Orchestrator geteilt |
+| API/UI | `POST /ask` geht standardmäßig an den Orchestrator (sonst direkt an „Frag deine Zeitung“); „Weitergeleitet an …“, Vorschlagsknopf, Notizen, beide Modelle wählbar, Datenfluss-Hinweis nennt alle beteiligten Modelle |
+
+Mutationsproben erfasst: Budget-Gate vor dem Routing, Delegaten-Allowlist, `ephemeral`, Summe der Kosten, Verlauf an den Delegaten, ausgeschaltetes Ressort, Text-ohne-Tool-Pfad, Limit der Routing-Aufrufe (nach einem Test mit festem Wert statt der Konstante).
+
+**Nicht verifiziert / offen:**
+- **Kriterien 9 und 10 der Spec:** Wahl der Aktion und Formulierung der Delegaten-Frage durch ein **echtes** Modell, sowie Prompt-Injection-Verhalten, sind nicht geprüft (kein Schlüssel, kein Netz). Gegen Fakes getestet ist nur die Mechanik.
+- [Inference] Mit einem Antwort-Agenten bringt der Router heute wenig über „Fragen“ hinaus; er kostet einen zusätzlichen Modellaufruf je Frage. Der Mehrwert entsteht erst mit weiteren Delegaten (3b/3c).
+- Der Router formuliert die Frage an den Delegaten um; die umformulierte Frage steht im Ablauf („Wie kam das zustande?“), aber das Modell kann sie verfälschen.
+- Ein Vorschlagsknopf ist nach dem Neuladen eines Gesprächs wieder klickbar (der Zustand „schon ausgelöst“ wird nicht gespeichert).
+- Notizen fließen **nicht** in die Ressort-Läufe (`personalize`) ein; nur „Frag deine Zeitung“ kann sie lesen. Das Modell kann sie nicht schreiben.
+- Keine Planung über mehrere Schritte, keine Ketten von Delegaten.
+- Oberfläche nur in Chromium, keine Komponententests.
 
 ## Phase 5 — Öffentliche Veröffentlichung
 

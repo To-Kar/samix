@@ -54,6 +54,13 @@ export function explainAsk(error: string | null | undefined): string {
       return 'Es wird bereits eine Frage bearbeitet.';
     case 'agent_disabled':
       return 'Die Auskunft ist ausgeschaltet.';
+    case 'no_route':
+      return 'Ich konnte nicht entscheiden, was zu tun ist. Ich kann in deiner Zeitung suchen, deine Notizen zeigen oder ein Ressort-Update vorschlagen.';
+    case 'unknown_ressort':
+      return 'Dieses Ressort gibt es nicht oder es ist ausgeschaltet.';
+    case 'delegate_unavailable':
+    case 'invalid_routes':
+      return 'Die Auskunft ist in dieser Installation nicht vollständig eingerichtet.';
     case 'invalid_question':
       return 'Die Frage ist leer oder zu lang (höchstens 2000 Zeichen).';
     default:

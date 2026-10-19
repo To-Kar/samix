@@ -216,6 +216,23 @@ export interface TraceStep {
   isError?: boolean;
 }
 
+export interface Proposal {
+  kind: 'refresh';
+  ressort: string;
+  title: string;
+}
+
+export interface RouteInfo {
+  kind: 'delegate' | 'show_notes' | 'propose_refresh';
+  agent?: string;
+}
+
+export interface Note {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface AskResult {
   conversationId: string | null;
   runId: string;
@@ -226,6 +243,8 @@ export interface AskResult {
   trace: TraceStep[];
   costUsd: number;
   model: string | null;
+  route?: RouteInfo;
+  proposals?: Proposal[];
 }
 
 export interface ConversationSummary {
@@ -244,6 +263,9 @@ export interface ConversationMessage {
   status: string | null;
   citations: AnswerCitation[];
   createdAt: string;
+  // Assistant messages: where the question went and what the reader may confirm.
+  route?: RouteInfo | null;
+  proposals?: Proposal[];
   // Assistant messages: how the answer came about.
   runId?: string;
   error?: string | null;
@@ -397,6 +419,18 @@ export class ApiClient {
 
   ask(question: string, conversationId?: string): Promise<AskResult> {
     return this.json<AskResult>('POST', '/ask', { question, conversationId });
+  }
+
+  listNotes(): Promise<Note[]> {
+    return this.request<Note[]>('/notes');
+  }
+
+  addNote(text: string): Promise<Note> {
+    return this.json<Note>('POST', '/notes', { text });
+  }
+
+  deleteNote(id: string): Promise<void> {
+    return this.request<void>(`/notes/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
   listConversations(): Promise<ConversationSummary[]> {
