@@ -58,6 +58,7 @@ export const manifestYamlSchema = z.object({
     }),
   routes: z.array(routeSchema).optional(),
   delegates: z.array(z.string().min(1)).optional(),
+  empty_answer: z.string().min(1).max(300).optional(),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

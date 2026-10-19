@@ -28,7 +28,7 @@ Nicht-Ziele: keine Schreib-/Ausführ-Tools, keine Shell, kein Zugriff außerhalb
 - **Nur Text, begrenzt.** Dateien mit NUL-Bytes (binär) und > 500 KB werden nicht gelesen; ein Lesevorgang liefert ≤ 8000 Zeichen; Auflisten ≤ 200 Einträge; Suche ≤ 20 Treffer, ≤ 2000 Dateien, nur Dateien ≤ 1 MB.
 - **Prompt-Injection:** Dateiinhalte sind Fremdtext und können Anweisungen enthalten. Schranken wie bisher: keine Schreib-/Netz-Tools, Quellenprüfung im Code. Restrisiko: eine irreführende, aber **belegte** Antwort. [Inference: realistisch bei fremden Repos]
 - **Datenfluss:** Gelesene Dateiausschnitte gehen an den Modellanbieter. Das steht an der Freigabe und im Fragen-Bereich.
-- Was **nicht** ausgeschlossen werden kann: Geheimnisse in gewöhnlich benannten Dateien (z. B. Token in `config.json`). Die Liste oben ist eine Heuristik, kein Garantie. [Unverified: Vollständigkeit]
+- Was **nicht** ausgeschlossen werden kann: Geheimnisse in gewöhnlich benannten Dateien (z. B. Token in `config.json`). Die Liste oben ist eine Heuristik, keine Garantie. [Unverified: Vollständigkeit]
 
 ## 3a. Bausteine
 

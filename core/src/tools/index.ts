@@ -1,11 +1,12 @@
 import { ARTICLE_TOOLS } from './articles.js';
+import { FILE_TOOLS } from './files.js';
 import { NOTE_TOOLS } from './notes.js';
 import type { ToolCall } from '../types.js';
 import type { ToolContext, ToolDefinition, ToolResult } from './types.js';
 
 export type { ToolContext, ToolDefinition, ToolResult } from './types.js';
 
-const registry = new Map<string, ToolDefinition<never>>([...ARTICLE_TOOLS, ...NOTE_TOOLS].map((t) => [t.spec.name, t]));
+const registry = new Map<string, ToolDefinition<never>>([...ARTICLE_TOOLS, ...NOTE_TOOLS, ...FILE_TOOLS].map((t) => [t.spec.name, t]));
 
 export function knownToolNames(): string[] {
   return [...registry.keys()];

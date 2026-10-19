@@ -19,6 +19,7 @@ routes:
   - propose_refresh
 delegates:
   - frag-die-zeitung
+  - projekt-assistent
 
 output:
   format: route

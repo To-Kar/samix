@@ -172,3 +172,13 @@ model MemoryNote {
   text      String
   createdAt DateTime @default(now())
 }
+
+// A local folder the reader has released for the project assistant (read
+// only). Content leaves the machine only while allowModelAccess is on.
+model Project {
+  id               String   @id @default(uuid())
+  name             String
+  path             String   @unique
+  allowModelAccess Boolean  @default(false)
+  createdAt        DateTime @default(now())
+}

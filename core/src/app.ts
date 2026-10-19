@@ -10,6 +10,7 @@ import { askAgent } from './runner/converse.js';
 import { routeQuestion } from './runner/orchestrate.js';
 import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
+import { validateProjectRoot } from './projects/safePath.js';
 import { reloadSkill } from './scheduler/index.js';
 import { buildReaderProfile } from './runner/profile.js';
 import { createAgent, listTemplates } from './skills/create.js';
@@ -187,6 +188,73 @@ export async function buildApp(deps: AppDeps) {
   fastify.delete<{ Params: { id: string } }>('/notes/:id', async (request, reply) => {
     if (!(await deleteNote(request.params.id))) {
       reply.code(404).send({ error: 'note_not_found' });
+      return reply;
+    }
+    reply.code(204).send();
+    return reply;
+  });
+
+  // ---- Projects: folders released for the read-only project assistant
+
+  const projectView = (p: { id: string; name: string; path: string; allowModelAccess: boolean; createdAt: Date }) => ({
+    id: p.id,
+    name: p.name,
+    path: p.path,
+    allowModelAccess: p.allowModelAccess,
+    createdAt: p.createdAt,
+    exists: validateProjectRoot(p.path).ok,
+  });
+
+  const projectBody = z.object({
+    name: z.string().trim().min(1).max(60),
+    path: z.string().trim().min(1).max(1000),
+    allowModelAccess: z.boolean().default(false),
+  });
+
+  fastify.get('/projects', async () => {
+    const rows = await prisma.project.findMany({ orderBy: { name: 'asc' } });
+    return rows.map(projectView);
+  });
+
+  fastify.post('/projects', async (request, reply) => {
+    const body = projectBody.safeParse(request.body);
+    if (!body.success) {
+      reply.code(400).send({ error: 'invalid_body', message: 'name and an absolute folder path are required' });
+      return reply;
+    }
+    const root = validateProjectRoot(body.data.path);
+    if (!root.ok) {
+      reply.code(400).send({ error: root.error, message: root.error === 'too_broad' ? 'this folder is too broad (root or home folder)' : 'not an existing folder' });
+      return reply;
+    }
+    if (await prisma.project.findUnique({ where: { path: root.real } })) {
+      reply.code(409).send({ error: 'already_released' });
+      return reply;
+    }
+    const row = await prisma.project.create({ data: { name: body.data.name, path: root.real, allowModelAccess: body.data.allowModelAccess } });
+    reply.code(201);
+    return projectView(row);
+  });
+
+  fastify.put<{ Params: { id: string } }>('/projects/:id', async (request, reply) => {
+    const allow = (request.body as { allowModelAccess?: unknown } | null)?.allowModelAccess;
+    if (typeof allow !== 'boolean') {
+      reply.code(400).send({ error: 'invalid_body', message: 'allowModelAccess must be true or false' });
+      return reply;
+    }
+    const res = await prisma.project.updateMany({ where: { id: request.params.id }, data: { allowModelAccess: allow } });
+    if (res.count === 0) {
+      reply.code(404).send({ error: 'project_not_found' });
+      return reply;
+    }
+    return projectView(await prisma.project.findUniqueOrThrow({ where: { id: request.params.id } }));
+  });
+
+  // Removes the release only; nothing in the folder is touched.
+  fastify.delete<{ Params: { id: string } }>('/projects/:id', async (request, reply) => {
+    const res = await prisma.project.deleteMany({ where: { id: request.params.id } });
+    if (res.count === 0) {
+      reply.code(404).send({ error: 'project_not_found' });
       return reply;
     }
     reply.code(204).send();

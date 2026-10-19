@@ -33,7 +33,12 @@ export type AskStatus = 'success' | 'partial' | 'failed';
 
 export interface AnswerCitation {
   number: number;
+  /** Id of the cited source: an article id, or a `file:` ref for project files. */
   articleId: string;
+  /** Absent means an article. */
+  kind?: 'file';
+  /** Files: path inside the project. */
+  path?: string;
   title: string;
   sourceName: string | null;
   publishedAt: Date | null;
@@ -249,7 +254,7 @@ async function execute(opts: AskOptions): Promise<AskResult> {
 
       // Nothing was found at all: the model's text is not shown, since there is
       // nothing it could be based on.
-      if (surfaced.size === 0) return await finish('success', { answer: NOTHING_FOUND_ANSWER });
+      if (surfaced.size === 0) return await finish('success', { answer: skill.manifest.emptyAnswer ?? NOTHING_FOUND_ANSWER });
 
       const checked = await checkCitations(parsed, surfaced);
       if (!checked) return await finish('partial', { error: 'no_valid_citations' });
@@ -295,10 +300,22 @@ export async function checkCitations(
   });
   if (newNumber.size === 0) return null;
 
-  const rows = await prisma.article.findMany({ where: { id: { in: [...newNumber.keys()] } } });
+  const fileIds = [...newNumber.keys()].filter((id) => id.startsWith('file:'));
+  const articleIds = [...newNumber.keys()].filter((id) => !id.startsWith('file:'));
+  const rows = await prisma.article.findMany({ where: { id: { in: articleIds } } });
   const byId = new Map(rows.map((r) => [r.id, r]));
+  const projects = await prisma.project.findMany({ where: { id: { in: fileIds.map((f) => f.split(':')[1] ?? '') } } });
+  const projectById = new Map(projects.map((p) => [p.id, p]));
   const citations: AnswerCitation[] = [];
   for (const [articleId, number] of newNumber) {
+    if (articleId.startsWith('file:')) {
+      const [, projectId = '', ...rest] = articleId.split(':');
+      const project = projectById.get(projectId);
+      const path = rest.join(':');
+      if (!project || !path) continue;
+      citations.push({ number, articleId, kind: 'file', path, title: path, sourceName: project.name, publishedAt: null, url: null });
+      continue;
+    }
     const row = byId.get(articleId);
     if (!row) continue;
     citations.push({

@@ -23,7 +23,7 @@ describe('agents shipped in the repo', () => {
     });
     expect(by['orchestrator']).toMatchObject({
       type: 'reactive',
-      manifest: { routes: ['delegate', 'show_notes', 'propose_refresh'], delegates: ['frag-die-zeitung'] },
+      manifest: { routes: ['delegate', 'show_notes', 'propose_refresh'], delegates: ['frag-die-zeitung', 'projekt-assistent'] },
     });
     // Every delegate an orchestrator names must be a shipped reactive agent.
     for (const d of by['orchestrator']!.manifest.delegates ?? []) expect(by[d]?.type).toBe('reactive');

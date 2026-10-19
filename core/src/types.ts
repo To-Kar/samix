@@ -52,6 +52,8 @@ export interface Manifest {
   routes?: RouteName[];
   /** Orchestrators: reactive agents they may hand a question to. */
   delegates?: string[];
+  /** Shown instead of the model's text when a question surfaced no source at all. */
+  emptyAnswer?: string;
 }
 
 export interface ModelPreference {

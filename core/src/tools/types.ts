@@ -16,7 +16,7 @@ export interface ToolContext {
 export interface ToolResult {
   /** What the model sees (JSON text). */
   content: string;
-  /** Articles this result surfaced: the only ones an answer may cite. */
+  /** Sources this result surfaced (article ids, `file:` refs): the only ones an answer may cite. */
   articleIds: string[];
   /** Number of items returned, for the step log. */
   resultCount: number;

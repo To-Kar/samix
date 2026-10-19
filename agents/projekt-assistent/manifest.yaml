@@ -1,0 +1,25 @@
+id: projekt-assistent
+type: reactive
+version: "1.0"
+
+model:
+  # Needs tool calling (Claude, DeepSeek); there is no fallback without tools.
+  primary: claude-haiku-4-5
+
+budget:
+  daily_usd_max: 0.50
+  # Upper bound per model call; one question makes up to 6 calls.
+  tokens_per_run_max: 2000
+  halt_on_budget_exceeded: true
+
+# Read-only tools over the folders the reader released (Settings → Projekte).
+tools:
+  - list_projects
+  - list_files
+  - search_files
+  - read_file
+
+empty_answer: "Dazu habe ich in den freigegebenen Projekten nichts gefunden."
+
+output:
+  format: answer
