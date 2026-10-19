@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AgentSummary, ApiClient, ModelInfo } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 
 // Models that make sense as a general default, in the order they are offered.
 const OFFER = ['claude-haiku-4-5', 'deepseek-chat'];
@@ -10,6 +11,7 @@ const OFFER = ['claude-haiku-4-5', 'deepseek-chat'];
 export function ModelHint({ api, refreshKey }: { api: ApiClient; refreshKey: unknown }) {
   const [state, setState] = useState<{ stuck: AgentSummary[]; options: string[] } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +37,7 @@ export function ModelHint({ api, refreshKey }: { api: ApiClient; refreshKey: unk
   const apply = async (id: string) => {
     try {
       const r = await api.useModel(id);
-      setMessage(`${r.changed.length} Agent${r.changed.length === 1 ? '' : 'en'} auf ${id} umgestellt: ${r.changed.map((c) => c.title).join(', ')}.`);
+      setMessage(t.modelHint.switched(r.changed.length, id, r.changed.map((c) => c.title).join(', ')));
       await load();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : String(e));
@@ -46,11 +48,11 @@ export function ModelHint({ api, refreshKey }: { api: ApiClient; refreshKey: unk
   return (
     <div className="border border-warning bg-warning-paper p-3 text-sm flex flex-wrap items-center gap-3" role="status">
       <span>
-        Für {names} fehlt der API-Schlüssel, für {state.options.join(' und ')} ist einer eingetragen.
+        {t.modelHint.missingKey(names, state.options.join(t.modelHint.and))}
       </span>
       {state.options.map((id) => (
         <button key={id} className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={() => void apply(id)}>
-          Auf {id} umstellen
+          {t.modelHint.switchTo(id)}
         </button>
       ))}
     </div>

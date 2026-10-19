@@ -58,10 +58,10 @@ export function onTrayRunNow(handler: () => void): () => void {
 
 // Opens the system's folder picker. Only inside the app (a plain browser has
 // none); returns null if the reader cancels or there is no dialog.
-export async function pickFolder(): Promise<string | null> {
+export async function pickFolder(title: string): Promise<string | null> {
   if (!inTauri()) return null;
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const chosen = await open({ directory: true, multiple: false, title: 'Projektordner wählen' });
+  const chosen = await open({ directory: true, multiple: false, title });
   return typeof chosen === 'string' ? chosen : null;
 }
 

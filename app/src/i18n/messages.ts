@@ -1,194 +1,33 @@
-// UI strings. `de` defines the keys; `en` must match its shape exactly
-// (checked by the `Messages` type). Parameterised strings are functions.
+// UI strings, one module per area under ./ns. In each module `de` defines
+// the keys and `en` is typed against it, so a missing or extra translation
+// fails `tsc`. Parameterised strings are functions.
 
-const de = {
-  app: {
-    appearance: 'Aussehen',
-    language: 'Sprache',
-  },
-  status: {
-    error: 'Fehler:',
-    warning: 'Warnung:',
-    notice: 'Hinweis:',
-  },
-  appearance: {
-    theme: 'Theme',
-    mode: 'Modus',
-    modeLight: 'Hell',
-    modeDark: 'Dunkel',
-    modeSystem: 'System folgen',
-    light: 'hell',
-    dark: 'dunkel',
-    noLightMode: (theme: string) => `${theme} hat keinen hellen Modus. Bei hellem System gilt:`,
-    lightPartnerLabel: (theme: string) => `Heller Partner für ${theme}`,
-    partnerActive: (shown: string, selected: string) =>
-      `Gerade gilt ${shown}, weil ${selected} keinen hellen Modus hat.`,
-    fontSize: 'Schriftgröße',
-    bodyFont: 'Fließtext',
-    bodyFontTheme: 'Theme',
-    bodyFontSerif: 'Serif',
-    bodyFontSans: 'Sans',
-    bodyFontReadable: 'Lesefreundlich',
-    bodyFontHint: '„Lesefreundlich“ = Atkinson Hyperlegible, in jedem Theme.',
-    measure: 'Zeilenlänge',
-    measureNarrow: 'Schmal',
-    measureMedium: 'Mittel',
-    measureWide: 'Breit',
-    density: 'Dichte',
-    densityCompact: 'Kompakt',
-    densityNormal: 'Normal',
-    densityAiry: 'Luftig',
-    accent: 'Akzentfarbe',
-    accentTheme: 'Theme',
-    accentPreset: (hex: string) => `Akzent ${hex}`,
-    accentOwn: 'Eigene Farbe',
-    accentPick: 'Eigene Akzentfarbe wählen',
-    accentHex: 'Eigene Akzentfarbe als Hex-Wert',
-    accentAdjusted: 'angepasst',
-    accentAdjustedTo: (to: string, after: string, before: string) => ` auf ${to} — ${after} : 1 (vorher ${before} : 1)`,
-    accentUnchanged: '✓ unverändert',
-    paperTone: 'Papierton',
-    paperToneHint: 'Verschiebt nur den Farbton der Fläche, nie ihre Helligkeit.',
-    warmer: 'wärmer',
-    cooler: 'kühler',
-    reset: 'Zurücksetzen',
-  },
-  share: {
-    title: 'Themes teilen',
-    own: 'eigen',
-    saveTitle: 'Als eigenes Theme speichern',
-    saveHint: 'Übernimmt Akzentfarbe, Papierton, Fließtext, Zeilenlänge und Dichte in ein neues Theme. Die Schriftgröße bleibt eine Geräte-Einstellung.',
-    nameLabel: 'Name',
-    namePlaceholder: 'Mein Theme',
-    save: 'Speichern',
-    saved: (name: string) => `„${name}“ gespeichert und gewählt.`,
-    limit: (max: number) => `Höchstens ${max} eigene Themes. Lösche zuerst eines.`,
-    exportTitle: 'Exportieren',
-    exportHint: (name: string) => `Exportiert das gewählte Theme „${name}“ als Datei im Format samix-theme/1.`,
-    download: 'Als Datei speichern',
-    copy: 'In Zwischenablage kopieren',
-    copied: 'Theme in die Zwischenablage kopiert.',
-    copyFailed: 'Kopieren nicht möglich. Bitte „Als Datei speichern“ nutzen.',
-    importTitle: 'Importieren',
-    importHint: 'Eine .samix-theme.json-Datei wählen oder ihren Inhalt einfügen. Samix prüft Format und Kontrast, bevor etwas übernommen wird.',
-    chooseFile: 'Datei wählen …',
-    pasteLabel: 'Theme-Text einfügen',
-    check: 'Prüfen und importieren',
-    imported: (name: string) => `„${name}“ importiert und gewählt.`,
-    renamed: (from: string, to: string) => `Die ID „${from}“ gehört einem mitgelieferten Theme; importiert als „${to}“.`,
-    replaced: 'Ein eigenes Theme mit derselben ID wurde ersetzt.',
-    tooLarge: (kb: number) => `Die Datei ist größer als ${kb} KB und wird nicht gelesen.`,
-    notJson: 'Das ist kein gültiges JSON.',
-    schema: 'Die Datei passt nicht zum Format samix-theme/1:',
-    needsFix: 'Einige Farben erreichen den nötigen Kontrast nicht. So würde Samix sie anpassen:',
-    fixRow: (mode: string, token: string, from: string, to: string, before: string, after: string) =>
-      `${mode} · ${token}: ${from} → ${to} (${before} : 1 → ${after} : 1)`,
-    importFixed: 'Angepasst importieren',
-    cancel: 'Abbrechen',
-    removeTitle: 'Eigenes Theme löschen',
-    remove: (name: string) => `„${name}“ löschen`,
-    confirmRemove: 'Wirklich löschen',
-    removed: (name: string) => `„${name}“ gelöscht.`,
-  },
-};
+import * as agents from './ns/agents';
+import * as app from './ns/app';
+import * as appearance from './ns/appearance';
+import * as ask from './ns/ask';
+import * as costs from './ns/costs';
+import * as data from './ns/data';
+import * as explain from './ns/explain';
+import * as model from './ns/model';
+import * as onboarding from './ns/onboarding';
+import * as paper from './ns/paper';
+import * as reader from './ns/reader';
+import * as schedule from './ns/schedule';
+import * as settings from './ns/settings';
+import * as sources from './ns/sources';
+
+const de = { ...app.de, ...appearance.de, ...explain.de, ...paper.de, ...reader.de, ...ask.de, ...settings.de, ...agents.de, ...schedule.de, ...costs.de, ...onboarding.de, ...sources.de, ...data.de, ...model.de };
+const en: Messages = { ...app.en, ...appearance.en, ...explain.en, ...paper.en, ...reader.en, ...ask.en, ...settings.en, ...agents.en, ...schedule.en, ...costs.en, ...onboarding.en, ...sources.en, ...data.en, ...model.en };
 
 export type Messages = typeof de;
-
-const en: Messages = {
-  app: {
-    appearance: 'Appearance',
-    language: 'Language',
-  },
-  status: {
-    error: 'Error:',
-    warning: 'Warning:',
-    notice: 'Note:',
-  },
-  appearance: {
-    theme: 'Theme',
-    mode: 'Mode',
-    modeLight: 'Light',
-    modeDark: 'Dark',
-    modeSystem: 'Follow system',
-    light: 'light',
-    dark: 'dark',
-    noLightMode: (theme) => `${theme} has no light mode. When the system is light, use:`,
-    lightPartnerLabel: (theme) => `Light partner for ${theme}`,
-    partnerActive: (shown, selected) => `${shown} is showing because ${selected} has no light mode.`,
-    fontSize: 'Text size',
-    bodyFont: 'Body text',
-    bodyFontTheme: 'Theme',
-    bodyFontSerif: 'Serif',
-    bodyFontSans: 'Sans',
-    bodyFontReadable: 'Readable',
-    bodyFontHint: '“Readable” = Atkinson Hyperlegible, in every theme.',
-    measure: 'Line length',
-    measureNarrow: 'Narrow',
-    measureMedium: 'Medium',
-    measureWide: 'Wide',
-    density: 'Density',
-    densityCompact: 'Compact',
-    densityNormal: 'Normal',
-    densityAiry: 'Airy',
-    accent: 'Accent colour',
-    accentTheme: 'Theme',
-    accentPreset: (hex) => `Accent ${hex}`,
-    accentOwn: 'Own colour',
-    accentPick: 'Pick your own accent colour',
-    accentHex: 'Own accent colour as hex value',
-    accentAdjusted: 'adjusted',
-    accentAdjustedTo: (to, after, before) => ` to ${to} — ${after} : 1 (was ${before} : 1)`,
-    accentUnchanged: '✓ unchanged',
-    paperTone: 'Paper tone',
-    paperToneHint: 'Shifts only the hue of the surface, never its lightness.',
-    warmer: 'warmer',
-    cooler: 'cooler',
-    reset: 'Reset',
-  },
-  share: {
-    title: 'Share themes',
-    own: 'own',
-    saveTitle: 'Save as own theme',
-    saveHint: 'Bakes accent colour, paper tone, body text, line length and density into a new theme. Text size stays a device setting.',
-    nameLabel: 'Name',
-    namePlaceholder: 'My theme',
-    save: 'Save',
-    saved: (name) => `“${name}” saved and selected.`,
-    limit: (max) => `At most ${max} own themes. Delete one first.`,
-    exportTitle: 'Export',
-    exportHint: (name) => `Exports the selected theme “${name}” as a samix-theme/1 file.`,
-    download: 'Save as file',
-    copy: 'Copy to clipboard',
-    copied: 'Theme copied to the clipboard.',
-    copyFailed: 'Copying is not available. Please use “Save as file”.',
-    importTitle: 'Import',
-    importHint: 'Choose a .samix-theme.json file or paste its content. Samix checks format and contrast before anything is applied.',
-    chooseFile: 'Choose file …',
-    pasteLabel: 'Paste theme text',
-    check: 'Check and import',
-    imported: (name) => `“${name}” imported and selected.`,
-    renamed: (from, to) => `The id “${from}” belongs to a built-in theme; imported as “${to}”.`,
-    replaced: 'An own theme with the same id was replaced.',
-    tooLarge: (kb) => `The file is larger than ${kb} KB and is not read.`,
-    notJson: 'This is not valid JSON.',
-    schema: 'The file does not match the samix-theme/1 format:',
-    needsFix: 'Some colours miss the required contrast. This is how Samix would adjust them:',
-    fixRow: (mode, token, from, to, before, after) => `${mode} · ${token}: ${from} → ${to} (${before} : 1 → ${after} : 1)`,
-    importFixed: 'Import adjusted',
-    cancel: 'Cancel',
-    removeTitle: 'Delete own theme',
-    remove: (name) => `Delete “${name}”`,
-    confirmRemove: 'Really delete',
-    removed: (name) => `“${name}” deleted.`,
-  },
-};
 
 export const LOCALES = ['de', 'en'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const MESSAGES: Record<Locale, Messages> = { de, en };
 
-/** BCP 47 tag used for dates and times. */
+/** BCP 47 tag used for dates, times and numbers. */
 export const DATE_LOCALE: Record<Locale, string> = { de: 'de-DE', en: 'en-GB' };
 
 /** Names shown in the language picker, each in its own language. */

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, Project } from '../lib/api';
 import { folderName, inTauri, pickFolder } from '../lib/native';
+import { useI18n } from '../i18n/I18nProvider';
 
 // Folders released for the read-only project assistant. Releasing is an
 // explicit act: nothing is readable until the box is ticked, and un-ticking or
@@ -11,6 +12,8 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
   const [path, setPath] = useState('');
   const [allow, setAllow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
+  const p_ = t.projects;
 
   const load = useCallback(async () => {
     try {
@@ -47,7 +50,7 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
   const choose = async () => {
     setError(null);
     try {
-      const picked = await pickFolder();
+      const picked = await pickFolder(t.native.pickProjectFolder);
       if (!picked) return;
       setPath(picked);
       setName((n) => n.trim() || folderName(picked));
@@ -61,35 +64,38 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
   return (
     <div className="flex flex-col gap-3 text-xs">
       <p className="text-ink-soft">
-        Die Auskunft „Frag dein Projekt“ darf Textdateien dieser Ordner lesen (nur lesen, nichts wird verändert). Schlüssel,
-        <code> .env</code>-Dateien, <code>.git</code> und <code>node_modules</code> sind ausgeschlossen. Mit dem Haken
-        gehen gelesene Dateiausschnitte an den Modellanbieter; ohne Haken liest sie nichts. Das ist eine Heuristik: prüfe
-        selbst, ob der Ordner Geheimnisse in anderen Dateien enthält.
+        {p_.intro.before}
+        <code>.env</code>
+        {p_.intro.env}
+        <code>.git</code>
+        {p_.intro.and}
+        <code>node_modules</code>
+        {p_.intro.after}
       </p>
       <ul className="flex flex-col gap-2">
         {(projects ?? []).map((p) => (
           <li key={p.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="font-semibold">{p.name}</span>
             <span className="font-mono text-ink-soft break-all">{p.path}</span>
-            {!p.exists ? <span className="text-danger">Ordner nicht gefunden</span> : null}
+            {!p.exists ? <span className="text-danger">{p_.notFound}</span> : null}
             <label className="flex items-center gap-1">
               <input
                 type="checkbox"
                 checked={p.allowModelAccess}
                 onChange={(e) => void guard(() => api.setProjectAccess(p.id, e.target.checked))}
               />
-              an Modell senden erlaubt
+              {p_.allowed}
             </label>
             <button
               className="hover:text-danger"
-              aria-label={`Freigabe von „${p.name}“ entfernen`}
+              aria-label={p_.removeLabel(p.name)}
               onClick={() => void guard(() => api.deleteProject(p.id))}
             >
-              Freigabe entfernen
+              {p_.remove}
             </button>
           </li>
         ))}
-        {projects?.length === 0 ? <li className="text-ink-soft">Noch kein Ordner freigegeben.</li> : null}
+        {projects?.length === 0 ? <li className="text-ink-soft">{p_.none}</li> : null}
       </ul>
       <form
         className="flex flex-col gap-2"
@@ -99,32 +105,37 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
         }}
       >
         <div className="flex gap-2">
-          <input className={`${input} w-40`} placeholder="Name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          <input className={`${input} w-40`} placeholder={p_.name} aria-label={p_.name} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
           <input
             className={`${input} flex-1 font-mono`}
-            placeholder="Absoluter Pfad, z. B. /Users/du/Projekte/mein-projekt"
+            placeholder={p_.pathPlaceholder}
+            aria-label={p_.pathPlaceholder}
             value={path}
             onChange={(e) => setPath(e.target.value)}
           />
           {inTauri() ? (
             <button type="button" className="uppercase tracking-wider hover:underline" onClick={() => void choose()}>
-              Ordner wählen …
+              {p_.choose}
             </button>
           ) : null}
         </div>
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={allow} onChange={(e) => setAllow(e.target.checked)} />
-          Gelesene Dateiausschnitte dürfen an das Modell gesendet werden
+          {p_.allow}
         </label>
         <button
           type="submit"
           className="self-start uppercase tracking-wider hover:underline disabled:opacity-30"
           disabled={!name.trim() || !path.trim()}
         >
-          Ordner freigeben
+          {p_.release}
         </button>
       </form>
-      {error ? <p className="text-danger">{error}</p> : null}
+      {error ? (
+        <p className="text-danger" role="alert">
+          {t.status.error} {error}
+        </p>
+      ) : null}
     </div>
   );
 }

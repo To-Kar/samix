@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ApiClient, SourcePreview, SourceSpec } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 
 // Editing of `website` sources: a site, optional keywords, a cap, and a
 // preview that shows what would be fetched before anything is saved.
@@ -46,12 +47,6 @@ export function rowsFromSources(list: SourceSpec[]): WebsiteRow[] {
     });
 }
 
-const METHOD_LABEL: Record<string, string> = {
-  feed: 'RSS-/Atom-Feed',
-  sitemap: 'Sitemap',
-  page: 'Überschriften-Links auf der Seite',
-};
-
 const input =
   'rounded border border-line bg-paper-raised px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-focus';
 const smallBtn =
@@ -64,6 +59,8 @@ interface Props {
 }
 
 export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
+  const { t, dateLocale } = useI18n();
+  const w = t.website;
   const [previews, setPreviews] = useState<Record<number, { loading?: boolean; data?: SourcePreview; error?: string }>>({});
 
   const patch = (i: number, p: Partial<WebsiteRow>) => {
@@ -95,15 +92,15 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
                 value={row.url}
                 onChange={(e) => patch(i, { url: e.target.value })}
                 placeholder="chip.de"
-                aria-label="Webseite"
+                aria-label={w.site}
                 className={`${input} flex-1 min-w-[10rem]`}
               />
               <input
                 type="text"
                 value={row.keywords}
                 onChange={(e) => patch(i, { keywords: e.target.value })}
-                placeholder="Stichwörter (optional), mit Komma getrennt"
-                aria-label="Stichwörter"
+                placeholder={w.keywordsPlaceholder}
+                aria-label={w.keywords}
                 className={`${input} flex-1 min-w-[10rem]`}
               />
               <input
@@ -112,31 +109,35 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
                 max={50}
                 value={row.maxItems}
                 onChange={(e) => patch(i, { maxItems: Number(e.target.value) || 10 })}
-                aria-label="Max. Artikel"
-                title="Max. Artikel"
+                aria-label={w.maxItems}
+                title={w.maxItems}
                 className={`${input} w-16`}
               />
               <button onClick={() => void preview(i)} disabled={p?.loading || !row.url.trim()} className={smallBtn}>
-                {p?.loading ? 'Prüfe …' : 'Vorschau'}
+                {p?.loading ? w.checking : w.preview}
               </button>
               <button
                 onClick={() => onChange(rows.filter((_, j) => j !== i))}
                 className={`${smallBtn} text-danger`}
               >
-                Entfernen
+                {w.remove}
               </button>
             </div>
 
-            {p?.error ? <div className="text-xs text-danger font-mono">{p.error}</div> : null}
+            {p?.error ? (
+              <div className="text-xs text-danger font-mono" role="alert">
+                {t.status.error} {p.error}
+              </div>
+            ) : null}
 
             {p?.data ? (
               <div className="text-xs text-ink-soft flex flex-col gap-1">
                 <p>
                   {p.data.method
-                    ? `Gefunden über ${METHOD_LABEL[p.data.method] ?? p.data.method}: ${p.data.candidates} Artikel, ${p.data.items.length} übernommen`
-                    : 'Nichts gefunden.'}
-                  {p.data.withoutDate ? ` · ${p.data.withoutDate} ohne Datum übersprungen` : ''}
-                  {p.data.filteredOut ? ` · ${p.data.filteredOut} vom Filter aussortiert` : ''}
+                    ? w.found(w.method[p.data.method] ?? p.data.method, p.data.candidates, p.data.items.length)
+                    : w.nothing}
+                  {p.data.withoutDate ? w.withoutDate(p.data.withoutDate) : ''}
+                  {p.data.filteredOut ? w.filteredOut(p.data.filteredOut) : ''}
                 </p>
                 {p.data.warnings.map((w) => (
                   <p key={w} className="text-warning">
@@ -148,7 +149,7 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
                     <li key={it.url}>
                       {it.title}{' '}
                       <span className="text-ink-soft">
-                        ({it.publishedAt ? new Date(it.publishedAt).toLocaleDateString('de-DE') : 'ohne Datum'})
+                        ({it.publishedAt ? new Date(it.publishedAt).toLocaleDateString(dateLocale) : w.noDate})
                       </span>
                     </li>
                   ))}
@@ -159,7 +160,7 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
         );
       })}
       <button onClick={() => onChange([...rows, emptyRow()])} className={`${smallBtn} self-start`}>
-        + Webseite hinzufügen
+        {w.add}
       </button>
     </div>
   );

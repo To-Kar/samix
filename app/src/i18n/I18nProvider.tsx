@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { formatDateTime, formatLongDate, formatShortDate, formatUsd } from '../lib/format';
 import { probeHyphenation } from '../theme/hyphenation';
 import { DATE_LOCALE, LOCALES, MESSAGES, type Locale, type Messages } from './messages';
 
@@ -60,4 +61,18 @@ export function useI18n(): I18nContextValue {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error('useI18n outside I18nProvider');
   return ctx;
+}
+
+/** Date and money formatters bound to the UI language. */
+export function useFormat() {
+  const { dateLocale } = useI18n();
+  return useMemo(
+    () => ({
+      longDate: (d: Date) => formatLongDate(d, dateLocale),
+      shortDate: (iso: string | null) => formatShortDate(iso, dateLocale),
+      dateTime: (iso: string) => formatDateTime(iso, dateLocale),
+      usd: (n: number) => formatUsd(n, dateLocale),
+    }),
+    [dateLocale]
+  );
 }

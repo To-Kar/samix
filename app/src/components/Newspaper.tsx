@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentSummary, ApiClient, Edition, EditionArticle } from '../lib/api';
-import { formatLongDate, formatShortDate, formatUsd, hostnameOf } from '../lib/format';
+import { hostnameOf } from '../lib/format';
+import { useFormat, useI18n } from '../i18n/I18nProvider';
 import { groupStories, layoutEdition, readingOrder, storySources } from '../lib/layout';
 import { explainFailure, explainPartial, needsSetup as needsSetup_ } from '../lib/explain';
 import { getLeadParagraphs, getRessort, isOnboarded, setRessort } from '../lib/prefs';
@@ -35,6 +36,7 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
   const [runSetupHint, setRunSetupHint] = useState(false);
   // At least one hosted model has a working key (or nothing is known yet).
   const [keyReady, setKeyReady] = useState(true);
+  const { t } = useI18n();
 
   const load = useCallback(
     async (id: string) => {
@@ -94,20 +96,21 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       const result = await api.runAgent(slug ?? NEWSLETTER_SLUG);
       if (result.status === 'success') {
         const nothingNew = (result.output as { note?: string } | null)?.note === 'no_new_items';
-        setRunMessage(nothingNew ? 'Nichts Neues: alle gefundenen Beiträge wurden schon veröffentlicht.' : null);
+        setRunMessage(nothingNew ? t.paper.nothingNew : null);
       } else if (result.status === 'partial') {
-        setRunMessage(`Keine Ausgabe: ${explainPartial(result.error)}`);
+        setRunMessage(t.paper.noEdition(explainPartial(t, result.error)));
       } else {
         const notes = (result.output as { sourceNotes?: string[] } | null)?.sourceNotes ?? [];
         setRunMessage(
-          `Lauf fehlgeschlagen: ${explainFailure(result.error)}${notes.length ? `\nWas die Quellen gemeldet haben:\n${notes.map((n) => `• ${n}`).join('\n')}` : ''}`
+          t.paper.runFailed(explainFailure(t, result.error)) +
+            (notes.length ? `\n${t.paper.sourceNotes}\n${notes.map((n) => `• ${n}`).join('\n')}` : '')
         );
         setRunSetupHint(needsSetup_(result.error));
       }
       setEditionId('latest');
       await load('latest');
     } catch (e) {
-      setRunMessage(`Fehler: ${e instanceof Error ? e.message : String(e)}`);
+      setRunMessage(t.paper.error(e instanceof Error ? e.message : String(e)));
     } finally {
       setRunning(false);
     }
@@ -148,12 +151,12 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
         try {
           const r = await api.runAgent(a.slug);
           const n = r.articleIds?.length ?? 0;
-          lines.push(`${a.title}: ${r.status === 'success' ? (n ? `${n} Artikel` : 'nichts Neues') : explainFailure(r.error)}`);
+          lines.push(`${a.title}: ${r.status === 'success' ? (n ? t.paper.runAllCount(n) : t.paper.runAllNothing) : explainFailure(t, r.error)}`);
         } catch (e) {
           lines.push(`${a.title}: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
-      setRunMessage(lines.join(' · ') || 'Kein aktives Ressort.');
+      setRunMessage(lines.join(' · ') || t.paper.noActiveRessort);
       setEditionId('latest');
       await load('latest');
     } finally {
@@ -194,7 +197,7 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       />
 
       {agents.length > 1 ? (
-        <nav className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule pb-2 -mt-2" aria-label="Ressorts">
+        <nav className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule pb-2 -mt-2" aria-label={t.paper.ressortsLabel}>
           {agents.map((a) => (
             <button
               key={a.slug}
@@ -211,7 +214,7 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
 
       {current && !current.enabled ? (
         <div className="border border-rule px-3 py-2 text-sm">
-          Dieses Ressort ist ausgeschaltet (unter „Ressorts“ wieder einschalten).
+          {t.paper.ressortOff}
         </div>
       ) : null}
 
@@ -220,15 +223,15 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
           <span className="whitespace-pre-line">{runMessage}</span>
           {runSetupHint ? (
             <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
-              Einrichtung öffnen
+              {t.paper.openSetup}
             </button>
           ) : null}
         </div>
       ) : null}
 
       {loadError ? (
-        <div className="border border-danger bg-danger-paper p-3 text-xs text-danger font-mono">
-          {loadError}
+        <div className="border border-danger bg-danger-paper p-3 text-xs text-danger font-mono" role="alert">
+          {t.status.error} {loadError}
         </div>
       ) : null}
 
@@ -244,22 +247,19 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
 
       {empty && !running && !needsSetup ? (
         <div className="py-16 text-center text-ink-soft flex flex-col items-center gap-4">
-          <p className="font-body text-2xl">Noch keine Ausgabe{current ? ` in „${current.title}“` : ''}.</p>
+          <p className="font-body text-2xl">{t.paper.emptyTitle(current?.title ?? null)}</p>
           {keyReady ? (
             <>
-              <p className="text-sm max-w-xl">
-                Samix holt jetzt die ersten Artikel aus den Quellen des Ressorts und lässt das Modell sie zusammenfassen. Das kostet
-                einige Cent; das Tageslimit des Ressorts begrenzt es.
-              </p>
+              <p className="text-sm max-w-xl">{t.paper.emptyRun}</p>
               <button className="border border-ink text-ink px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline disabled:opacity-40" onClick={() => void runNewsletter()} disabled={!current?.enabled}>
-                Erste Ausgabe holen
+                {t.paper.firstEdition}
               </button>
             </>
           ) : (
             <>
-              <p className="text-sm max-w-xl">Zuerst braucht Samix einen API-Schlüssel (oder ein lokales Modell).</p>
+              <p className="text-sm max-w-xl">{t.paper.needKey}</p>
               <button className="border border-ink text-ink px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline" onClick={onOpenSetup}>
-                Einrichtung öffnen
+                {t.paper.openSetup}
               </button>
             </>
           )}
@@ -277,10 +277,10 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
               </div>
               <aside className="md:border-l md:pl-8 border-rule">
                 <h2 className="text-xs font-bold uppercase tracking-[0.2em] mb-4 pb-1 border-b-2 border-ink">
-                  Kurz notiert
+                  {t.paper.brief}
                 </h2>
                 {layout.brief.length === 0 ? (
-                  <p className="text-sm text-ink-soft">Heute nichts weiter.</p>
+                  <p className="text-sm text-ink-soft">{t.paper.briefEmpty}</p>
                 ) : (
                   <ul className="flex flex-col gap-4">
                     {layout.brief.map((a) => (
@@ -318,15 +318,17 @@ interface MastheadProps {
 }
 
 function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer }: MastheadProps) {
+  const { t } = useI18n();
+  const f = useFormat();
   const btn =
     'px-2 py-1 text-xs uppercase tracking-wider hover:underline disabled:opacity-30 disabled:no-underline';
   return (
     <header className="border-b-4 border-double border-ink pb-3">
       <div className="flex items-baseline justify-between gap-4 text-xs uppercase tracking-widest text-ink-soft">
-        <span>{edition ? `Ausgabe Nr. ${edition.number} · ${formatLongDate(new Date(edition.startedAt))}` : formatLongDate(new Date())}</span>
+        <span>{edition ? t.paper.edition(edition.number, f.longDate(new Date(edition.startedAt))) : f.longDate(new Date())}</span>
         {edition ? (
           <span className="text-right normal-case tracking-normal">
-            {edition.articles.length} Artikel · {edition.sourceCount} Quellen · {formatUsd(edition.costUsd)}
+            {t.paper.editionStats(edition.articles.length, edition.sourceCount, f.usd(edition.costUsd))}
             {edition.model ? ` · ${edition.model}` : ''}
           </span>
         ) : null}
@@ -335,18 +337,18 @@ function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer
       <nav className="flex items-center justify-between border-t border-rule pt-2">
         <div className="flex items-center">
           <button className={btn} onClick={onOlder} disabled={!onOlder}>
-            ‹ Vorige Ausgabe
+            {t.paper.older}
           </button>
           <button className={btn} onClick={onNewer} disabled={!onNewer}>
-            Nächste ›
+            {t.paper.newer}
           </button>
         </div>
         <div className="flex items-center">
-          <button className={btn} onClick={onRefresh} disabled={running} title="Lädt die Seite neu, ruft nichts ab und kostet nichts">
-            Neu laden
+          <button className={btn} onClick={onRefresh} disabled={running} title={t.paper.reloadTitle}>
+            {t.paper.reload}
           </button>
-          <button className={btn} onClick={onRun} disabled={running || !canRun} title={canRun ? 'Ruft die Quellen ab und fragt das Modell; kostet einige Cent' : 'Das Ressort ist ausgeschaltet'}>
-            {running ? 'Wird geholt …' : 'Neue Artikel holen'}
+          <button className={btn} onClick={onRun} disabled={running || !canRun} title={canRun ? t.paper.fetchTitle : t.paper.fetchOff}>
+            {running ? t.paper.fetching : t.paper.fetch}
           </button>
         </div>
       </nav>
@@ -373,10 +375,12 @@ function Meta({
   onVote: (id: string, value: -1 | 0 | 1) => void;
   onOpen: (id: string, readingList?: string[]) => void;
 }) {
+  const { t } = useI18n();
+  const f = useFormat();
   const parts = [
     article.sourceName ?? hostnameOf(article.sourceUrl),
-    formatShortDate(article.publishedAt),
-    withReading && article.content?.status === 'ok' ? `${article.content.readingMinutes} Min. Lesezeit` : '',
+    f.shortDate(article.publishedAt),
+    withReading && article.content?.status === 'ok' ? t.paper.readingMinutes(article.content.readingMinutes) : '',
   ].filter(Boolean);
   const related = article.related ?? [];
   const readingList = [article.id, ...related.map((r) => r.id)];
@@ -387,8 +391,8 @@ function Meta({
         <VoteButtons vote={article.vote} onVote={(v) => onVote(article.id, v)} />
       </div>
       {related.length > 0 ? (
-        <p className="mt-1 text-xs text-ink-soft" title="Die Zuordnung zu einer Meldung ist das Urteil des Modells">
-          {storySources(article).length > 1 ? `${storySources(article).length} Quellen berichten · auch bei:` : 'Weitere Beiträge dazu:'}{' '}
+        <p className="mt-1 text-xs text-ink-soft" title={t.paper.storyJudgement}>
+          {storySources(article).length > 1 ? t.paper.storySources(storySources(article).length) : t.paper.storyMore}{' '}
           {related.map((r, i) => (
             <span key={r.id}>
               {i > 0 ? ', ' : ''}
@@ -413,12 +417,13 @@ function Kicker({ article }: { article: EditionArticle }) {
 }
 
 function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api: ApiClient; primary: boolean }) {
+  const { t } = useI18n();
   const imageId = article.content?.leadImageId;
   return (
     <article className={primary ? '' : 'border-t border-rule pt-8'}>
       <Kicker article={article} />
       <h2
-        className={`font-serif font-bold leading-[1.1] mb-2 ${primary ? 'text-4xl md:text-5xl' : 'text-3xl'}`}
+        className={`font-head font-bold leading-[1.1] mb-2 ${primary ? 'text-4xl md:text-5xl' : 'text-3xl'}`}
       >
         <button onClick={() => onOpen(article.id)} className="text-left hover:underline decoration-2">
           {article.title}
@@ -434,12 +439,12 @@ function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api
 
       <div className="my-4 border-l-4 border-ink pl-4">
         <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ink-soft mb-1">
-          KI-Zusammenfassung
+          {t.paper.aiSummary}
         </p>
         <p className="font-body text-lg leading-snug">{article.summary}</p>
         {article.importanceReason ? (
           <p className="mt-2 text-xs italic text-ink-soft">
-            Warum oben: {article.importanceReason}
+            {t.paper.whyTop(article.importanceReason)}
           </p>
         ) : null}
       </div>
@@ -457,7 +462,7 @@ function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api
         onClick={() => onOpen(article.id)}
         className="mt-3 text-sm font-bold uppercase tracking-wider hover:underline"
       >
-        {article.excerpt ? 'Weiterlesen →' : 'Artikel öffnen →'}
+        {article.excerpt ? t.paper.readOn : t.paper.openArticle}
       </button>
     </article>
   );

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, ArticleDetail } from '../lib/api';
-import { formatDateTime, formatShortDate, hostnameOf } from '../lib/format';
+import { hostnameOf } from '../lib/format';
+import { useFormat, useI18n } from '../i18n/I18nProvider';
+import type { Messages } from '../i18n/messages';
 import { openExternal } from '../lib/external';
 import { AuthImage } from './AuthImage';
 import { Blocks } from './Blocks';
@@ -21,6 +23,8 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
   const [detail, setDetail] = useState<ArticleDetail | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
+  const f = useFormat();
 
   const index = order.indexOf(articleId);
   const prevId = index > 0 ? order[index - 1] : undefined;
@@ -89,30 +93,30 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
     <div className="mx-auto max-w-[68ch]">
       <div className="flex items-center justify-between border-b border-rule pb-2 mb-8">
         <button className={bar} onClick={onClose}>
-          ← Zur Zeitung <span className="normal-case tracking-normal text-ink-soft">(Esc)</span>
+          {t.reader.back} <span className="normal-case tracking-normal text-ink-soft">(Esc)</span>
         </button>
         <div className="flex items-center gap-4">
           {index >= 0 ? (
             <span className="text-xs text-ink-soft">
-              {index + 1} von {order.length}
+              {t.reader.position(index + 1, order.length)}
             </span>
           ) : null}
           <button className={bar} disabled={!prevId} onClick={() => prevId && onNavigate(prevId)}>
-            ‹ Zurück
+            {t.reader.prev}
           </button>
           <button className={bar} disabled={!nextId} onClick={() => nextId && onNavigate(nextId)}>
-            Weiter ›
+            {t.reader.next}
           </button>
         </div>
       </div>
 
       {phase === 'error' ? (
-        <div className="border border-danger bg-danger-paper p-3 text-xs text-danger font-mono">
-          {error}
+        <div className="border border-danger bg-danger-paper p-3 text-xs text-danger font-mono" role="alert">
+          {t.status.error} {error}
         </div>
       ) : null}
 
-      {!detail && phase !== 'error' ? <p className="text-ink-soft">Lädt …</p> : null}
+      {!detail && phase !== 'error' ? <p className="text-ink-soft">{t.reader.loading}</p> : null}
 
       {detail ? (
         <article>
@@ -126,8 +130,8 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
             {[
               content?.siteName ?? detail.sourceName ?? hostnameOf(detail.sourceUrl),
               content?.byline,
-              formatShortDate(detail.publishedAt),
-              content?.status === 'ok' ? `${content.readingMinutes} Min. Lesezeit` : '',
+              f.shortDate(detail.publishedAt),
+              content?.status === 'ok' ? t.reader.readingMinutes(content.readingMinutes) : '',
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -135,18 +139,18 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
 
           <aside className="mb-8 border-l-4 border-ink pl-4">
             <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ink-soft mb-1">
-              KI-Zusammenfassung{detail.run.model ? ` · ${detail.run.model}` : ''}
+              {t.reader.aiSummary}{detail.run.model ? ` · ${detail.run.model}` : ''}
             </p>
             <p className="font-body text-lg leading-snug">{detail.summary}</p>
             {detail.importanceReason ? (
               <p className="mt-2 text-xs italic text-ink-soft">
-                Warum oben: {detail.importanceReason}
+                {t.reader.whyTop(detail.importanceReason)}
               </p>
             ) : null}
           </aside>
 
           <div className="mb-6 flex items-center gap-3 text-xs text-ink-soft">
-            <span>Mehr oder weniger davon?</span>
+            <span>{t.reader.moreOrLess}</span>
             <VoteButtons
               vote={detail.vote}
               onVote={(value) => {
@@ -163,22 +167,22 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
 
           <section className="samix-prose">
             <h2 className="font-ui text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ink-soft mb-4 pb-1 border-b border-rule">
-              Originaltext
+              {t.reader.originalText}
               {content
-                ? ` von ${content.siteName ?? hostnameOf(detail.sourceUrl)} · ${content.status === 'ok' ? 'abgerufen' : 'Abruf'} am ${formatDateTime(content.fetchedAt)}`
+                ? t.reader.originalFrom(content.siteName ?? hostnameOf(detail.sourceUrl), content.status === 'ok', f.dateTime(content.fetchedAt))
                 : ''}
             </h2>
 
             {phase === 'fetching' || (phase === 'loading' && !content) ? (
-              <p className="font-ui text-sm text-ink-soft">Originaltext wird geladen …</p>
+              <p className="font-ui text-sm text-ink-soft">{t.reader.originalLoading}</p>
             ) : null}
 
             {content?.status === 'ok' ? <Blocks blocks={content.blocks} api={api} variant="reader" /> : null}
 
             {content && content.status !== 'ok' ? (
               <div className="font-ui text-sm border border-rule p-4">
-                <p className="font-bold mb-1">Der Volltext ist hier nicht verfügbar.</p>
-                <p className="text-ink-soft">{explainContent(content.status, content.error)}</p>
+                <p className="font-bold mb-1">{t.reader.noFullText}</p>
+                <p className="text-ink-soft">{explainContent(t, content.status, content.error)}</p>
               </div>
             ) : null}
           </section>
@@ -189,7 +193,7 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
                 onClick={() => openExternal(detail.sourceUrl!)}
                 className="border border-ink px-3 py-1.5 font-bold hover:bg-ink hover:text-paper"
               >
-                Original im Browser öffnen ↗
+                {t.reader.openOriginal}
               </button>
             ) : null}
             <button
@@ -197,19 +201,19 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
               disabled={phase === 'fetching'}
               className="border border-rule px-3 py-1.5 hover:bg-ink/5 disabled:opacity-40"
             >
-              Neu laden
+              {t.reader.refetch}
             </button>
           </div>
 
           <footer className="font-ui border-t border-rule pt-4 text-xs text-ink-soft">
-            <p className="font-bold uppercase tracking-[0.2em] mb-2">Quellennachweis</p>
+            <p className="font-bold uppercase tracking-[0.2em] mb-2">{t.reader.provenance}</p>
             {detail.sources.length === 0 ? (
-              <p>Keine zugehörige Quelle im Lauf gefunden.</p>
+              <p>{t.reader.noProvenance}</p>
             ) : (
               <ul className="space-y-1">
                 {detail.sources.map((s) => (
                   <li key={s.url}>
-                    {s.sourceType} · {s.sourceName} · „{s.title}“ · gefunden am {formatDateTime(s.fetchedAt)}
+                    {s.sourceType} · {s.sourceName} · {t.app.quote(s.title)} · {t.reader.foundAt(f.dateTime(s.fetchedAt))}
                   </li>
                 ))}
               </ul>
@@ -223,31 +227,26 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
 }
 
 // Plain-language reason, with the uncertainty stated where there is some.
-function explainContent(status: string, error: string | null): string {
+function explainContent(t: Messages, status: string, error: string | null): string {
+  const c = t.reader.content;
   switch (error) {
     case 'content_too_short':
-      return 'Es konnte nur sehr wenig Text gelesen werden. Möglicherweise steckt der Artikel hinter einer Paywall oder einem Login, oder die Seite braucht JavaScript.';
     case 'no_article_found':
-      return 'Auf der Seite wurde kein Artikeltext erkannt.';
     case 'bad_content_type':
-      return 'Die Adresse führt nicht zu einer Webseite (z. B. ein PDF).';
+    case 'network':
+    case 'timeout':
+    case 'too_large':
+    case 'no_source_url':
+      return c[error];
     case 'blocked_host':
     case 'bad_url':
-      return 'Die Adresse ist nicht abrufbar. Aus Sicherheitsgründen werden nur öffentliche Webadressen geladen.';
-    case 'network':
-      return 'Die Seite ist nicht erreichbar (Netzwerk, DNS oder falsche Adresse). „Neu laden“ versucht es noch einmal.';
-    case 'timeout':
-      return 'Die Seite hat nicht rechtzeitig geantwortet. „Neu laden“ versucht es noch einmal.';
-    case 'too_large':
-      return 'Die Seite ist zu groß.';
-    case 'no_source_url':
-      return 'Zu diesem Artikel gibt es keine Adresse.';
+      return c.blocked;
     case 'http_401':
     case 'http_402':
     case 'http_403':
-      return `Die Seite verweigert den automatischen Abruf (${error.replace('http_', 'HTTP ')}). Das kann eine Paywall oder ein Bot-Schutz sein.`;
+      return c.refused(error.replace('http_', 'HTTP '));
     default:
-      if (error?.startsWith('http_')) return `Die Seite antwortete mit ${error.replace('http_', 'HTTP ')}.`;
-      return `Abruf fehlgeschlagen (${error ?? status}).`;
+      if (error?.startsWith('http_')) return c.http(error.replace('http_', 'HTTP '));
+      return c.failed(error ?? status);
   }
 }

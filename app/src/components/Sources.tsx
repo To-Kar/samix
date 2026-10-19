@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, SourceSpec } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 import { WebsiteRowsEditor, rowsFromSources, websiteSources, type WebsiteRow } from './WebsiteRows';
 
 interface SourcesProps {
@@ -34,6 +35,8 @@ export function Sources({ api, slug }: SourcesProps) {
   const [recency, setRecency] = useState(24);
   const [topic, setTopic] = useState<string | null>(null);
   const [searchKey, setSearchKey] = useState(true);
+  const { t } = useI18n();
+  const s = t.sources;
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -95,10 +98,10 @@ export function Sources({ api, slug }: SourcesProps) {
       }
 
       await api.putSources(slug, updated);
-      setSaveMessage('Quellen gespeichert – der nächste Lauf verwendet sie.');
+      setSaveMessage(s.saved);
       await load();
     } catch (e) {
-      setSaveMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setSaveMessage(s.saveFailed(e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
@@ -106,73 +109,75 @@ export function Sources({ api, slug }: SourcesProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-md border border-danger bg-danger-paper p-3 text-xs text-danger font-mono">
-        {loadError}
+      <div className="rounded-md border border-danger bg-danger-paper p-3 text-xs text-danger font-mono" role="alert">
+        {t.status.error} {loadError}
       </div>
     );
   }
-  if (!sources) return <div className="text-sm text-ink-soft">Lädt …</div>;
+  if (!sources) return <div className="text-sm text-ink-soft">{s.loading}</div>;
 
   return (
     <div className="flex flex-col gap-5">
       <fieldset className="flex flex-col gap-2">
-        <legend className={legend}>Webseiten</legend>
+        <legend className={legend}>{s.websites}</legend>
         <p className="text-xs text-ink-soft">
-          Eine Seite eintragen (z. B. <code>chip.de</code>), um ihre neuesten Artikel zu bekommen. Mit Stichwörtern
-          bleiben nur passende (ganze Wörter, eines genügt, z. B. <code>KI, AI</code>). Die <em>Vorschau</em> zeigt vor
-          dem Speichern, was geholt würde.
+          {s.websitesHint.before}
+          <code>chip.de</code>
+          {s.websitesHint.middle}
+          <code>KI, AI</code>
+          {s.websitesHint.andThe}
+          <em>{s.websitesHint.preview}</em>
+          {s.websitesHint.after}
         </p>
         <WebsiteRowsEditor api={api} rows={websites} onChange={setWebsites} />
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className={legend}>RSS-Feeds</legend>
+        <legend className={legend}>{s.rss}</legend>
         <textarea value={rssUrls} onChange={(e) => setRssUrls(e.target.value)} rows={3} className={area} placeholder="https://hnrss.org/frontpage" />
-        <p className="text-xs text-ink-soft">Eine URL pro Zeile</p>
+        <p className="text-xs text-ink-soft">{s.onePerLine}</p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className={legend}>arXiv</legend>
-        <label className="text-xs text-ink-soft">Kategorien (eine pro Zeile)</label>
+        <label className="text-xs text-ink-soft">{s.arxivCategories}</label>
         <textarea value={arxivCategories} onChange={(e) => setArxivCategories(e.target.value)} rows={2} className={area} placeholder="cs.AI" />
-        <label className="text-xs text-ink-soft">Optionaler Suchbegriff</label>
+        <label className="text-xs text-ink-soft">{s.arxivQuery}</label>
         <input type="text" value={arxivQuery} onChange={(e) => setArxivQuery(e.target.value)} className={area} placeholder="large language models" />
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className={legend}>Allgemeine Websuche</legend>
+        <legend className={legend}>{s.webSearch}</legend>
         <label className="flex items-start gap-2 text-xs">
           <input type="checkbox" className="mt-0.5" checked={webSearch} onChange={(e) => setWebSearch(e.target.checked)} />
           <span>
-            Darf zusätzlich allgemein im Web nach dem Thema suchen
+            {s.webSearchAllow}
             {topic ? (
               <>
                 {' '}
-                (Thema: <em>{topic}</em>)
+                ({s.webSearchTopic} <em>{topic}</em>)
               </>
             ) : (
-              <span className="text-ink-soft"> – dieses Ressort hat kein gespeichertes Thema; trage unten Suchanfragen ein</span>
+              <span className="text-ink-soft">{s.webSearchNoTopic}</span>
             )}
           </span>
         </label>
         <label className="flex items-center gap-2 text-xs text-ink-soft">
-          Nur Ergebnisse der letzten
+          {s.recency}
           <select value={recency} onChange={(e) => setRecency(Number(e.target.value))} className={`${area} w-auto`}>
-            <option value={24}>24 Stunden</option>
-            <option value={72}>3 Tage</option>
-            <option value={168}>7 Tage</option>
+            <option value={24}>{s.hours24}</option>
+            <option value={72}>{s.days3}</option>
+            <option value={168}>{s.days7}</option>
           </select>
         </label>
-        <label className="text-xs text-ink-soft">Weitere Suchanfragen (eine pro Zeile, optional)</label>
-        <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder="Bundesliga Spieltag Ergebnisse" />
+        <label className="text-xs text-ink-soft">{s.moreQueries}</label>
+        <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder={s.queryPlaceholder} />
         <p className="text-xs text-ink-soft">
-          Jede Suche kostet extra (geschätzt etwa 0,25 Cent, abgebucht vom Tageslimit des Ressorts). Die gefundenen Seiten werden
-          wie andere Quellen geprüft: ohne Datum und ohne abrufbare URL erscheint nichts. Ohne Haken und ohne Anfragen sucht
-          das Ressort nur auf den Seiten und Feeds oben.
+          {s.searchCost}
         </p>
         {(webSearch || perplexityQueries.trim()) && !searchKey ? (
           <p className="text-xs text-warning">
-            Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter). Ohne ihn findet die Suche nichts.
+            {s.noSearchKey}
           </p>
         ) : null}
       </fieldset>
@@ -185,7 +190,7 @@ export function Sources({ api, slug }: SourcesProps) {
         disabled={saving}
         className="self-start rounded border border-line px-4 py-1.5 text-xs hover:bg-ink/5 disabled:opacity-40"
       >
-        {saving ? 'Speichert …' : 'Quellen speichern'}
+        {saving ? s.saving : s.save}
       </button>
     </div>
   );

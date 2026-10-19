@@ -1,14 +1,17 @@
-export function formatLongDate(d: Date): string {
-  return d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+// Dates and money in the UI language. `locale` is a BCP 47 tag; components
+// get these bound to the active language via useFormat() (i18n/I18nProvider).
+
+export function formatLongDate(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export function formatShortDate(iso: string | null): string {
+export function formatShortDate(iso: string | null, locale: string): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+  return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 }
 
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+export function formatDateTime(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export function hostnameOf(url: string | null): string {
@@ -20,6 +23,6 @@ export function hostnameOf(url: string | null): string {
   }
 }
 
-export function formatUsd(n: number): string {
-  return `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} $`;
+export function formatUsd(n: number, locale: string): string {
+  return `${n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} $`;
 }

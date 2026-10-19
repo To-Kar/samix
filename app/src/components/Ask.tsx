@@ -10,13 +10,9 @@ import type {
 } from '../lib/api';
 import { splitAnswer } from '../lib/answer';
 import { explainAsk, explainFailure, needsSetup } from '../lib/explain';
-import { formatShortDate, formatUsd, hostnameOf } from '../lib/format';
-
-// What the reader sees instead of the agent's name.
-const ROUTE_LABEL: Record<string, string> = {
-  'frag-die-zeitung': 'Antwort aus deinen Artikeln',
-  'projekt-assistent': 'Antwort aus deinem Projekt',
-};
+import { hostnameOf } from '../lib/format';
+import { useFormat, useI18n } from '../i18n/I18nProvider';
+import type { Messages } from '../i18n/messages';
 
 // Questions go to the orchestrator; the Q&A agent answers behind it.
 export const ORCHESTRATOR = 'orchestrator';
@@ -43,6 +39,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
   const [setupError, setSetupError] = useState(false);
   const [released, setReleased] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
 
   const loadList = useCallback(async () => {
     setConversations(await api.listConversations());
@@ -80,7 +77,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm('Dieses Gespräch löschen? Die Artikel bleiben erhalten.')) return;
+    if (!window.confirm(t.ask.confirmDelete)) return;
     try {
       await api.deleteConversation(id);
       if (id === currentId) fresh();
@@ -106,7 +103,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
       } else {
         // Refused before a conversation existed (busy, disabled, wrong model).
         setQuestion(q);
-        setError(explainAsk(r.error));
+        setError(explainAsk(t, r.error));
         setSetupError(needsSetup(r.error));
       }
     } catch (e) {
@@ -130,7 +127,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
     <div className="grid gap-8 md:grid-cols-[14rem_1fr]">
       <aside className="flex flex-col gap-3 text-sm">
         <button className={`${smallBtn} text-left font-bold`} onClick={fresh}>
-          + Neue Frage
+          {t.ask.newQuestion}
         </button>
         <ul className="flex flex-col gap-1">
           {conversations.map((c) => (
@@ -144,7 +141,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
               </button>
               <button
                 className="text-xs text-ink-soft opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-danger"
-                aria-label={`Gespräch „${c.title}“ löschen`}
+                aria-label={t.ask.deleteConversation(c.title)}
                 onClick={() => void remove(c.id)}
               >
                 ✕
@@ -152,30 +149,28 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
             </li>
           ))}
           {conversations.length === 0 ? (
-            <li className="text-xs text-ink-soft">Noch keine Gespräche.</li>
+            <li className="text-xs text-ink-soft">{t.ask.noConversations}</li>
           ) : null}
         </ul>
       </aside>
 
       <section className="min-w-0 max-w-[68ch] flex flex-col gap-6">
         <header>
-          <h2 className="font-head font-bold text-3xl leading-tight">Fragen</h2>
+          <h2 className="font-head font-bold text-3xl leading-tight">{t.ask.title}</h2>
           <p className="text-sm text-ink-soft mt-1">
-            Antworten kommen nur aus deinen Artikeln{released > 0 ? ` und ${released} freigegebenen Projekt${released === 1 ? '' : 'en'}` : ''} und nennen ihre Quellen.
+            {t.ask.scope(released)}
           </p>
           <p className="text-xs text-ink-soft mt-1">
-            {models.length
-              ? `Deine Frage und gefundene Auszüge gehen an ${models.map((m) => `„${m}“`).join(' und ')}. `
-              : ''}
+            {models.length ? t.ask.dataFlow(models) : ''}
             <button className="underline hover:no-underline" onClick={onOpenSetup}>
-              Modell, Projekte und Notizen in der Einrichtung ändern
+              {t.ask.changeSetup}
             </button>
           </p>
         </header>
 
         {off ? (
           <p className="border border-warning bg-warning-paper p-3 text-sm" role="status">
-            {!entry ? 'Die Auskunft ist in dieser Installation nicht vorhanden.' : explainAsk('agent_disabled')}
+            {!entry ? t.ask.notInstalled : explainAsk(t, 'agent_disabled')}
           </p>
         ) : null}
 
@@ -187,7 +182,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
             <>
               <Question text={pending} />
               <p className="text-sm text-ink-soft" role="status">
-                Die Zeitung wird durchsucht …
+                {t.ask.searching}
               </p>
             </>
           ) : null}
@@ -195,10 +190,12 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
 
         {error ? (
           <div className="border border-danger bg-danger-paper p-3 text-sm text-danger flex flex-wrap items-center gap-3" role="alert">
-            <span>{error}</span>
+            <span>
+              {t.status.error} {error}
+            </span>
             {setupError ? (
               <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
-                Einrichtung öffnen
+                {t.ask.openSetup}
               </button>
             ) : null}
           </div>
@@ -215,7 +212,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
             className="w-full resize-none border border-rule bg-transparent p-2 text-sm"
             rows={2}
             maxLength={2000}
-            placeholder="Was möchtest du wissen? z. B. „Was gab es zuletzt zu KI-Chips?“"
+            placeholder={t.ask.placeholder}
             value={question}
             disabled={!!pending || !!off}
             onChange={(e) => setQuestion(e.target.value)}
@@ -227,9 +224,9 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
             }}
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-soft">Enter sendet, Umschalt+Enter = neue Zeile</span>
+            <span className="text-xs text-ink-soft">{t.ask.enterHint}</span>
             <button type="submit" className={`${smallBtn} font-bold`} disabled={!question.trim() || !!pending || !!off}>
-              Fragen
+              {t.ask.send}
             </button>
           </div>
         </form>
@@ -261,6 +258,8 @@ function Answer({
   api: ApiClient;
   onOpenSetup: () => void;
 }) {
+  const { t } = useI18n();
+  const f = useFormat();
   const refs = new Set(message.citations.map((c) => c.number));
   // Only articles open in the reader; project files are shown by path.
   const order = message.citations.filter((c) => c.kind !== 'file').map((c) => c.articleId);
@@ -269,10 +268,10 @@ function Answer({
   if (message.status !== 'ok') {
     return (
       <div className="border border-warning bg-warning-paper p-3 text-sm" role="status">
-        <p>{explainAsk(message.error)}</p>
+        <p>{explainAsk(t, message.error)}</p>
         {needsSetup(message.error) ? (
           <button className="mt-2 uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
-            Einrichtung öffnen
+            {t.ask.openSetup}
           </button>
         ) : null}
         <Trace message={message} />
@@ -284,7 +283,7 @@ function Answer({
     <article className="flex flex-col gap-3">
       {message.route?.kind === 'delegate' ? (
         <p className="text-xs uppercase tracking-wider text-ink-soft">
-          {ROUTE_LABEL[message.route.agent ?? ''] ?? `Weitergeleitet an: ${titleOf(message.route.agent)}`}
+          {t.ask.route[message.route.agent ?? ''] ?? t.ask.delegatedTo(titleOf(message.route.agent))}
         </p>
       ) : null}
       <p className="font-body text-lg leading-relaxed whitespace-pre-wrap">
@@ -295,7 +294,7 @@ function Answer({
             <button
               key={i}
               className="align-super text-[0.7em] font-bold px-0.5 text-accent underline"
-              aria-label={`Quelle ${p.ref} öffnen`}
+              aria-label={t.ask.openSource(p.ref)}
               onClick={() => {
                 const c = message.citations.find((x) => x.number === p.ref);
                 if (c && c.kind !== 'file') open(c);
@@ -315,7 +314,7 @@ function Answer({
                 {c.kind === 'file' ? (
                   <>
                     <span className="font-mono font-semibold">{c.title}</span>
-                    <span className="text-ink-soft"> · Projekt {c.sourceName}</span>
+                    <span className="text-ink-soft">{t.ask.project(c.sourceName ?? '')}</span>
                   </>
                 ) : (
                   <>
@@ -324,7 +323,7 @@ function Answer({
                     </button>
                     <span className="text-ink-soft">
                       {' · '}
-                      {[c.sourceName ?? hostnameOf(c.url), formatShortDate(c.publishedAt)].filter(Boolean).join(' · ')}
+                      {[c.sourceName ?? hostnameOf(c.url), f.shortDate(c.publishedAt)].filter(Boolean).join(' · ')}
                     </span>
                   </>
                 )}
@@ -341,27 +340,29 @@ function Answer({
   );
 }
 
-function describeStep(s: TraceStep): string {
+function describeStep(t: Messages, s: TraceStep): string {
   const input = s.input && typeof s.input === 'object' ? Object.entries(s.input as Record<string, unknown>) : [];
   const args = input.map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join(', ');
-  return `${s.tool}${args ? ` (${args})` : ''} → ${s.isError ? 'Fehler' : `${s.resultCount} Ergebnis${s.resultCount === 1 ? '' : 'se'}`} · ${s.ms} ms`;
+  return `${s.tool}${args ? ` (${args})` : ''} → ${s.isError ? t.ask.stepError : t.ask.stepResults(s.resultCount)} · ${s.ms} ms`;
 }
 
 function Trace({ message }: { message: ConversationMessage }) {
+  const { t } = useI18n();
+  const f = useFormat();
   const steps = message.trace ?? [];
   return (
     <details className="text-xs text-ink-soft">
-      <summary className="cursor-pointer">Wie kam das zustande?</summary>
+      <summary className="cursor-pointer">{t.ask.howTitle}</summary>
       <div className="mt-1 flex flex-col gap-1">
         <p>
-          {message.model ?? 'kein Modell'}
-          {message.costUsd != null ? ` · ${formatUsd(message.costUsd)}` : ''}
+          {message.model ?? t.ask.noModel}
+          {message.costUsd != null ? ` · ${f.usd(message.costUsd)}` : ''}
         </p>
-        {steps.length === 0 ? <p>Keine Werkzeugaufrufe.</p> : null}
+        {steps.length === 0 ? <p>{t.ask.noTools}</p> : null}
         <ol className="list-decimal pl-5">
           {steps.map((s, i) => (
             <li key={i} className="font-mono">
-              {describeStep(s)}
+              {describeStep(t, s)}
             </li>
           ))}
         </ol>
@@ -373,6 +374,8 @@ function Trace({ message }: { message: ConversationMessage }) {
 // A Ressort refresh costs money, so it only runs after this click.
 function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient }) {
   const [state, setState] = useState<{ kind: 'idle' } | { kind: 'running' } | { kind: 'done'; text: string }>({ kind: 'idle' });
+  const { t } = useI18n();
+  const f = useFormat();
   const run = async () => {
     setState({ kind: 'running' });
     try {
@@ -382,11 +385,11 @@ function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient 
         kind: 'done',
         text:
           r.status === 'success'
-            ? `Fertig: ${n} neue Artikel (${formatUsd(r.costUsd)}). Du findest sie in der Zeitung.`
-            : `${r.status === 'partial' ? 'Teilweise' : 'Fehlgeschlagen'}: ${explainFailure(r.error)}`,
+            ? t.ask.proposalDone(n, f.usd(r.costUsd))
+            : (r.status === 'partial' ? t.ask.proposalPartial : t.ask.proposalFailed)(explainFailure(t, r.error)),
       });
     } catch (e) {
-      setState({ kind: 'done', text: `Fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` });
+      setState({ kind: 'done', text: t.ask.proposalFailed(e instanceof Error ? e.message : String(e)) });
     }
   };
   return (
@@ -396,7 +399,7 @@ function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient 
         disabled={state.kind !== 'idle'}
         onClick={() => void run()}
       >
-        {state.kind === 'running' ? 'Läuft …' : `Neue Artikel für „${proposal.title}“ holen`}
+        {state.kind === 'running' ? t.ask.proposalRunning : t.ask.proposalRun(proposal.title)}
       </button>
       {state.kind === 'done' ? <span role="status">{state.text}</span> : null}
     </div>
