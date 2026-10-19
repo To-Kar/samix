@@ -117,6 +117,8 @@ function normalizeManifest(m: ManifestYaml): Manifest {
     dedupeDays: m.dedupe_days,
     personalize: m.personalize,
     tools: m.tools,
+    routes: m.routes,
+    delegates: m.delegates,
   };
 }
 

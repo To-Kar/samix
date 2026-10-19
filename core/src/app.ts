@@ -7,6 +7,7 @@ import type { Logger } from 'pino';
 import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { askAgent } from './runner/converse.js';
+import { routeQuestion } from './runner/orchestrate.js';
 import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { reloadSkill } from './scheduler/index.js';
@@ -194,12 +195,16 @@ export async function buildApp(deps: AppDeps) {
 
   // ---- Fragen: conversations with a reactive agent over the collected articles
 
-  const DEFAULT_ASK_AGENT = 'frag-die-zeitung';
+  // Questions go to the orchestrator, or straight to the Q&A agent when there is none.
+  const ORCHESTRATOR = 'orchestrator';
+  const QA_AGENT = 'frag-die-zeitung';
+  const isAskable = (s: Skill) =>
+    s.type === 'reactive' && ((s.manifest.tools?.length ?? 0) > 0 || (s.manifest.routes?.length ?? 0) > 0);
 
   const askBodySchema = z.object({
     question: z.string().trim().min(1).max(MAX_QUESTION_CHARS),
     conversationId: z.string().min(1).optional(),
-    agent: z.string().min(1).default(DEFAULT_ASK_AGENT),
+    agent: z.string().min(1).optional(),
   });
 
   fastify.post('/ask', async (request, reply) => {
@@ -208,8 +213,10 @@ export async function buildApp(deps: AppDeps) {
       reply.code(400).send({ error: 'invalid_body', message: `question must be 1–${MAX_QUESTION_CHARS} characters` });
       return reply;
     }
-    const { question, conversationId, agent } = body.data;
-    const skill = skillList().find((s) => s.id === agent && s.type === 'reactive' && (s.manifest.tools?.length ?? 0) > 0);
+    const { question, conversationId } = body.data;
+    const agent =
+      body.data.agent ?? (skillList().some((s) => s.id === ORCHESTRATOR && s.enabled) ? ORCHESTRATOR : QA_AGENT);
+    const skill = skillList().find((s) => s.id === agent && isAskable(s));
     if (!skill) {
       reply.code(404).send({ error: 'agent_not_found', slug: agent });
       return reply;
@@ -225,7 +232,11 @@ export async function buildApp(deps: AppDeps) {
         return reply;
       }
     }
-    return askAgent({ skill, question, conversationId, logger: request.log as unknown as typeof logger });
+    const log = request.log as unknown as typeof logger;
+    if (skill.manifest.routes?.length) {
+      return routeQuestion({ skill, question, conversationId, skills: skillList(), logger: log });
+    }
+    return askAgent({ skill, question, conversationId, logger: log });
   });
 
   fastify.get('/conversations', async (request) => {
@@ -265,6 +276,12 @@ export async function buildApp(deps: AppDeps) {
         } catch {
           // an unreadable trace must not hide the conversation
         }
+        let extra: { route?: unknown; proposals?: unknown[]; totalCostUsd?: number } = {};
+        try {
+          extra = m.extra ? (JSON.parse(m.extra) as typeof extra) : {};
+        } catch {
+          // ignore an unreadable extra
+        }
         return {
           id: m.id,
           role: m.role,
@@ -272,7 +289,9 @@ export async function buildApp(deps: AppDeps) {
           status: m.status,
           citations: m.citations ? (JSON.parse(m.citations) as unknown[]) : [],
           createdAt: m.createdAt,
-          ...(run ? { runId: run.id, error: run.error, model: run.model, costUsd: run.costUsd, trace } : {}),
+          route: extra.route ?? null,
+          proposals: extra.proposals ?? [],
+          ...(run ? { runId: run.id, error: run.error, model: run.model, costUsd: extra.totalCostUsd ?? run.costUsd, trace } : {}),
         };
       }),
     };

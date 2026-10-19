@@ -6,6 +6,8 @@ import { registerAdapter } from '../src/adapters/index.js';
 import { registerFetcher } from '../src/sources/index.js';
 import type {
   ModelAdapter,
+  NormalizedRequest,
+  ToolCall,
   ModelId,
   NormalizedResponse,
   Skill,
@@ -128,4 +130,37 @@ export function llmOutput(
       ...extra,
     })),
   });
+}
+
+// ---- scripted tool-using models (conversation and orchestrator tests) ------
+
+export type Step = (req: NormalizedRequest, callNo: number) => NormalizedResponse | Promise<NormalizedResponse>;
+
+export const toolCall = (name: string, input: unknown, id = `c${Math.random()}`): ToolCall => ({ id, name, input });
+export const calling = (...calls: ToolCall[]): NormalizedResponse => ({ ...respond(''), toolCalls: calls, stopReason: 'tool_use' });
+export const finalAnswer = (answer: string, sources: string[]) => respond(JSON.stringify({ answer, sources }));
+
+// A model that plays back `steps` in order (the last one repeats).
+export function scripted(steps: Step[], opts: { tools?: boolean; name?: ModelId } = {}) {
+  const requests: NormalizedRequest[] = [];
+  let n = 0;
+  const adapter = fakeAdapter(opts.name ?? 'claude-haiku-4-5', async (req) => {
+    // Snapshot: the loop keeps appending to the same messages array.
+    requests.push({ ...req, messages: [...req.messages] });
+    const step = steps[Math.min(n, steps.length - 1)]!;
+    return step(req, n++);
+  });
+  adapter.supportsTools = opts.tools ?? true;
+  return { adapter, requests };
+}
+
+// A reactive agent that answers from articles, with all four article tools.
+export function reactiveSkill(over: { dailyUsdMax?: number; fallback?: ModelId; primary?: ModelId } = {}): Skill {
+  const s = makeSkill({ withSources: false, withSchema: false, dailyUsdMax: over.dailyUsdMax, fallback: over.fallback, primary: over.primary });
+  s.type = 'reactive';
+  s.manifest.type = 'reactive';
+  s.manifest.sources = undefined;
+  s.manifest.tools = ['list_ressorts', 'search_articles', 'get_article', 'fetch_full_text'];
+  s.manifest.output = { format: 'answer' };
+  return s;
 }

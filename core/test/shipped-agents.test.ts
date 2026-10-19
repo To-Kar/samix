@@ -21,6 +21,12 @@ describe('agents shipped in the repo', () => {
       type: 'reactive',
       manifest: { tools: ['list_ressorts', 'search_articles', 'get_article', 'fetch_full_text', 'read_notes'] },
     });
+    expect(by['orchestrator']).toMatchObject({
+      type: 'reactive',
+      manifest: { routes: ['delegate', 'show_notes', 'propose_refresh'], delegates: ['frag-die-zeitung'] },
+    });
+    // Every delegate an orchestrator names must be a shipped reactive agent.
+    for (const d of by['orchestrator']!.manifest.delegates ?? []) expect(by[d]?.type).toBe('reactive');
     // Every shipped agent that declares a schema must point at a file that exists.
     for (const s of skills) expect(s.manifest.model.primary).toBeTruthy();
   });
@@ -42,5 +48,7 @@ describe('agents shipped in the repo', () => {
     };
     expect(manifestYamlSchema.safeParse({ ...base, tools: ['search_articles'] }).success).toBe(true);
     expect(manifestYamlSchema.safeParse({ ...base, tools: ['run_shell'] }).success).toBe(false);
+    expect(manifestYamlSchema.safeParse({ ...base, routes: ['delegate'] }).success).toBe(true);
+    expect(manifestYamlSchema.safeParse({ ...base, routes: ['delete_everything'] }).success).toBe(false);
   });
 });

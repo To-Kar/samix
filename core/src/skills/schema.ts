@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MODEL_IDS, SOURCE_TYPES } from '../types.js';
+import { MODEL_IDS, ROUTE_NAMES, SOURCE_TYPES } from '../types.js';
 import { knownToolNames } from '../tools/index.js';
 
 const modelIdSchema = z.enum(MODEL_IDS);
@@ -36,6 +36,8 @@ const outputSchema = z.object({
   max_items: z.number().int().min(0).optional(),
 });
 
+const routeSchema = z.enum(ROUTE_NAMES);
+
 export const manifestYamlSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['reactive', 'proactive']),
@@ -54,6 +56,8 @@ export const manifestYamlSchema = z.object({
     .refine((names) => (names ?? []).every((n) => knownToolNames().includes(n)), {
       message: `unknown tool; known: ${knownToolNames().join(', ')}`,
     }),
+  routes: z.array(routeSchema).optional(),
+  delegates: z.array(z.string().min(1)).optional(),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

@@ -9,42 +9,15 @@ import {
   NOTHING_FOUND_ANSWER,
   askAgent,
 } from '../src/runner/converse.js';
-import type { ModelAdapter, ModelId, NormalizedRequest, NormalizedResponse, Skill, ToolCall } from '../src/types.js';
-import { fakeAdapter, makeSkill, respond, seedAgent } from './helpers.js';
+import type { ModelAdapter, Skill } from '../src/types.js';
+import { calling, fakeAdapter, finalAnswer, makeSkill, reactiveSkill, respond, scripted, seedAgent, toolCall } from './helpers.js';
 
 const AUTH = { authorization: 'Bearer tok' };
 const ids: Record<string, string> = {};
 let newsAgentId: string;
 
-type Step = (req: NormalizedRequest, callNo: number) => NormalizedResponse | Promise<NormalizedResponse>;
-
-const toolCall = (name: string, input: unknown, id = `c${Math.random()}`): ToolCall => ({ id, name, input });
-const calling = (...calls: ToolCall[]): NormalizedResponse => ({ ...respond(''), toolCalls: calls, stopReason: 'tool_use' });
-const final = (answer: string, sources: string[]) => respond(JSON.stringify({ answer, sources }));
-
-// A model that plays back `steps` in order (the last one repeats).
-function scripted(steps: Step[], opts: { tools?: boolean; name?: ModelId } = {}) {
-  const requests: NormalizedRequest[] = [];
-  let n = 0;
-  const adapter = fakeAdapter(opts.name ?? 'claude-haiku-4-5', async (req) => {
-    // Snapshot: the loop keeps appending to the same messages array.
-    requests.push({ ...req, messages: [...req.messages] });
-    const step = steps[Math.min(n, steps.length - 1)]!;
-    return step(req, n++);
-  });
-  adapter.supportsTools = opts.tools ?? true;
-  return { adapter, requests };
-}
-
-function reactive(over: { dailyUsdMax?: number; fallback?: ModelId } = {}): Skill {
-  const s = makeSkill({ withSources: false, withSchema: false, dailyUsdMax: over.dailyUsdMax, fallback: over.fallback });
-  s.type = 'reactive';
-  s.manifest.type = 'reactive';
-  s.manifest.sources = undefined;
-  s.manifest.tools = ['list_ressorts', 'search_articles', 'get_article', 'fetch_full_text'];
-  s.manifest.output = { format: 'answer' };
-  return s;
-}
+const final = finalAnswer;
+const reactive = reactiveSkill;
 
 async function setup(skill: Skill, adapter: ModelAdapter) {
   await seedAgent(skill);

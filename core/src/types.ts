@@ -15,6 +15,10 @@ export const MODEL_IDS = [
 
 export type ModelId = (typeof MODEL_IDS)[number];
 
+// What an orchestrator agent may do with a question (runner/orchestrate.ts).
+export const ROUTE_NAMES = ['delegate', 'show_notes', 'propose_refresh'] as const;
+export type RouteName = (typeof ROUTE_NAMES)[number];
+
 export interface Skill {
   id: string;
   /** Display name (Ressort title): SKILL.md frontmatter `title`, else `name`. */
@@ -44,6 +48,10 @@ export interface Manifest {
   personalize?: boolean;
   /** Tools a reactive agent may call, by name (see tools/index.ts). */
   tools?: string[];
+  /** Orchestrators: the actions they may choose. */
+  routes?: RouteName[];
+  /** Orchestrators: reactive agents they may hand a question to. */
+  delegates?: string[];
 }
 
 export interface ModelPreference {
