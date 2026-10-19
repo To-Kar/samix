@@ -5,6 +5,12 @@
   "version": 1,
   "author": "Samix",
   "stance": "Die Tageszeitung auf dem Küchentisch: warmes Papier, Spalten, Haarlinien — Ordnung, die man nicht bemerkt.",
+  "l10n": {
+    "en": {
+      "name": "Newsprint",
+      "stance": "The paper on the kitchen table: warm stock, columns, hairlines — order you never notice."
+    }
+  },
   "modes": {
     "light": {
       "paper": "#f6f1e6",

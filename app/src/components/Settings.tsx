@@ -6,24 +6,28 @@ import {
   hasSecret,
   deleteSecret,
 } from '../lib/keychain';
+import { useI18n } from '../i18n/I18nProvider';
+
+type SecretText = 'groupLlm' | 'anthropic' | 'perplexity';
 
 interface FieldSpec {
   account: SecretAccount;
-  label: string;
+  label: SecretText;
   sensitive: boolean;
 }
 
-const GROUPS: { title: string; fields: FieldSpec[] }[] = [
+const GROUPS: { title: SecretText; fields: FieldSpec[] }[] = [
   {
-    title: 'LLM providers',
+    title: 'groupLlm',
     fields: [
-      { account: 'ANTHROPIC_API_KEY', label: 'Anthropic API key', sensitive: true },
-      { account: 'PERPLEXITY_API_KEY', label: 'Perplexity API key', sensitive: true },
+      { account: 'ANTHROPIC_API_KEY', label: 'anthropic', sensitive: true },
+      { account: 'PERPLEXITY_API_KEY', label: 'perplexity', sensitive: true },
     ],
   },
 ];
 
 export function Settings() {
+  const { t } = useI18n();
   const [configured, setConfigured] = useState<Record<SecretAccount, boolean>>(
     () => Object.fromEntries(SECRET_ACCOUNTS.map((a) => [a, false])) as Record<SecretAccount, boolean>
   );
@@ -43,14 +47,12 @@ export function Settings() {
   return (
     <div className="flex flex-col gap-6">
       <div className="samix-note">
-        Stored in the OS keychain under service <code>samix</code>. Values never leave
-        Rust — the UI only sees whether a key is configured. Restart the app to load
-        new keys into the core (auto-spawn lands with Phase 1 step 11).
+        {t.secrets.intro('samix')}
       </div>
       {GROUPS.map((group) => (
         <section key={group.title} className="flex flex-col gap-3">
           <h3 className="samix-label">
-            {group.title}
+            {t.secrets[group.title]}
           </h3>
           <div className="flex flex-col gap-2">
             {group.fields.map((f) => (
@@ -83,6 +85,7 @@ interface SecretRowProps {
 }
 
 function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowProps) {
+  const { t } = useI18n();
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,14 +122,14 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 text-sm">
         <span className="font-medium w-40 shrink-0">
-          {field.label}
+          {t.secrets[field.label]}
         </span>
         <span
           className={
             configured ? 'text-ink' : 'text-ink-soft'
           }
         >
-          {configured ? (flash ? 'saved ✓' : 'configured') : 'not set'}
+          {configured ? (flash ? t.secrets.saved : t.secrets.configured) : t.secrets.notSet}
         </span>
         <span className="font-mono text-sm text-ink-soft ml-auto">
           {field.account}
@@ -137,7 +140,7 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
           type={field.sensitive ? 'password' : 'text'}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={configured ? '••• (enter new to replace)' : 'value'}
+          placeholder={configured ? t.secrets.placeholderReplace : t.secrets.placeholder}
           disabled={busy}
           className="flex-1 samix-input font-mono"
           onKeyDown={(e) => {
@@ -149,7 +152,7 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
           disabled={busy || !value}
           className="samix-button"
         >
-          Save
+          {t.secrets.save}
         </button>
         {configured ? (
           <button
@@ -157,7 +160,7 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
             disabled={busy}
             className="samix-button text-danger"
           >
-            Remove
+            {t.secrets.remove}
           </button>
         ) : null}
       </div>

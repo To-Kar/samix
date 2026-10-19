@@ -46,6 +46,8 @@ export interface SamixTheme {
   version: number;
   author?: string;
   stance?: string;
+  /** Translations of name/stance keyed by language code; `name` is the default. */
+  l10n?: Record<string, { name: string; stance?: string }>;
   /** Text contrast target: AA = 4.5:1 (default), AAA = 7:1. */
   contrast?: 'AA' | 'AAA';
   darkOnly?: boolean;

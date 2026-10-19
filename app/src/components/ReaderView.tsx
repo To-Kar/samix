@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { Article } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 import { hostnameOf, paragraphs, sourceLabel } from '../lib/articles';
 
-const LOCALE = 'de-DE';
-
-const dateTime = (iso: string) =>
-  new Date(iso).toLocaleString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const dateTime = (iso: string, locale: string) =>
+  new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 interface ReaderViewProps {
   article: Article;
@@ -15,6 +14,7 @@ interface ReaderViewProps {
 
 /** One article, single column at the theme's measure. Esc returns to the edition. */
 export function ReaderView({ article, onBack }: ReaderViewProps) {
+  const { t, dateLocale } = useI18n();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onBack();
@@ -29,14 +29,14 @@ export function ReaderView({ article, onBack }: ReaderViewProps) {
   return (
     <article className="samix-reader">
       <button className="samix-button self-start mb-8" onClick={onBack}>
-        ← Zur Ausgabe
+        {t.paper.back}
       </button>
       {article.topic ? <span className="samix-kicker">{article.topic}</span> : null}
       <h1 className="samix-headline text-4xl leading-tight mt-1">{article.title}</h1>
       <p className="samix-hint samix-reader-meta">
         {source ? `${source} · ` : ''}
-        {article.publishedAt ? `veröffentlicht ${dateTime(article.publishedAt)} · ` : ''}
-        gesammelt {dateTime(article.createdAt)}
+        {article.publishedAt ? `${t.paper.published(dateTime(article.publishedAt, dateLocale))} · ` : ''}
+        {t.paper.collected(dateTime(article.createdAt, dateLocale))}
       </p>
       <div className="samix-prose">
         {paragraphs(article.summary).map((p, i) => (
@@ -44,7 +44,7 @@ export function ReaderView({ article, onBack }: ReaderViewProps) {
         ))}
       </div>
       <footer className="samix-reader-sources samix-hint">
-        <h2 className="samix-label mb-1">Quelle</h2>
+        <h2 className="samix-label mb-1">{t.paper.source}</h2>
         {article.sourceUrl ? (
           <button className="samix-link text-left break-all" onClick={() => void openUrl(article.sourceUrl!)}>
             {source && source !== hostnameOf(article.sourceUrl) ? `${source} — ` : ''}
@@ -52,7 +52,7 @@ export function ReaderView({ article, onBack }: ReaderViewProps) {
           </button>
         ) : (
           <p>
-            <b>Warnung:</b> Für diesen Artikel ist keine Quelle gespeichert.
+            <b>{t.status.warning}</b> {t.paper.noSource}
           </p>
         )}
       </footer>

@@ -5,6 +5,12 @@
   "version": 1,
   "author": "Samix",
   "stance": "Sepia, Blocksatz mit Silbentrennung, Einzug statt Leerzeile: die Ruhe eines gedruckten Buches.",
+  "l10n": {
+    "en": {
+      "name": "Book",
+      "stance": "Sepia, justified and hyphenated, indents instead of blank lines: the calm of a printed book."
+    }
+  },
   "modes": {
     "light": {
       "paper": "#f4ecd8",

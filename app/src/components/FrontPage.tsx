@@ -1,11 +1,11 @@
 import type { Article } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 import { dayKey, groupByDay, paragraphs, ressortsOf, sourceLabel } from '../lib/articles';
 
-const LOCALE = 'de-DE';
-
-const longDate = (d: Date) =>
-  d.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-const time = (iso: string) => new Date(iso).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+const longDate = (d: Date, locale: string) =>
+  d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const time = (iso: string, locale: string) =>
+  new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
 interface FrontPageProps {
   articles: Article[];
@@ -20,6 +20,7 @@ interface FrontPageProps {
  * Column count, rules and kicker style come from the theme (data-* on <html>).
  */
 export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPageProps) {
+  const { t, dateLocale } = useI18n();
   const ressorts = ressortsOf(articles);
   const visible = ressort ? articles.filter((a) => a.topic === ressort) : articles;
   const [today, ...earlier] = groupByDay(visible);
@@ -30,14 +31,14 @@ export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPagePro
       <header className="samix-masthead">
         <h1 className="samix-masthead-name">Samix</h1>
         <p className="samix-hint">
-          {longDate(new Date())} · {articles.length} {articles.length === 1 ? 'Artikel' : 'Artikel'} der letzten 7 Tage
+          {longDate(new Date(), dateLocale)} · {t.paper.edition(articles.length)}
         </p>
       </header>
 
       {ressorts.length > 0 ? (
-        <nav className="samix-ressorts" aria-label="Ressorts">
+        <nav className="samix-ressorts" aria-label={t.paper.ressorts}>
           <button aria-pressed={ressort === null} onClick={() => onRessort(null)}>
-            Alle
+            {t.paper.all}
           </button>
           {ressorts.map((r) => (
             <button key={r} aria-pressed={ressort === r} onClick={() => onRessort(r)}>
@@ -49,12 +50,14 @@ export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPagePro
 
       {!lead ? (
         <p className="samix-note">
-          <b>Hinweis:</b> Noch keine Artikel. Fülle ein Ressort, dann erscheint hier die erste Ausgabe.
+          <b>{t.status.notice}</b> {t.paper.empty}
         </p>
       ) : (
         <>
           {today && dayKey(new Date().toISOString()) !== today[0] ? (
-            <p className="samix-label mb-3">Letzte Ausgabe · {longDate(new Date(lead.createdAt))}</p>
+            <p className="samix-label mb-3">
+              {t.paper.lastEdition} · {longDate(new Date(lead.createdAt), dateLocale)}
+            </p>
           ) : null}
 
           <article className="samix-lead">
@@ -89,7 +92,7 @@ export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPagePro
 
       {earlier.map(([day, items]) => (
         <section key={day} className="samix-earlier">
-          <h2 className="samix-label pb-1 mb-3 border-b border-rule">{longDate(new Date(items[0].createdAt))}</h2>
+          <h2 className="samix-label pb-1 mb-3 border-b border-rule">{longDate(new Date(items[0].createdAt), dateLocale)}</h2>
           <ul className="flex flex-col gap-3">
             {items.map((a) => (
               <li key={a.id}>
@@ -113,10 +116,12 @@ export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPagePro
 const teaser = (a: Article) => paragraphs(a.summary)[0] ?? '';
 
 function Meta({ article }: { article: Article }) {
+  const { t, dateLocale } = useI18n();
   const source = sourceLabel(article);
   return (
     <p className="samix-hint mt-2">
-      {source ? `${source} · ` : ''}gesammelt {time(article.createdAt)}
+      {source ? `${source} · ` : ''}
+      {t.paper.collected(time(article.createdAt, dateLocale))}
     </p>
   );
 }

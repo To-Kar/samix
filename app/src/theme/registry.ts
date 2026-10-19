@@ -30,3 +30,9 @@ export function parseTheme(data: unknown, source: string): SamixTheme {
 export const BUILT_IN_THEMES: SamixTheme[] = [zeitung, klar, essay, buch, nacht, kontrast].map((t) =>
   parseTheme(t, `${t.id}.samix-theme.json`)
 );
+
+/** Name and stance in the UI language, falling back to the file's own. */
+export function themeText(theme: SamixTheme, lang: string): { name: string; stance?: string } {
+  const l = theme.l10n?.[lang];
+  return { name: l?.name ?? theme.name, stance: l?.stance ?? theme.stance };
+}

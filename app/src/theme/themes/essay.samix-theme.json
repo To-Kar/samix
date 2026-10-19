@@ -5,6 +5,12 @@
   "version": 1,
   "author": "Samix",
   "stance": "Eine Spalte, breite Ränder, eine Gedankenfolge: lesen wie ein Buch mit Bleistift in der Hand.",
+  "l10n": {
+    "en": {
+      "name": "Essay",
+      "stance": "One column, wide margins, one line of thought: read like a book with a pencil in hand."
+    }
+  },
   "modes": {
     "light": {
       "paper": "#f2f1ec",

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, SourceSpec } from '../lib/api';
+import { useI18n } from '../i18n/I18nProvider';
 
 const NEWSLETTER_SLUG = 'newsletter-ai';
 
@@ -19,6 +20,7 @@ function fromLines(text: string): string[] {
 }
 
 export function Sources({ api }: SourcesProps) {
+  const { t } = useI18n();
   const [sources, setSources] = useState<SourceSpec[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -109,10 +111,10 @@ export function Sources({ api }: SourcesProps) {
       }
 
       await api.putSources(NEWSLETTER_SLUG, updated);
-      setSaveMessage('Sources saved — next run will use the updated config.');
+      setSaveMessage(t.sources.saved);
       await load();
     } catch (e) {
-      setSaveMessage(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
+      setSaveMessage(t.sources.saveFailed(e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
@@ -120,26 +122,25 @@ export function Sources({ api }: SourcesProps) {
 
   if (loadError) {
     return (
-      <div className="samix-error font-mono">
-        {loadError}
+      <div className="samix-error" role="alert">
+        <b>{t.status.error}</b> <span className="font-mono">{loadError}</span>
       </div>
     );
   }
 
   if (!sources) {
-    return <div className="samix-hint">Loading sources…</div>;
+    return <div className="samix-hint">{t.sources.loading}</div>;
   }
 
   return (
     <div className="flex flex-col gap-5">
       <p className="samix-hint">
-        Edit the sources for <code>newsletter-ai</code>. Saves write directly to{' '}
-        <code>manifest.yaml</code> — one entry per line.
+        {t.sources.intro(NEWSLETTER_SLUG, 'manifest.yaml')}
       </p>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="samix-label mb-1">
-          RSS Feeds
+          {t.sources.rss}
         </legend>
         <textarea
           value={rssUrls}
@@ -148,15 +149,15 @@ export function Sources({ api }: SourcesProps) {
           className="samix-input font-mono"
           placeholder="https://hnrss.org/frontpage&#10;https://feeds.example.com/rss"
         />
-        <p className="samix-hint">One URL per line</p>
+        <p className="samix-hint">{t.sources.rssHint}</p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="samix-label mb-1">
-          Arxiv
+          {t.sources.arxiv}
         </legend>
         <label className="text-sm text-ink-soft">
-          Categories (one per line)
+          {t.sources.arxivCategories}
         </label>
         <textarea
           value={arxivCategories}
@@ -166,7 +167,7 @@ export function Sources({ api }: SourcesProps) {
           placeholder="cs.AI&#10;cs.LG"
         />
         <label className="text-sm text-ink-soft">
-          Optional keyword filter
+          {t.sources.arxivQuery}
         </label>
         <input
           type="text"
@@ -179,7 +180,7 @@ export function Sources({ api }: SourcesProps) {
 
       <fieldset className="flex flex-col gap-2">
         <legend className="samix-label mb-1">
-          Perplexity Search
+          {t.sources.perplexity}
         </legend>
         <textarea
           value={perplexityQueries}
@@ -189,7 +190,7 @@ export function Sources({ api }: SourcesProps) {
           placeholder="AI agent architectures 2026&#10;open source LLMs"
         />
         <p className="samix-hint">
-          One search query per line. Requires a Perplexity API key in Settings.
+          {t.sources.perplexityHint}
         </p>
       </fieldset>
 
@@ -204,7 +205,7 @@ export function Sources({ api }: SourcesProps) {
         disabled={saving}
         className="self-start samix-button-primary"
       >
-        {saving ? 'Saving…' : 'Save sources'}
+        {saving ? t.sources.saving : t.sources.save}
       </button>
     </div>
   );

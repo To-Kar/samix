@@ -39,6 +39,30 @@
       "type": "string",
       "maxLength": 200
     },
+    "l10n": {
+      "type": "object",
+      "description": "Übersetzungen von name und stance, Schlüssel = Sprachcode (z. B. \"en\").",
+      "propertyNames": {
+        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "stance": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
     "contrast": {
       "enum": [
         "AA",

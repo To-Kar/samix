@@ -5,6 +5,12 @@
   "version": 1,
   "author": "Samix",
   "stance": "Nichts, was nicht trägt: eine Schrift, viel Luft, keine Linien — der Text ist die einzige Form.",
+  "l10n": {
+    "en": {
+      "name": "Clear",
+      "stance": "Nothing that does not carry weight: one typeface, plenty of air, no rules — the text is the only form."
+    }
+  },
   "modes": {
     "light": {
       "paper": "#fafaf9",

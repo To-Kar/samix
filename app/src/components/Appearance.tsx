@@ -1,35 +1,39 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
+import { useI18n } from '../i18n/I18nProvider';
 import { contrast, normalizeHex } from '../theme/color';
+import { themeText } from '../theme/registry';
 import { resolveTheme, type ResolvedTheme } from '../theme/resolve';
 import { useTheme } from '../theme/ThemeProvider';
-import { FONT_SCALES, type Mode, type ThemeSettings } from '../theme/types';
+import { FONT_SCALES } from '../theme/types';
+import { Field, Segmented } from './controls';
 
 // Quick picks; any other colour goes through the same contrast gate.
 const ACCENT_PRESETS = ['#8a2c1a', '#7a4a12', '#5d5a14', '#2f5d3a', '#1f5f6b', '#1d5bb8', '#5b3f8c', '#8a2a5c'];
 
-const MODE_LABEL: Record<ThemeSettings['mode'], string> = { light: 'Hell', dark: 'Dunkel', system: 'System folgen' };
-const MODE_NAME: Record<Mode, string> = { light: 'hell', dark: 'dunkel' };
-const fmt = (ratio: number) => ratio.toFixed(1).replace('.', ',');
+const ratio = (r: number, locale: string) => r.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export function Appearance() {
   const { themes, settings, update, reset, resolved } = useTheme();
+  const { t, locale } = useI18n();
+  const a = t.appearance;
+  const name = (theme: (typeof themes)[number]) => themeText(theme, locale).name;
   const selected = resolved.selected;
   const darkOnly = !selected.modes.light;
   const partnerId = settings.lightPartners[selected.id] ?? selected.lightPartner;
-  const partner = themes.find((t) => t.id === partnerId);
+  const partner = themes.find((th) => th.id === partnerId);
 
   return (
     <div className="flex flex-col gap-6 text-sm">
-      <Field label="Theme">
+      <Field label={a.theme}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {themes.map((t) => {
-            const swatch = t.modes.light ?? t.modes.dark!;
+          {themes.map((th) => {
+            const swatch = th.modes.light ?? th.modes.dark!;
             return (
               <button
-                key={t.id}
-                aria-pressed={t.id === selected.id}
-                onClick={() => update({ themeId: t.id })}
-                title={t.stance}
+                key={th.id}
+                aria-pressed={th.id === selected.id}
+                onClick={() => update({ themeId: th.id })}
+                title={themeText(th, locale).stance}
                 className="samix-button text-left py-2"
               >
                 <span className="flex gap-1 mb-1" aria-hidden="true">
@@ -37,36 +41,38 @@ export function Appearance() {
                     <i key={k} className="w-4 h-4 border border-line" style={{ background: swatch[k] }} />
                   ))}
                 </span>
-                {t.name}
+                {name(th)}
               </button>
             );
           })}
         </div>
-        {selected.stance ? <p className="samix-hint">{selected.stance}</p> : null}
+        <p className="samix-hint">{themeText(selected, locale).stance}</p>
       </Field>
 
-      <Field label="Modus">
+      <Field label={a.mode}>
         <Segmented
           value={settings.mode}
-          options={(['light', 'dark', 'system'] as const).map((m) => [m, MODE_LABEL[m]])}
+          options={[
+            ['light', a.modeLight],
+            ['dark', a.modeDark],
+            ['system', a.modeSystem],
+          ]}
           onChange={(mode) => update({ mode })}
         />
         {darkOnly ? (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="samix-hint">
-              {selected.name} hat keinen hellen Modus. Bei hellem System gilt:
-            </span>
+            <span className="samix-hint">{a.noLightMode(name(selected))}</span>
             <select
               className="samix-input w-auto"
               value={partner?.id ?? ''}
               onChange={(e) => update({ lightPartners: { ...settings.lightPartners, [selected.id]: e.target.value } })}
-              aria-label={`Heller Partner für ${selected.name}`}
+              aria-label={a.lightPartnerLabel(name(selected))}
             >
               {themes
-                .filter((t) => t.modes.light)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} hell
+                .filter((th) => th.modes.light)
+                .map((th) => (
+                  <option key={th.id} value={th.id}>
+                    {name(th)} {a.light}
                   </option>
                 ))}
             </select>
@@ -74,13 +80,12 @@ export function Appearance() {
         ) : null}
         {resolved.theme.id !== selected.id ? (
           <p className="samix-note">
-            <b>Hinweis:</b> Gerade gilt {resolved.theme.name} {MODE_NAME[resolved.mode]}, weil {selected.name} keinen
-            hellen Modus hat.
+            <b>{t.status.notice}</b> {a.partnerActive(`${name(resolved.theme)} ${a[resolved.mode]}`, name(selected))}
           </p>
         ) : null}
       </Field>
 
-      <Field label="Schriftgröße">
+      <Field label={a.fontSize}>
         <Segmented
           value={settings.fontScale}
           options={FONT_SCALES.map((s, i) => [i, `${Math.round(s * 100)} %`])}
@@ -88,38 +93,38 @@ export function Appearance() {
         />
       </Field>
 
-      <Field label="Fließtext" hint="„Lesefreundlich“ = Atkinson Hyperlegible, in jedem Theme.">
+      <Field label={a.bodyFont} hint={a.bodyFontHint}>
         <Segmented
           value={settings.bodyFont}
           options={[
-            ['theme', 'Theme'],
-            ['serif', 'Serif'],
-            ['sans', 'Sans'],
-            ['readable', 'Lesefreundlich'],
+            ['theme', a.bodyFontTheme],
+            ['serif', a.bodyFontSerif],
+            ['sans', a.bodyFontSans],
+            ['readable', a.bodyFontReadable],
           ]}
           onChange={(bodyFont) => update({ bodyFont })}
         />
       </Field>
 
-      <Field label="Zeilenlänge">
+      <Field label={a.measure}>
         <Segmented
           value={settings.measure}
           options={[
-            ['narrow', 'Schmal'],
-            ['medium', 'Mittel'],
-            ['wide', 'Breit'],
+            ['narrow', a.measureNarrow],
+            ['medium', a.measureMedium],
+            ['wide', a.measureWide],
           ]}
           onChange={(measure) => update({ measure })}
         />
       </Field>
 
-      <Field label="Dichte">
+      <Field label={a.density}>
         <Segmented
           value={settings.density}
           options={[
-            ['compact', 'Kompakt'],
-            ['normal', 'Normal'],
-            ['airy', 'Luftig'],
+            ['compact', a.densityCompact],
+            ['normal', a.densityNormal],
+            ['airy', a.densityAiry],
           ]}
           onChange={(density) => update({ density })}
         />
@@ -127,7 +132,7 @@ export function Appearance() {
 
       <AccentField />
 
-      <Field label="Papierton" hint="Verschiebt nur den Farbton der Fläche, nie ihre Helligkeit.">
+      <Field label={a.paperTone} hint={a.paperToneHint}>
         <input
           type="range"
           min={-3}
@@ -136,18 +141,18 @@ export function Appearance() {
           value={settings.paperTone}
           onChange={(e) => update({ paperTone: Number(e.target.value) })}
           className="w-full accent-accent"
-          aria-label="Papierton"
+          aria-label={a.paperTone}
         />
         <div className="flex justify-between samix-hint" aria-hidden="true">
-          <span>wärmer</span>
-          <span>Theme</span>
-          <span>kühler</span>
+          <span>{a.warmer}</span>
+          <span>{a.theme}</span>
+          <span>{a.cooler}</span>
         </div>
       </Field>
 
       <div>
         <button className="samix-button" onClick={reset}>
-          Zurücksetzen
+          {a.reset}
         </button>
       </div>
     </div>
@@ -156,6 +161,8 @@ export function Appearance() {
 
 function AccentField() {
   const { themes, settings, update, systemDark } = useTheme();
+  const { t, locale, dateLocale } = useI18n();
+  const a = t.appearance;
   const [draft, setDraft] = useState(settings.accent ?? '');
   const picked = settings.accent;
 
@@ -171,7 +178,7 @@ function AccentField() {
     : [];
 
   return (
-    <Field label="Akzentfarbe">
+    <Field label={a.accent}>
       <div className="flex flex-wrap items-center gap-2">
         <button
           className="samix-button"
@@ -181,13 +188,13 @@ function AccentField() {
             update({ accent: null });
           }}
         >
-          Theme
+          {a.accentTheme}
         </button>
         {ACCENT_PRESETS.map((c) => (
           <button
             key={c}
             aria-pressed={picked === c}
-            aria-label={`Akzent ${c}`}
+            aria-label={a.accentPreset(c)}
             onClick={() => commit(c)}
             className="w-7 h-7 rounded-full border border-line aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-ink aria-pressed:outline-offset-2"
             style={{ background: c }}
@@ -195,20 +202,20 @@ function AccentField() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="samix-hint">Eigene Farbe</span>
+        <span className="samix-hint">{a.accentOwn}</span>
         <input
           type="color"
           value={picked ?? '#000000'}
           onChange={(e) => commit(e.target.value)}
           className="w-9 h-8 rounded-theme border border-line bg-paper-raised"
-          aria-label="Eigene Akzentfarbe wählen"
+          aria-label={a.accentPick}
         />
         <input
           className="samix-input w-32 font-mono"
           value={draft}
           placeholder="#rrggbb"
           onChange={(e) => commit(e.target.value)}
-          aria-label="Eigene Akzentfarbe als Hex-Wert"
+          aria-label={a.accentHex}
           aria-invalid={draft !== '' && normalizeHex(draft) === null}
         />
       </div>
@@ -218,55 +225,21 @@ function AccentField() {
           <div key={r.mode} className="flex items-center gap-2">
             <i className="w-4 h-4 border border-line shrink-0" style={{ background: r.palette.accent }} aria-hidden="true" />
             <span className="w-28 shrink-0">
-              {r.theme.name} {MODE_NAME[r.mode]}
+              {themeText(r.theme, locale).name} {a[r.mode]}
             </span>
             {fix ? (
               <span>
-                <b>angepasst</b> auf <code>{fix.to}</code> — {fmt(fix.after)} : 1 (vorher {fmt(fix.before)} : 1)
+                <b>{a.accentAdjusted}</b>
+                {a.accentAdjustedTo(fix.to, ratio(fix.after, dateLocale), ratio(fix.before, dateLocale))}
               </span>
             ) : (
               <span>
-                <b>✓ unverändert</b> — {fmt(contrast(r.palette.accent, r.palette.paper))} : 1
+                <b>{a.accentUnchanged}</b> — {ratio(contrast(r.palette.accent, r.palette.paper), dateLocale)} : 1
               </span>
             )}
           </div>
         );
       })}
     </Field>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h3 className="samix-label">{label}</h3>
-      {children}
-      {hint ? <p className="samix-hint">{hint}</p> : null}
-    </section>
-  );
-}
-
-function Segmented<T extends string | number>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: [T, string][];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="inline-flex flex-wrap self-start rounded-theme border border-line overflow-hidden">
-      {options.map(([v, label]) => (
-        <button
-          key={String(v)}
-          aria-pressed={v === value}
-          onClick={() => onChange(v)}
-          className="px-3 py-1.5 bg-paper-raised text-ink border-l border-line first:border-l-0 aria-pressed:bg-accent aria-pressed:text-on-accent aria-pressed:font-semibold"
-        >
-          {label}
-        </button>
-      ))}
-    </div>
   );
 }

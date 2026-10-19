@@ -5,6 +5,12 @@
   "version": 1,
   "author": "Samix",
   "stance": "Maximale Unterscheidbarkeit: Schwarz auf Weiß, kräftige Linien, unterstrichene Links, nichts nur über Farbe.",
+  "l10n": {
+    "en": {
+      "name": "Contrast",
+      "stance": "Maximum distinction: black on white, strong rules, underlined links, nothing by colour alone."
+    }
+  },
   "contrast": "AAA",
   "modes": {
     "light": {

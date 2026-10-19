@@ -5,6 +5,12 @@
   "version": 1,
   "author": "Samix",
   "stance": "Echtes Schwarz, gedämpfte Schrift, warmer Akzent: für dunkle Räume und OLED-Displays.",
+  "l10n": {
+    "en": {
+      "name": "Night",
+      "stance": "True black, muted type, a warm accent: for dark rooms and OLED screens."
+    }
+  },
   "darkOnly": true,
   "lightPartner": "zeitung",
   "modes": {
