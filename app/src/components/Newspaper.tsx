@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentSummary, ApiClient, Edition, EditionArticle } from '../lib/api';
 import { formatLongDate, formatShortDate, formatUsd, hostnameOf } from '../lib/format';
-import { layoutEdition, readingOrder } from '../lib/layout';
+import { groupStories, layoutEdition, readingOrder, storySources } from '../lib/layout';
 import { explainFailure, explainPartial, needsSetup as needsSetup_ } from '../lib/explain';
 import { getLeadParagraphs, getRessort, isOnboarded, setRessort } from '../lib/prefs';
 import { onTrayRunNow } from '../lib/native';
@@ -174,9 +174,9 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
     }
   };
 
-  const layout = useMemo(() => (edition ? layoutEdition(edition.articles) : null), [edition]);
+  const layout = useMemo(() => (edition ? layoutEdition(groupStories(edition.articles)) : null), [edition]);
   const order = useMemo(() => (layout ? readingOrder(layout) : []), [layout]);
-  const open = (id: string) => onOpen(id, order);
+  const open = (id: string, readingList?: string[]) => onOpen(id, readingList ?? order);
 
   return (
     <div className="flex flex-col gap-6">
@@ -355,7 +355,7 @@ function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer
 
 interface StoryProps {
   article: EditionArticle;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, readingList?: string[]) => void;
   onVote: (id: string, value: -1 | 0 | 1) => void;
 }
 
@@ -363,21 +363,40 @@ function Meta({
   article,
   withReading,
   onVote,
+  onOpen,
 }: {
   article: EditionArticle;
   withReading?: boolean;
   onVote: (id: string, value: -1 | 0 | 1) => void;
+  onOpen: (id: string, readingList?: string[]) => void;
 }) {
   const parts = [
     article.sourceName ?? hostnameOf(article.sourceUrl),
     formatShortDate(article.publishedAt),
     withReading && article.content?.status === 'ok' ? `${article.content.readingMinutes} Min. Lesezeit` : '',
   ].filter(Boolean);
+  const related = article.related ?? [];
+  const readingList = [article.id, ...related.map((r) => r.id)];
   return (
-    <div className="flex items-center justify-between gap-2 text-xs text-ink-soft dark:text-ink-soft-dark">
-      <p>{parts.join(' · ')}</p>
-      <VoteButtons vote={article.vote} onVote={(v) => onVote(article.id, v)} />
-    </div>
+    <>
+      <div className="flex items-center justify-between gap-2 text-xs text-ink-soft dark:text-ink-soft-dark">
+        <p>{parts.join(' · ')}</p>
+        <VoteButtons vote={article.vote} onVote={(v) => onVote(article.id, v)} />
+      </div>
+      {related.length > 0 ? (
+        <p className="mt-1 text-xs text-ink-soft dark:text-ink-soft-dark" title="Die Zuordnung zu einer Meldung ist das Urteil des Modells">
+          {storySources(article).length > 1 ? `${storySources(article).length} Quellen berichten · auch bei:` : 'Weitere Beiträge dazu:'}{' '}
+          {related.map((r, i) => (
+            <span key={r.id}>
+              {i > 0 ? ', ' : ''}
+              <button className="underline hover:no-underline" onClick={() => onOpen(r.id, readingList)}>
+                {r.sourceName ?? hostnameOf(r.sourceUrl)}
+              </button>
+            </span>
+          ))}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -402,7 +421,7 @@ function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api
           {article.title}
         </button>
       </h2>
-      <Meta article={article} withReading onVote={onVote} />
+      <Meta article={article} withReading onVote={onVote} onOpen={onOpen} />
 
       {imageId ? (
         <button onClick={() => onOpen(article.id)} className="block w-full my-4">
@@ -451,7 +470,7 @@ function ArticleBlock({ article, onOpen, onVote }: StoryProps) {
         </button>
       </h3>
       <p className="font-serif text-[0.95rem] leading-snug mb-2">{article.summary}</p>
-      <Meta article={article} onVote={onVote} />
+      <Meta article={article} onVote={onVote} onOpen={onOpen} />
     </article>
   );
 }
@@ -463,7 +482,7 @@ function BriefItem({ article, onOpen, onVote }: StoryProps) {
         <span className="block font-serif font-bold leading-snug hover:underline">{article.title}</span>
       </button>
       <p className="font-serif text-sm leading-snug mt-1 line-clamp-3">{article.summary}</p>
-      <Meta article={article} onVote={onVote} />
+      <Meta article={article} onVote={onVote} onOpen={onOpen} />
     </li>
   );
 }

@@ -488,6 +488,21 @@ Auslöser: Die Oberfläche war beim ersten Einrichten verwirrend (Modell und Sch
 - **Erster Start:** Anbieter → Schlüssel → Test → Modell für alle Agenten → erste Ausgabe (statt nur das Modell des Newsletters zu setzen).
 - **Nicht verifiziert:** wie sich das im Tauri-Fenster und auf dem Mac anfühlt; der Testknopf gegen echte Anbieter; der Neustart des Cores nach dem Speichern im Onboarding (nur in der installierten App möglich, dort nie gelaufen). Keine Komponententests.
 
+### Status Websuche und Gruppieren (2026-10-19)
+
+Wunsch: Ein Ressort soll ohne eigene Quelle etwas finden, optional nur auf bestimmten Seiten suchen oder beides, und mehrere Berichte über dasselbe Ereignis sollen zusammengefasst erscheinen. Core: 333 Tests, App: 18; in Chromium mit echtem Core, gefälschter Suche/Seiten und Fake-Modell gesehen.
+
+**Websuche (Perplexity)**
+- Pro Ressort wählbar: **Allgemein im Web suchen**, **Nur bestimmte Seiten** oder **Beides** (Formular „Neues Ressort“; später unter „Quellen“ → „Allgemeine Websuche“ mit Haken, Zeitraum und optionalen Zusatz-Suchanfragen). Das Thema des Ressorts wird beim Anlegen im Manifest gespeichert (`topic`).
+- Die Suche ist eine echte Quelle (`perplexity_search`) mit Regeln wie jede andere: Jede Suche wird **vor** dem Request gegen das Tageslimit des Ressorts und das globale Limit geprüft (mit Platz für den späteren Modellaufruf; sonst wird die Suche übersprungen), die **geschätzten** Kosten werden in Ledger und Lauf gebucht (auch bei einem Lauf, der danach nichts Brauchbares findet). Die Ergebnisse werden über `safeFetch` geöffnet: Auszug und Datum stammen von der Seite selbst, nicht aus Perplexitys Text; Ergebnisse ohne Datum entfallen; als Quellenname steht die Website.
+- **Nicht verifiziert:** Die Kosten je Suche sind ein **Schätzwert** (0,01 $, überschreibbar mit `SAMIX_PERPLEXITY_COST_PER_SEARCH`); den echten Preis und das Antwortformat der Perplexity-API habe ich nicht gegen die echte API geprüft. Ob die Trefferqualität für „Fußball, Bundesliga“ gut ist, ist offen (hängt an Perplexity und am Modell).
+
+**Gruppieren**
+- Das Modell kann Artikeln, die dasselbe Ereignis melden, einen gemeinsamen `story`-Schlüssel geben. Im Code geprüft: Ein Schlüssel zählt nur, wenn mindestens **zwei** angenommene Artikel ihn tragen (nicht, wenn der Partner als nicht nachverfolgbar verworfen wurde); verglichen wird locker (Groß-/Kleinschreibung, Leerraum), Länge ≤ 60.
+- Die Zeitung zeigt einen Artikel je Meldung mit „n Quellen berichten · auch bei: …“; die anderen bleiben anklickbar (Reader). Mehrere Beiträge derselben Quelle heißen „Weitere Beiträge dazu“.
+- **Bewusst nicht gebaut:** ein Abgleich, ob die Quellen „dasselbe aussagen“. Das Modell wird angewiesen, keine „Bestätigung“ zu behaupten. Ein solcher Abgleich wäre ein Modellurteil, das Übereinstimmung vortäuschen kann.
+- **Nicht verifiziert / offen:** Wie zuverlässig echte Modelle den Schlüssel vergeben (falsch zusammengelegt oder gar nicht); Gruppierung gilt nur innerhalb einer Ausgabe. **Bestehende Ressorts** behalten ihr altes `SKILL.md`/`schema.json` (Seeding überschreibt nie) und gruppieren deshalb nicht, bis diese Dateien aktualisiert sind; neu angelegte Ressorts bekommen die neuen.
+
 ## Phase 5 — Öffentliche Veröffentlichung
 
 - **macOS:** Apple-Developer-Programm, Developer-ID-Signatur, Notarisierung [Unverified: aktuelle Kosten und Ablauf bei Apple prüfen].

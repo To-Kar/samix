@@ -123,6 +123,10 @@ export interface EditionArticle {
   topic: string | null;
   importance: number;
   importanceReason: string | null;
+  /** Articles of one edition with the same key report the same event (the model's judgement). */
+  storyKey: string | null;
+  /** Set by the layout: the other articles of this story (see lib/layout.ts). */
+  related?: EditionArticle[];
   createdAt: string;
   /** +1 liked, -1 disliked, null no vote. */
   vote: number | null;

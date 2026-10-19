@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EditionArticle } from './api';
-import { layoutEdition, readingOrder } from './layout';
+import { groupStories, layoutEdition, readingOrder, storySources } from './layout';
 
 const art = (id: string, importance: number): EditionArticle => ({
   id,
@@ -12,6 +12,7 @@ const art = (id: string, importance: number): EditionArticle => ({
   topic: null,
   importance,
   importanceReason: null,
+  storyKey: null,
   createdAt: '2026-10-19T00:00:00Z',
   vote: null,
   content: null,
@@ -57,5 +58,35 @@ describe('layoutEdition', () => {
   it('gives the reader the page order: lead, then main, then notices', () => {
     const l = layoutEdition([art('a', 5), art('b', 2), art('c', 3)]);
     expect(readingOrder(l)).toEqual(['a', 'c', 'b']);
+  });
+});
+
+describe('groupStories', () => {
+  const story = (id: string, importance: number, key: string | null, source: string): EditionArticle => ({ ...art(id, importance), storyKey: key, sourceName: source });
+
+  it('prints one article per story, in front-page order, and hangs the rest off the first', () => {
+    const out = groupStories([story('a', 5, 'derby', 'kicker.de'), story('b', 3, null, 'x.de'), story('c', 3, 'derby', 'sportschau.de'), story('d', 2, 'derby', 'kicker.de')]);
+    expect(ids(out)).toEqual(['a', 'b']);
+    expect(ids(out[0]!.related ?? [])).toEqual(['c', 'd']);
+    expect(out[1]!.related).toBeUndefined();
+  });
+
+  it('counts distinct sources, the printed one included', () => {
+    const [head] = groupStories([story('a', 5, 'k', 'kicker.de'), story('c', 3, 'k', 'sportschau.de'), story('d', 2, 'k', 'kicker.de')]);
+    expect(storySources(head!)).toEqual(['kicker.de', 'sportschau.de']);
+    expect(storySources(story('x', 3, null, 'solo.de'))).toEqual(['solo.de']);
+  });
+
+  it('does not touch articles without a key, and does not mutate its input', () => {
+    const input = [story('a', 3, null, 'a.de'), story('b', 3, null, 'b.de')];
+    expect(ids(groupStories(input))).toEqual(['a', 'b']);
+    const grouped = [story('a', 3, 'k', 'a.de'), story('b', 3, 'k', 'b.de')];
+    groupStories(grouped);
+    expect(grouped[0]!.related).toBeUndefined();
+  });
+
+  it('keeps the printed articles in reading order and leaves related ones out of it', () => {
+    const l = layoutEdition(groupStories([story('a', 5, 'k', 'a.de'), story('b', 3, 'k', 'b.de'), story('c', 3, null, 'c.de')]));
+    expect(readingOrder(l)).toEqual(['a', 'c']);
   });
 });
