@@ -22,7 +22,7 @@ Alles Folgende ist in der Entwicklungsumgebung (Linux, kein Mac, kein API-Schlü
 7. Autostart/Wake-Catch-up erst nach 1–6 testen (Mac zuklappen, am nächsten Tag öffnen; der Lauf sollte nachgeholt werden).
 
 ## 3. Wo man nachsieht
-- Log: Datei im App-Datenordner (Einstellungen zeigt die Pfade; `get_app_paths`); Stufe über `SAMIX_LOG_LEVEL=debug`.
+- Log: in der installierten App öffnet der Knopf in den Einstellungen (`revealLogFile`) die Logdatei im Finder; im Entwicklungsmodus steht das Log im Terminal. Stufe über `SAMIX_LOG_LEVEL=debug`.
 - Datenbank: `pnpm db:studio` (Entwicklung).
 - Kosten je Tag: Tabelle `BudgetLedger`; je Lauf: `AgentRun`.
 - Läuft nach dem Schließen noch ein Core-Prozess? (`pgrep -fl samix`). Er sollte mit der App enden.
