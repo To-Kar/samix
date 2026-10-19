@@ -26,6 +26,7 @@ import { logger as rootLogger } from '../logger.js';
 import { notifyRunSuccess } from './hooks.js';
 import { DEFAULT_DEDUPE_DAYS, dropAlreadyPublished } from './dedupe.js';
 import { buildReaderProfile } from './profile.js';
+import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend, utcDayStart } from './budget.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -36,39 +37,6 @@ export interface RunAgentOptions {
   trigger: RunTrigger;
   input?: unknown;
   logger?: Logger;
-}
-
-const UTC_DAY_MS = 24 * 60 * 60 * 1000;
-
-function utcDayStart(d: Date): Date {
-  return new Date(Math.floor(d.getTime() / UTC_DAY_MS) * UTC_DAY_MS);
-}
-
-function computeCostUsd(
-  adapter: ModelAdapter,
-  inputTokens: number,
-  outputTokens: number
-): number {
-  const inCost = (inputTokens / 1_000_000) * adapter.pricing.inputPerMillionTokens;
-  const outCost = (outputTokens / 1_000_000) * adapter.pricing.outputPerMillionTokens;
-  return inCost + outCost;
-}
-
-// Pessimistic upper bound: treat tokensPerRunMax as potentially spent at
-// both input AND output rates. Not a true upper bound — input can exceed
-// maxTokens — but the loosest honest estimate given what the runner knows
-// before the call. Underestimating here would defeat the pre-call gate.
-function estimateRunCostUsd(adapter: ModelAdapter, maxTokens: number): number {
-  const combinedRate =
-    adapter.pricing.inputPerMillionTokens + adapter.pricing.outputPerMillionTokens;
-  return (maxTokens / 1_000_000) * combinedRate;
-}
-
-function readGlobalCap(): number {
-  const raw = process.env.SAMIX_GLOBAL_DAILY_USD_MAX;
-  if (raw == null || raw === '') return 5.0;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 5.0;
 }
 
 interface FailureShape {
@@ -293,53 +261,28 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     },
   });
 
-  // Per-agent daily cap.
   const periodStart = utcDayStart(startedAt);
-  const ledger = await prisma.budgetLedger.findUnique({
-    where: { agentId_period: { agentId: agentRow.id, period: periodStart } },
-  });
-  const spentToday = ledger?.costUsd ?? 0;
-  const dailyCap = skill.manifest.budget.dailyUsdMax;
-  const halt = skill.manifest.budget.haltOnBudgetExceeded;
-
-  if (halt && dailyCap > 0 && spentToday >= dailyCap) {
-    log.warn({ spentToday, dailyCap }, 'budget_exceeded; refusing to run');
-    const completedAt = new Date();
-    await markFailed(runId, 'budget_exceeded', completedAt);
-    return buildFailureResult({
-      runId,
-      agentSlug: skill.id,
-      error: 'budget_exceeded',
-      startedAt,
-      completedAt,
-    });
-  }
 
   // Resolved up front only to price the pre-call estimate against the model
   // we intend to call. The adapter that actually serves the request is picked
   // in generateWithFallback below and may be the declared fallback instead.
   const primaryAdapter = resolveAdapter(skill.manifest.model.primary);
 
-  // Global daily cap — sum across every agent's ledger for today.
-  const globalCap = readGlobalCap();
-  const globalSumAgg = await prisma.budgetLedger.aggregate({
-    where: { period: periodStart },
-    _sum: { costUsd: true },
+  const refused = await checkBudget({
+    agentId: agentRow.id,
+    dailyUsdMax: skill.manifest.budget.dailyUsdMax,
+    haltOnBudgetExceeded: skill.manifest.budget.haltOnBudgetExceeded,
+    estimatedCostUsd: estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax),
+    now: startedAt,
   });
-  const spentGlobal = globalSumAgg._sum.costUsd ?? 0;
-  const estimatedCost = estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax);
-
-  if (globalCap > 0 && spentGlobal + estimatedCost > globalCap) {
-    log.warn(
-      { spentGlobal, estimatedCost, globalCap },
-      'global_budget_exceeded; refusing to run'
-    );
+  if (refused) {
+    log.warn({ ...refused }, `${refused.refusal}; refusing to run`);
     const completedAt = new Date();
-    await markFailed(runId, 'global_budget_exceeded', completedAt);
+    await markFailed(runId, refused.refusal, completedAt);
     return buildFailureResult({
       runId,
       agentSlug: skill.id,
-      error: 'global_budget_exceeded',
+      error: refused.refusal,
       startedAt,
       completedAt,
     });
@@ -424,9 +367,6 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     {
       model: primaryAdapter.name,
       fallback: skill.manifest.model.fallback ?? null,
-      estimatedCost,
-      spentGlobal,
-      globalCap,
       sources: sourceItems.length,
     },
     'run starting'
@@ -461,21 +401,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
 
     // Ledger always increments on a completed adapter call — the API cost
     // was incurred regardless of whether the output validates.
-    await prisma.budgetLedger.upsert({
-      where: { agentId_period: { agentId: agentRow.id, period: periodStart } },
-      create: {
-        agentId: agentRow.id,
-        period: periodStart,
-        tokensInput: response.usage.inputTokens,
-        tokensOutput: response.usage.outputTokens,
-        costUsd,
-      },
-      update: {
-        tokensInput: { increment: response.usage.inputTokens },
-        tokensOutput: { increment: response.usage.outputTokens },
-        costUsd: { increment: costUsd },
-      },
-    });
+    await recordSpend(agentRow.id, startedAt, response.usage, costUsd);
 
     const schemaPath = resolveSchemaPath(skill);
     const rawOutput = JSON.stringify({

@@ -17,8 +17,9 @@ model Agent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  runs   AgentRun[]
-  budget BudgetLedger[]
+  runs          AgentRun[]
+  budget        BudgetLedger[]
+  conversations Conversation[]
 }
 
 model AgentRun {
@@ -127,4 +128,37 @@ model ArticleVote {
   value     Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// A thread of questions to a reactive agent ("Fragen"). Unlike article runs
+// this is plain user data and may be deleted; the AgentRun rows that paid for
+// the answers stay (cost history).
+model Conversation {
+  id        String   @id @default(uuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ConversationMessage[]
+
+  @@index([agentId, updatedAt])
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // user | assistant
+  role           String
+  content        String
+  // JSON array of cited articles (assistant messages only).
+  citations      String?
+  // ok | partial | failed — how the question ended (assistant messages only).
+  status         String?
+  agentRunId     String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }

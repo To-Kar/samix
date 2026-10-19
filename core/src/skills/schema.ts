@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MODEL_IDS, SOURCE_TYPES } from '../types.js';
+import { knownToolNames } from '../tools/index.js';
 
 const modelIdSchema = z.enum(MODEL_IDS);
 
@@ -46,6 +47,13 @@ export const manifestYamlSchema = z.object({
   output: outputSchema,
   dedupe_days: z.number().int().min(0).max(365).optional(),
   personalize: z.boolean().optional(),
+  // Tools a reactive agent may call (names from tools/index.ts).
+  tools: z
+    .array(z.string())
+    .optional()
+    .refine((names) => (names ?? []).every((n) => knownToolNames().includes(n)), {
+      message: `unknown tool; known: ${knownToolNames().join(', ')}`,
+    }),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

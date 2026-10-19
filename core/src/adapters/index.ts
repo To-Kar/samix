@@ -56,15 +56,28 @@ export interface FallbackGenerateResult {
   primaryError?: Error;
 }
 
+export class ModelWithoutToolsError extends Error {
+  constructor(readonly model: ModelId) {
+    super(`model "${model}" does not support tool calling`);
+  }
+}
+
+export interface GenerateOptions {
+  /** The request uses tools: a model without tool calling is refused, and so is a fallback without it. */
+  requireTools?: boolean;
+}
+
 // Try the primary adapter; on any error, log and try the declared fallback.
 // If both fail — or there is no fallback — rethrow the original primary error
 // so the runner can persist a meaningful failure message.
 export async function generateWithFallback(
   pref: ModelPreference,
   req: NormalizedRequest,
-  logger: Logger
+  logger: Logger,
+  opts: GenerateOptions = {}
 ): Promise<FallbackGenerateResult> {
   const primary = resolveAdapter(pref.primary);
+  if (opts.requireTools && !primary.supportsTools) throw new ModelWithoutToolsError(pref.primary);
   try {
     const response = await primary.generate(req);
     return { response, adapter: primary };
@@ -76,6 +89,10 @@ export async function generateWithFallback(
     );
     if (!pref.fallback) throw primaryError;
     const fallback = resolveAdapter(pref.fallback);
+    if (opts.requireTools && !fallback.supportsTools) {
+      logger.warn({ fallback: pref.fallback }, 'adapter_fallback_skipped_no_tools');
+      throw primaryError;
+    }
     try {
       const response = await fallback.generate(req);
       return { response, adapter: fallback, primaryError };

@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { prisma } from '../src/db/prisma.js';
+import { manifestYamlSchema } from '../src/skills/schema.js';
 import { loadSkills } from '../src/skills/loader.js';
 
 const agentsDir = resolve(import.meta.dirname, '../../agents');
@@ -16,6 +17,10 @@ describe('agents shipped in the repo', () => {
       enabled: true,
       manifest: { personalize: true, dedupeDays: 14 },
     });
+    expect(by['frag-die-zeitung']).toMatchObject({
+      type: 'reactive',
+      manifest: { tools: ['list_ressorts', 'search_articles', 'get_article', 'fetch_full_text'] },
+    });
     // Every shipped agent that declares a schema must point at a file that exists.
     for (const s of skills) expect(s.manifest.model.primary).toBeTruthy();
   });
@@ -27,5 +32,15 @@ describe('agents shipped in the repo', () => {
     const skills = await loadSkills({ agentsDir });
 
     expect(skills.find((s) => s.id === 'newsletter-ai')!.enabled).toBe(false);
+  });
+
+  it('rejects a manifest that lists a tool that does not exist', () => {
+    const base = {
+      id: 'x', type: 'reactive', version: '1', model: { primary: 'static' },
+      budget: { daily_usd_max: 0, tokens_per_run_max: 0, halt_on_budget_exceeded: false },
+      output: { format: 'answer' },
+    };
+    expect(manifestYamlSchema.safeParse({ ...base, tools: ['search_articles'] }).success).toBe(true);
+    expect(manifestYamlSchema.safeParse({ ...base, tools: ['run_shell'] }).success).toBe(false);
   });
 });

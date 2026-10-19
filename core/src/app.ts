@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { Logger } from 'pino';
 import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
+import { MAX_QUESTION_CHARS, askAgent } from './runner/converse.js';
 import { reloadSkill } from './scheduler/index.js';
 import { buildReaderProfile } from './runner/profile.js';
 import { createAgent, listTemplates } from './skills/create.js';
@@ -161,6 +162,102 @@ export async function buildApp(deps: AppDeps) {
       return result;
     }
   );
+
+  // ---- Fragen: conversations with a reactive agent over the collected articles
+
+  const DEFAULT_ASK_AGENT = 'frag-die-zeitung';
+
+  const askBodySchema = z.object({
+    question: z.string().trim().min(1).max(MAX_QUESTION_CHARS),
+    conversationId: z.string().min(1).optional(),
+    agent: z.string().min(1).default(DEFAULT_ASK_AGENT),
+  });
+
+  fastify.post('/ask', async (request, reply) => {
+    const body = askBodySchema.safeParse(request.body);
+    if (!body.success) {
+      reply.code(400).send({ error: 'invalid_body', message: `question must be 1–${MAX_QUESTION_CHARS} characters` });
+      return reply;
+    }
+    const { question, conversationId, agent } = body.data;
+    const skill = skillList().find((s) => s.id === agent && s.type === 'reactive' && (s.manifest.tools?.length ?? 0) > 0);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug: agent });
+      return reply;
+    }
+    if (!skill.enabled) {
+      reply.code(409).send({ error: 'agent_disabled', slug: agent });
+      return reply;
+    }
+    if (conversationId) {
+      const row = await prisma.conversation.findFirst({ where: { id: conversationId, agent: { slug: agent } } });
+      if (!row) {
+        reply.code(404).send({ error: 'conversation_not_found' });
+        return reply;
+      }
+    }
+    return askAgent({ skill, question, conversationId, logger: request.log as unknown as typeof logger });
+  });
+
+  fastify.get('/conversations', async (request) => {
+    const agent = (request.query as { agent?: string }).agent;
+    const rows = await prisma.conversation.findMany({
+      where: agent ? { agent: { slug: agent } } : {},
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      include: { agent: { select: { slug: true } } },
+    });
+    return rows.map((c) => ({ id: c.id, agent: c.agent.slug, title: c.title, createdAt: c.createdAt, updatedAt: c.updatedAt }));
+  });
+
+  fastify.get<{ Params: { id: string } }>('/conversations/:id', async (request, reply) => {
+    const c = await prisma.conversation.findUnique({
+      where: { id: request.params.id },
+      include: { agent: { select: { slug: true } }, messages: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!c) {
+      reply.code(404).send({ error: 'conversation_not_found' });
+      return reply;
+    }
+    const runIds = c.messages.flatMap((m) => (m.agentRunId ? [m.agentRunId] : []));
+    const runs = await prisma.agentRun.findMany({ where: { id: { in: runIds } } });
+    const runById = new Map(runs.map((r) => [r.id, r]));
+    return {
+      id: c.id,
+      agent: c.agent.slug,
+      title: c.title,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      messages: c.messages.map((m) => {
+        const run = m.agentRunId ? runById.get(m.agentRunId) : undefined;
+        let trace: unknown[] = [];
+        try {
+          trace = run?.output ? ((JSON.parse(run.output) as { steps?: unknown[] }).steps ?? []) : [];
+        } catch {
+          // an unreadable trace must not hide the conversation
+        }
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          status: m.status,
+          citations: m.citations ? (JSON.parse(m.citations) as unknown[]) : [],
+          createdAt: m.createdAt,
+          ...(run ? { runId: run.id, error: run.error, model: run.model, costUsd: run.costUsd, trace } : {}),
+        };
+      }),
+    };
+  });
+
+  fastify.delete<{ Params: { id: string } }>('/conversations/:id', async (request, reply) => {
+    const res = await prisma.conversation.deleteMany({ where: { id: request.params.id } });
+    if (res.count === 0) {
+      reply.code(404).send({ error: 'conversation_not_found' });
+      return reply;
+    }
+    reply.code(204).send();
+    return reply;
+  });
 
   const DEFAULT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 

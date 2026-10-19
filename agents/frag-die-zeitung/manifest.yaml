@@ -1,0 +1,23 @@
+id: frag-die-zeitung
+type: reactive
+version: "1.0"
+
+model:
+  # Needs a model with tool calling (Claude, DeepSeek). Local fallbacks without
+  # tools are refused on purpose, so none is declared.
+  primary: claude-haiku-4-5
+
+budget:
+  daily_usd_max: 0.50
+  # Upper bound per model call; one question makes up to 6 calls.
+  tokens_per_run_max: 2000
+  halt_on_budget_exceeded: true
+
+tools:
+  - list_ressorts
+  - search_articles
+  - get_article
+  - fetch_full_text
+
+output:
+  format: answer

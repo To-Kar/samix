@@ -42,6 +42,8 @@ export interface Manifest {
   dedupeDays?: number;
   /** Tell the model what the reader liked/disliked (see runner/profile.ts). */
   personalize?: boolean;
+  /** Tools a reactive agent may call, by name (see tools/index.ts). */
+  tools?: string[];
 }
 
 export interface ModelPreference {
