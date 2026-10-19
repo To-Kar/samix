@@ -363,6 +363,26 @@ describe('askAgent: conversation history', () => {
   });
 });
 
+describe('askAgent: ephemeral with caller-supplied history', () => {
+  it('keeps no conversation, but records the run and uses the supplied history', async () => {
+    const skill = reactive();
+    const { adapter, requests } = scripted([() => calling(search('Chip')), () => final('ok [1]', [ids.chip!])]);
+    await setup(skill, adapter);
+
+    const r = await askAgent({
+      skill,
+      question: 'Und die Akkus?',
+      ephemeral: true,
+      history: [{ role: 'user', content: 'Chips?' }, { role: 'assistant', content: 'Doppelt so schnell.' }],
+    });
+
+    expect(r).toMatchObject({ status: 'success', conversationId: null });
+    expect(requests[0]!.messages.map((m) => m.content)).toEqual(['Chips?', 'Doppelt so schnell.', 'Und die Akkus?']);
+    expect(await prisma.conversation.count({ where: { agent: { slug: skill.id } } })).toBe(0);
+    expect(await prisma.agentRun.count({ where: { id: r.runId, status: 'success' } })).toBe(1);
+  });
+});
+
 describe('POST /ask and conversations', () => {
   it('asks, lists, reads and deletes; the runs that paid for the answers stay', async () => {
     const skill = reactive();

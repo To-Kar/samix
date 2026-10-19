@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 import { ModelWithoutToolsError, generateWithFallback, resolveAdapter } from '../adapters/index.js';
@@ -9,6 +8,9 @@ import { executeTool, resolveTools } from '../tools/index.js';
 import type { ToolDefinition } from '../tools/index.js';
 import type { NormalizedMessage, NormalizedRequest, Skill } from '../types.js';
 import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './budget.js';
+import { acquireAgent, beginTurn, checkAsker, recordRefusal } from './turn.js';
+
+export { MAX_QUESTION_CHARS } from './turn.js';
 
 // "Fragen": a tool-using conversation over the collected articles
 // (docs/SAMIX_PHASE_3_SPEC.md §6). Every guarantee that matters is enforced
@@ -16,11 +18,9 @@ import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './
 // call limits, and that every cited article was surfaced by a tool in *this*
 // question.
 
-export const MAX_QUESTION_CHARS = 2000;
 export const MAX_MODEL_CALLS = 6;
 export const MAX_TOOL_CALLS_PER_STEP = 4;
 export const MAX_FULLTEXT_FETCHES = 3;
-const HISTORY_TURNS = 6;
 
 export const NOTHING_FOUND_ANSWER = 'Dazu habe ich in den gesammelten Artikeln nichts gefunden.';
 
@@ -66,6 +66,10 @@ export interface AskOptions {
   question: string;
   /** Continue this conversation; otherwise a new one is started. */
   conversationId?: string;
+  /** Earlier turns supplied by a caller that keeps the conversation itself (the orchestrator). */
+  history?: NormalizedMessage[];
+  /** Answer without creating a conversation or messages; only the AgentRun is kept. */
+  ephemeral?: boolean;
   logger?: Logger;
 }
 
@@ -74,31 +78,18 @@ const finalAnswerSchema = z.object({
   sources: z.array(z.string()),
 });
 
-// One question per agent at a time, like article runs: two racing questions
-// would read the same budget ledger.
-const activeAgents = new Set<string>();
-
 export async function askAgent(opts: AskOptions): Promise<AskResult> {
-  const slug = opts.skill.id;
-  if (activeAgents.has(slug)) return recordRefusal(opts, 'already_running');
-  activeAgents.add(slug);
+  const release = acquireAgent(opts.skill.id);
+  if (!release) return refused(opts, 'already_running');
   try {
     return await execute(opts);
   } finally {
-    activeAgents.delete(slug);
+    release();
   }
 }
 
-// A question that never started (busy, disabled, bad setup): one failed run
-// row so it shows in the history, nothing is stored in the conversation.
-async function recordRefusal(opts: AskOptions, error: string): Promise<AskResult> {
-  const agentRow = await prisma.agent.findUnique({ where: { slug: opts.skill.id } });
-  if (!agentRow) throw new Error(`Agent row missing for slug "${opts.skill.id}" — was SkillLoader run?`);
-  const runId = randomUUID();
-  const now = new Date();
-  await prisma.agentRun.create({
-    data: { id: runId, agentId: agentRow.id, status: 'failed', trigger: 'manual', error, startedAt: now, completedAt: now },
-  });
+async function refused(opts: AskOptions, error: string): Promise<AskResult> {
+  const { runId } = await recordRefusal(opts.skill.id, error);
   return { conversationId: opts.conversationId ?? null, runId, status: 'failed', error, citations: [], trace: [], costUsd: 0, model: null };
 }
 
@@ -107,57 +98,33 @@ async function execute(opts: AskOptions): Promise<AskResult> {
   const question = opts.question.trim();
   const log = (opts.logger ?? rootLogger).child({ agentSlug: skill.id, trigger: 'ask' });
 
-  if (!question || question.length > MAX_QUESTION_CHARS) return recordRefusal(opts, 'invalid_question');
-
-  const agentRow = await prisma.agent.findUnique({ where: { slug: skill.id } });
-  if (!agentRow) throw new Error(`Agent row missing for slug "${skill.id}" — was SkillLoader run?`);
-  if (!agentRow.enabled) return recordRefusal(opts, 'agent_disabled');
+  const asker = await checkAsker(skill.id, question);
+  if ('refusal' in asker) return refused(opts, asker.refusal);
+  const { agentRow } = asker;
 
   let tools: ToolDefinition<never>[];
   try {
     tools = resolveTools(skill.manifest.tools ?? []);
   } catch {
-    return recordRefusal(opts, 'invalid_tools');
+    return refused(opts, 'invalid_tools');
   }
-  if (tools.length === 0) return recordRefusal(opts, 'invalid_tools');
+  if (tools.length === 0) return refused(opts, 'invalid_tools');
 
   // Refused before any call: a model that cannot call tools would answer from
   // what it remembers, which is exactly what this feature must not do.
   const primaryAdapter = resolveAdapter(skill.manifest.model.primary);
-  if (!primaryAdapter.supportsTools) return recordRefusal(opts, 'model_without_tools');
+  if (!primaryAdapter.supportsTools) return refused(opts, 'model_without_tools');
 
-  let conversationId = opts.conversationId;
-  if (conversationId) {
-    const existing = await prisma.conversation.findFirst({ where: { id: conversationId, agentId: agentRow.id } });
-    if (!existing) return recordRefusal(opts, 'conversation_not_found');
-  }
-
-  const history = conversationId ? await loadHistory(conversationId) : [];
-
-  const runId = randomUUID();
-  const startedAt = new Date();
-  await prisma.agentRun.create({
-    data: {
-      id: runId,
-      agentId: agentRow.id,
-      status: 'running',
-      trigger: 'manual',
-      input: JSON.stringify({ question }),
-      startedAt,
-    },
+  const turn = await beginTurn({
+    agentRow,
+    question,
+    conversationId: opts.conversationId,
+    history: opts.history,
+    ephemeral: opts.ephemeral,
   });
+  if (!turn) return refused(opts, 'conversation_not_found');
+  const { runId, history } = turn;
   const runLog = log.child({ runId });
-
-  if (!conversationId) {
-    const created = await prisma.conversation.create({
-      data: { agentId: agentRow.id, title: question.length > 60 ? `${question.slice(0, 59)}…` : question },
-    });
-    conversationId = created.id;
-  }
-  const convId = conversationId;
-  const userMessage = await prisma.conversationMessage.create({
-    data: { conversationId: convId, role: 'user', content: question },
-  });
 
   const messages: NormalizedMessage[] = [...history, { role: 'user', content: question }];
   const specs = tools.map((t) => t.spec);
@@ -181,37 +148,21 @@ async function execute(opts: AskOptions): Promise<AskResult> {
     status: AskStatus,
     fields: { error?: string; answer?: string; citations?: AnswerCitation[] }
   ): Promise<AskResult> => {
-    const completedAt = new Date();
     const citations = fields.citations ?? [];
-    await prisma.agentRun.update({
-      where: { id: runId },
-      data: {
-        status,
-        error: fields.error ?? null,
-        model: servedBy,
-        output: JSON.stringify({ steps: trace, modelCalls }),
-        tokensInput,
-        tokensOutput,
-        costUsd,
-        completedAt,
-      },
+    await turn.finish({
+      status,
+      error: fields.error,
+      answer: fields.answer,
+      citations,
+      model: servedBy,
+      output: { steps: trace, modelCalls },
+      tokensInput,
+      tokensOutput,
+      costUsd,
     });
-    await prisma.conversationMessage.create({
-      data: {
-        conversationId: convId,
-        role: 'assistant',
-        content: fields.answer ?? '',
-        citations: citations.length ? JSON.stringify(citations) : null,
-        status: status === 'success' ? 'ok' : status,
-        agentRunId: runId,
-        // Strictly after the question, so the order never depends on clock resolution.
-        createdAt: new Date(Math.max(completedAt.getTime(), userMessage.createdAt.getTime() + 1)),
-      },
-    });
-    await prisma.conversation.update({ where: { id: convId }, data: { updatedAt: completedAt } });
     runLog.info({ status, error: fields.error, modelCalls, costUsd }, 'question done');
     return {
-      conversationId: convId,
+      conversationId: turn.conversationId,
       runId,
       status,
       error: fields.error,
@@ -369,26 +320,4 @@ export async function checkCitations(
     })
     .trim();
   return { answer, citations };
-}
-
-// The last HISTORY_TURNS successful question/answer pairs as plain text. Old
-// tool results are not replayed: the model searches again if it needs facts,
-// and citations are re-checked against that fresh search.
-async function loadHistory(conversationId: string): Promise<NormalizedMessage[]> {
-  const rows = await prisma.conversationMessage.findMany({
-    where: { conversationId },
-    orderBy: { createdAt: 'asc' },
-  });
-  const turns: NormalizedMessage[][] = [];
-  for (let i = 0; i < rows.length - 1; i++) {
-    const q = rows[i];
-    const a = rows[i + 1];
-    if (q?.role === 'user' && a?.role === 'assistant' && a.status === 'ok') {
-      turns.push([
-        { role: 'user', content: q.content },
-        { role: 'assistant', content: a.content },
-      ]);
-    }
-  }
-  return turns.slice(-HISTORY_TURNS).flat();
 }
