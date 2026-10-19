@@ -85,18 +85,28 @@ describe('resolveInProject', () => {
   });
 });
 
+// Assigning undefined to process.env stores the string "undefined".
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
+
 describe('validateProjectRoot', () => {
   it('refuses relative paths, files, the filesystem root and the home folder; accepts a folder', () => {
     expect(validateProjectRoot('relative/dir')).toEqual({ ok: false, error: 'invalid_path' });
     expect(validateProjectRoot(join(root, 'README.md'))).toEqual({ ok: false, error: 'not_a_directory' });
     expect(validateProjectRoot(join(base, 'missing'))).toEqual({ ok: false, error: 'not_a_directory' });
     expect(validateProjectRoot('/')).toEqual({ ok: false, error: 'too_broad' });
+    // os.homedir() reads HOME on Unix and USERPROFILE on Windows.
     const home = process.env.HOME;
+    const profile = process.env.USERPROFILE;
     process.env.HOME = root;
+    process.env.USERPROFILE = root;
     try {
       expect(validateProjectRoot(root)).toEqual({ ok: false, error: 'too_broad' });
     } finally {
-      process.env.HOME = home;
+      restoreEnv('HOME', home);
+      restoreEnv('USERPROFILE', profile);
     }
     expect(validateProjectRoot(root)).toEqual({ ok: true, real: root });
   });

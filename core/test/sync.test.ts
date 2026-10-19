@@ -177,7 +177,8 @@ describe('syncShippedAgents', () => {
 
     expect(res.map((r) => r.agent)).toEqual(['newsletter-ai']);
     expect(readFileSync(join(user, 'mine', 'SKILL.md'), 'utf8')).toContain('my own prompt');
-    expect(readdirSync(join(user, 'mine'))).toEqual(['SKILL.md', 'manifest.yaml']);
+    // Directory order differs by file system (NTFS ignores case), so compare sorted.
+    expect(readdirSync(join(user, 'mine')).sort()).toEqual(['SKILL.md', 'manifest.yaml']);
     expect(existsSync(join(user, 'broken', '.backup-v1.0'))).toBe(false);
   });
 });
