@@ -29,7 +29,12 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
     .map((l) => l.trim())
     .filter(Boolean);
   const sources = [...websiteSources(rows), ...(rssUrls.length ? [{ type: 'rss' as const, config: { urls: rssUrls, maxPerFeed: 20 } }] : [])];
-  const valid = title.trim() && focus.trim() && sources.length > 0;
+  const missing = [
+    !title.trim() ? 'einen Namen' : null,
+    !focus.trim() ? 'ein Thema („Worum soll es gehen?“)' : null,
+    sources.length === 0 ? 'mindestens eine Quelle (eine Webseite oder einen RSS-Feed)' : null,
+  ].filter(Boolean);
+  const valid = missing.length === 0;
 
   const create = async () => {
     setBusy(true);
@@ -86,6 +91,11 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
       </p>
 
       {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}
+      {!valid ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+          Zum Anlegen fehlt noch: {missing.join(', ')}.
+        </p>
+      ) : null}
       <div className="flex gap-3">
         <button
           onClick={() => void create()}
