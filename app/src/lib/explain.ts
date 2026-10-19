@@ -1,7 +1,13 @@
 // Plain-language reasons for how a run ended. `error` is the code the core
 // stored on the run; unknown codes are shown as they are rather than guessed.
 
+// Provider errors about a missing or rejected API key arrive as raw SDK text.
+const AUTH_ERROR = /authentication|api[ _-]?key|unauthorized|\b401\b/i;
+const AUTH_TEXT =
+  'Für das eingestellte Modell fehlt der API-Schlüssel oder er wurde abgelehnt. Trage ihn unter „Einstellungen“ ein (in der Entwicklungs-App danach neu starten) und prüfe, ob das Modell zum Schlüssel passt (Ressorts → Modell).';
+
 export function explainFailure(error: string | null | undefined): string {
+  if (error && AUTH_ERROR.test(error)) return AUTH_TEXT;
   switch (error) {
     case 'no_source_items':
       return 'Keine Quelle lieferte Beiträge (Netzwerk oder Quellen prüfen). Es wurde nichts bezahlt.';
@@ -36,6 +42,7 @@ export const RUN_STATUS: Record<string, { label: string; cls: string }> = {
 
 // How a question to "Fragen" ended, when there is no answer to show.
 export function explainAsk(error: string | null | undefined): string {
+  if (error && AUTH_ERROR.test(error)) return AUTH_TEXT;
   switch (error) {
     case 'model_without_tools':
       return 'Das eingestellte Modell kann keine Werkzeuge nutzen und würde aus dem Gedächtnis antworten. Wähle unter „Modell“ Claude oder DeepSeek.';

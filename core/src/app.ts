@@ -16,7 +16,7 @@ import { buildReaderProfile } from './runner/profile.js';
 import { createAgent, listTemplates } from './skills/create.js';
 import { loadSkillDir } from './skills/loader.js';
 import { validateSchedule } from './skills/schedule.js';
-import { knownModelIds, MODEL_KEY_ENV } from './adapters/index.js';
+import { knownModelIds, MODEL_KEY_ENV, resolveAdapter } from './adapters/index.js';
 import { updateManifest, updateSkillTitle } from './skills/manifestFile.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
 import { normalizeUrl } from './output/traceability.js';
@@ -851,6 +851,40 @@ export async function buildApp(deps: AppDeps) {
       return { ok: true };
     }
   );
+
+  // "Use this model": switches every agent whose current model has no API key
+  // to the given one, which has. Agents that already work are left alone.
+  // Agents that need tool calling are only switched to a model that has it.
+  fastify.post('/models/use', async (request, reply) => {
+    const parsed = z.object({ primary: z.enum(MODEL_IDS) }).safeParse(request.body);
+    const target = parsed.success ? parsed.data.primary : null;
+    const targetKey = target ? MODEL_KEY_ENV[target] : undefined;
+    if (!target || !knownModelIds().includes(target) || target === 'static') {
+      reply.code(400).send({ error: 'invalid_model' });
+      return reply;
+    }
+    if (targetKey && !process.env[targetKey]) {
+      reply.code(409).send({ error: 'key_missing', message: `${targetKey} is not set` });
+      return reply;
+    }
+    const supportsTools = resolveAdapter(target).supportsTools;
+    const changed: { slug: string; title: string }[] = [];
+    for (const skill of skillList()) {
+      const cur = skill.manifest.model.primary;
+      const curKey = MODEL_KEY_ENV[cur];
+      if (cur === 'static' || cur === target || !curKey || process.env[curKey]) continue;
+      const needsTools = (skill.manifest.tools?.length ?? 0) > 0 || (skill.manifest.routes?.length ?? 0) > 0;
+      if (needsTools && !supportsTools) continue;
+      await updateManifest(skill, (m) => {
+        const model = (m['model'] ?? {}) as Record<string, unknown>;
+        model['primary'] = target;
+        m['model'] = model;
+      });
+      skill.manifest.model.primary = target;
+      changed.push({ slug: skill.id, title: skill.title });
+    }
+    return { changed };
+  });
 
   // Dry run of a source for the sources editor: what would be fetched, and by
   // which method. Perplexity is excluded because a preview would cost money.

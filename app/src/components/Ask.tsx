@@ -219,7 +219,7 @@ export function Ask({ api, onOpenSource }: AskProps) {
         <details className="text-xs" onToggle={() => setModelVersion((v) => v + 1)}>
           <summary className="cursor-pointer uppercase tracking-wider">Modelle</summary>
           <div className="mt-2 flex flex-col gap-4">
-            {[orch, qa].filter((a): a is AgentSummary => !!a).map((a) => (
+            {(agents ?? []).filter((a) => a.type === 'reactive').map((a) => (
               <div key={a.slug} className="flex flex-col gap-1">
                 <p className="font-semibold">{a.title}</p>
                 <AgentModel api={api} slug={a.slug} version={modelVersion} />

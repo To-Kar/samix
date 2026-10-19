@@ -8,7 +8,8 @@ Alles Folgende ist in der Entwicklungsumgebung (Linux, kein Mac, kein API-Schlü
 - [Unverified] Der erste macOS-Build ist nie gelaufen; mit Fehlern in `tauri build` (Bundle, Sidecar-Name, Gatekeeper) ist zu rechnen. Für die persönliche Nutzung ist keine Signierung nötig; macOS fragt beim ersten Öffnen nach („Rechtsklick → Öffnen“).
 
 ## 1. Schlüssel und Modell
-- Einstellungen: DeepSeek- und/oder Anthropic-Schlüssel eintragen (landet im macOS-Schlüsselbund). Danach in „Ressorts“ bzw. „Fragen → Modelle“ das Modell wählen.
+- Einstellungen: DeepSeek- und/oder Anthropic-Schlüssel eintragen (landet im macOS-Schlüsselbund). **Mit `pnpm dev:app` danach die App beenden und neu starten:** der Core liest die Schlüssel nur beim Start, und der automatische Neustart gibt es nur in der installierten App.
+- Die ausgelieferten Agenten stehen auf Claude Haiku. Hast du nur einen DeepSeek-Schlüssel, erscheint oben eine Meldung mit dem Knopf „Auf deepseek-chat umstellen“ (stellt alle Agenten ohne Schlüssel um). Alternativ pro Agent: „Ressorts → Modell“ und „Fragen → Modelle“.
 - **Preise und Modellname von DeepSeek sind Platzhalter** (`core/src/adapters/deepseek.ts`, überschreibbar über `SAMIX_DEEPSEEK_PRICE_IN/OUT`, `SAMIX_DEEPSEEK_MODEL`). Vor dem ersten Lauf mit der Preisseite des Anbieters abgleichen, sonst lügt das Budget. Tagesbudgets stehen in den `manifest.yaml`s (Ressort 0,50 $, Fragen 0,50 $, Eingang 0,20 $) und global `SAMIX_GLOBAL_DAILY_USD_MAX` (Standard 5 $).
 - **Tool-Calling** (Fragen, Eingang, Projekt) ist für Claude und DeepSeek nur gegen Fakes getestet. Wenn ein Modell Werkzeuge ablehnt oder falsch aufruft, steht der Grund unter „Wie kam das zustande?“.
 

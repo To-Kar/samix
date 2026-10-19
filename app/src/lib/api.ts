@@ -489,6 +489,11 @@ export class ApiClient {
     return this.request<ModelInfo[]>('/models');
   }
 
+  /** Switches every agent whose model has no API key to `primary` (which has one). */
+  useModel(primary: string): Promise<{ changed: { slug: string; title: string }[] }> {
+    return this.json('POST', '/models/use', { primary });
+  }
+
   getAgentModel(slug: string): Promise<ModelChoice> {
     return this.request<ModelChoice>(`/agents/${slug}/model`);
   }

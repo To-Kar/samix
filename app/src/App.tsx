@@ -6,6 +6,7 @@ import { Newspaper } from './components/Newspaper';
 import { Agents } from './components/Agents';
 import { Reader } from './components/Reader';
 import { Ask } from './components/Ask';
+import { ModelHint } from './components/ModelHint';
 
 type View =
   | { kind: 'paper' }
@@ -79,6 +80,7 @@ export default function App() {
     <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark flex flex-col">
       <ConnectionBanner api={api} />
       <div className="max-w-6xl w-full mx-auto px-6 pt-3 pb-12 flex flex-col gap-4">
+        <ModelHint api={api} refreshKey={view.kind} />
         <div className="flex justify-end gap-1">
           <button
             className={topBtn}
