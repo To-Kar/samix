@@ -249,3 +249,68 @@ describe('sources: preview and validation', () => {
     });
   });
 });
+
+describe('model choice', () => {
+  const setup = async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'samix-model-'));
+    writeFileSync(join(dir, 'manifest.yaml'), 'id: x\nmodel:\n  primary: claude-haiku-4-5\n  fallback: ollama-llama3\n');
+    const skill = makeSkill();
+    skill.skillMdPath = join(dir, 'SKILL.md');
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+    const put = (payload: unknown) =>
+      local.inject({ method: 'PUT', url: `/agents/${skill.id}/model`, headers: AUTH, payload: payload as object });
+    return { dir, skill, local, put };
+  };
+
+  it('lists usable models with key status, without the static test model', async () => {
+    const prior = process.env.DEEPSEEK_API_KEY;
+    process.env.DEEPSEEK_API_KEY = 'sk-x';
+    delete process.env.ANTHROPIC_API_KEY;
+    try {
+      const res = await app.inject({ url: '/models', headers: AUTH });
+      const models = res.json() as { id: string; keyEnv: string | null; keyConfigured: boolean }[];
+      const by = Object.fromEntries(models.map((m) => [m.id, m]));
+      expect(by['static']).toBeUndefined();
+      expect(by['deepseek-chat']).toMatchObject({ keyEnv: 'DEEPSEEK_API_KEY', keyConfigured: true });
+      expect(by['claude-haiku-4-5']).toMatchObject({ keyEnv: 'ANTHROPIC_API_KEY', keyConfigured: false });
+      expect(by['ollama-llama3']).toMatchObject({ keyEnv: null, keyConfigured: true });
+    } finally {
+      if (prior === undefined) delete process.env.DEEPSEEK_API_KEY;
+      else process.env.DEEPSEEK_API_KEY = prior;
+    }
+  });
+
+  it('switches the primary model, writes the manifest, and updates the running skill', async () => {
+    const { dir, skill, put } = await setup();
+    const res = await put({ primary: 'deepseek-chat', fallback: 'ollama-llama3' });
+    expect(res.statusCode).toBe(200);
+    const yaml = readFileSync(join(dir, 'manifest.yaml'), 'utf8');
+    expect(yaml).toContain('primary: deepseek-chat');
+    expect(yaml).toContain('id: x'); // untouched content survives
+    expect(skill.manifest.model).toMatchObject({ primary: 'deepseek-chat', fallback: 'ollama-llama3' });
+  });
+
+  it('removes the fallback when null', async () => {
+    const { dir, skill, put } = await setup();
+    expect((await put({ primary: 'claude-haiku-4-5', fallback: null })).statusCode).toBe(200);
+    expect(readFileSync(join(dir, 'manifest.yaml'), 'utf8')).not.toContain('fallback');
+    expect(skill.manifest.model.fallback).toBeUndefined();
+  });
+
+  it('rejects unknown ids, ids without an adapter, and the test model — leaving the manifest alone', async () => {
+    const { dir, put } = await setup();
+    const before = readFileSync(join(dir, 'manifest.yaml'), 'utf8');
+    for (const body of [{ primary: 'nonsense' }, { primary: 'gpt-4o-mini' }, { primary: 'static' }, { primary: 'deepseek-chat', fallback: 'gpt-4o-mini' }, {}]) {
+      const res = await put(body);
+      expect(res.statusCode, JSON.stringify(body)).toBe(400);
+    }
+    expect(readFileSync(join(dir, 'manifest.yaml'), 'utf8')).toBe(before);
+  });
+
+  it('GET returns the current choice; 404 for unknown agents', async () => {
+    const { skill, local } = await setup();
+    const res = await local.inject({ url: `/agents/${skill.id}/model`, headers: AUTH });
+    expect(res.json()).toMatchObject({ primary: 'claude-haiku-4-5' });
+    expect((await local.inject({ url: '/agents/nope/model', headers: AUTH })).statusCode).toBe(404);
+  });
+});

@@ -16,9 +16,11 @@
     "onlyBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
-      "better-sqlite3",
       "esbuild",
       "prisma"
     ]
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { applyMigrations } from '../src/db/migrate.js';
 import { sqlitePathFromUrl } from '../src/db/paths.js';
@@ -17,7 +17,7 @@ describe('applyMigrations', () => {
     const first = applyMigrations({ databaseUrl: url });
     expect(first.length).toBeGreaterThan(0);
 
-    const db = new Database(sqlitePathFromUrl(url), { readonly: true });
+    const db = new DatabaseSync(sqlitePathFromUrl(url), { readOnly: true });
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]).map((t) => t.name);
     db.close();
     expect(tables).toEqual(expect.arrayContaining(['Agent', 'AgentRun', 'Article', 'BudgetLedger', 'SourceSnapshot', '_prisma_migrations']));

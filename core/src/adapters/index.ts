@@ -14,6 +14,15 @@ import { DeepSeekAdapter } from './deepseek.js';
 
 export type AdapterFactory = () => ModelAdapter;
 
+// Which environment variable holds the API key for a hosted model. Models not
+// listed (local, static) need none. The UI uses this to show what is usable.
+export const MODEL_KEY_ENV: Partial<Record<ModelId, string>> = {
+  'claude-haiku-4-5': 'ANTHROPIC_API_KEY',
+  'claude-sonnet-4-6': 'ANTHROPIC_API_KEY',
+  'perplexity-sonar': 'PERPLEXITY_API_KEY',
+  'deepseek-chat': 'DEEPSEEK_API_KEY',
+};
+
 const registry = new Map<ModelId, AdapterFactory>();
 
 registry.set('static', () => new StaticAdapter());

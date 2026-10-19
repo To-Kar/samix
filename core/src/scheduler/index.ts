@@ -94,3 +94,41 @@ export function reloadSkill(slug: string, skill: Skill, logger: Logger): void {
     registerJob(skill, logger);
   }
 }
+
+export interface WakeDetectorOptions {
+  intervalMs?: number;
+  /** A gap between two ticks larger than this means the machine was asleep. */
+  gapMs?: number;
+  /** Replaceable in tests. */
+  catchup?: (skill: Skill, logger: Logger) => Promise<void>;
+}
+
+// Laptops sleep through scheduled times. node-cron simply misses them, and
+// catch-up otherwise only runs at startup. Timers don't advance during sleep,
+// so a tick that arrives much later than scheduled means we just woke up:
+// run the catch-up check again.
+export function startWakeDetector(
+  skills: Skill[],
+  logger: Logger,
+  opts: WakeDetectorOptions = {}
+): () => void {
+  const intervalMs = opts.intervalMs ?? 30_000;
+  const gapMs = opts.gapMs ?? 120_000;
+  const catchup = opts.catchup ?? checkCatchup;
+  let last = Date.now();
+
+  const timer = setInterval(() => {
+    const now = Date.now();
+    const gap = now - last;
+    last = now;
+    if (gap <= gapMs) return;
+    logger.info({ gapSeconds: Math.round(gap / 1000) }, 'wake_detected');
+    for (const skill of skills) {
+      if (skill.type === 'proactive' && skill.manifest.schedule?.catchupOnStartup) {
+        void catchup(skill, logger);
+      }
+    }
+  }, intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
+}

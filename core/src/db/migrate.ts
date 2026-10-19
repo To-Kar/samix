@@ -1,12 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import type { Logger } from 'pino';
 import { PRISMA_DIR, ensureDatabaseUrl, sqlitePathFromUrl } from './paths.js';
 
 // Applies the Prisma migrations in prisma/migrations at core start, so a
 // fresh install (or a packaged app with no Prisma CLI) needs no manual step.
+// Uses Node's built-in node:sqlite (Node >= 22.13), so the packaged core has
+// one native module fewer to build, ship and sign per platform: only the
+// Prisma query engine remains.
 //
 // It reads and writes Prisma's own `_prisma_migrations` table, in Prisma's
 // format, so `prisma migrate deploy|status|dev` keep working against the
@@ -40,7 +43,7 @@ export function applyMigrations(opts: MigrateOptions = {}): string[] {
   }
 
   mkdirSync(dirname(dbPath), { recursive: true });
-  const db = new Database(dbPath);
+  const db = new DatabaseSync(dbPath);
   const applied: string[] = [];
   try {
     db.exec(MIGRATIONS_TABLE_DDL);

@@ -6,7 +6,8 @@ import { loadSkills } from './skills/loader.js';
 import { recoverInterruptedRuns } from './runner/recovery.js';
 import { applyMigrations } from './db/migrate.js';
 import { watchParent } from './watchdog.js';
-import { startScheduler } from './scheduler/index.js';
+import { startScheduler, startWakeDetector } from './scheduler/index.js';
+import { seedAgents } from './skills/seed.js';
 import { buildApp } from './app.js';
 import { registerContentPrefetch } from './content/prefetch.js';
 import { applyContentRetention } from './content/retention.js';
@@ -27,8 +28,11 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-// src/server.ts → ../agents (relative to core/)
-const agentsDir = resolve(__dirname, '../../agents');
+// Dev: the repo's agents/ (src/server.ts → ../../agents). Installed app: the
+// shell points SAMIX_AGENTS_DIR at a writable folder and SAMIX_BUNDLED_AGENTS_DIR
+// at the defaults inside the app bundle, which are copied over once.
+const agentsDir = process.env.SAMIX_AGENTS_DIR ?? resolve(__dirname, '../../agents');
+const bundledAgentsDir = process.env.SAMIX_BUNDLED_AGENTS_DIR;
 
 let skills: Skill[] = [];
 const fastify = await buildApp({ token, logger, getSkills: () => skills });
@@ -37,6 +41,7 @@ async function start(): Promise<void> {
   applyMigrations({ logger });
   await prisma.$connect();
   await recoverInterruptedRuns(logger);
+  if (bundledAgentsDir) seedAgents(bundledAgentsDir, agentsDir, logger);
   skills = await loadSkills({ agentsDir });
   registerContentPrefetch(logger);
   await applyContentRetention(logger);
@@ -45,6 +50,7 @@ async function start(): Promise<void> {
     24 * 60 * 60 * 1000
   ).unref();
   startScheduler(skills, logger);
+  startWakeDetector(skills, logger);
 
   const actualPort = await fastify.listen({ host: '127.0.0.1', port });
   logger.info({ addr: actualPort, skills: skills.length }, 'ready');

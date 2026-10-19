@@ -1,19 +1,18 @@
-import { dirname, join } from 'node:path';
-import { readFile, writeFile, rename } from 'node:fs/promises';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
 import type { Logger } from 'pino';
 import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { reloadSkill } from './scheduler/index.js';
+import { knownModelIds, MODEL_KEY_ENV } from './adapters/index.js';
+import { updateManifest } from './skills/manifestFile.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
 import { normalizeUrl } from './output/traceability.js';
 import { ensureArticleContent } from './content/articleContent.js';
 import { readMedia } from './content/media.js';
-import { SOURCE_TYPES, type Skill, type SourceItem, type SourceSpec } from './types.js';
+import { MODEL_IDS, SOURCE_TYPES, type Skill, type SourceItem, type SourceSpec } from './types.js';
 import { WebsiteFetcher, type WebsiteConfig } from './sources/website.js';
 import { resolveFetcher, validateSourceSpec } from './sources/index.js';
 
@@ -237,16 +236,9 @@ export async function buildApp(deps: AppDeps) {
         }
       }
 
-      const manifestDir = dirname(skill.skillMdPath);
-      const manifestPath = join(manifestDir, 'manifest.yaml');
-      const tmpPath = join(manifestDir, 'manifest.yaml.tmp');
-
-      const raw = await readFile(manifestPath, 'utf8');
-      const manifestObj = parseYaml(raw) as Record<string, unknown>;
-      manifestObj['sources'] = parsed.data.sources;
-
-      await writeFile(tmpPath, stringifyYaml(manifestObj), 'utf8');
-      await rename(tmpPath, manifestPath);
+      await updateManifest(skill, (m) => {
+        m['sources'] = parsed.data.sources;
+      });
 
       skill.manifest.sources = parsed.data.sources as SourceSpec[];
 
@@ -357,6 +349,71 @@ export async function buildApp(deps: AppDeps) {
         newerId: newer?.id ?? null,
         articles: articles.map((a) => articleSummary(a, q.data.leadParagraphs)),
       };
+    }
+  );
+
+  // ---- Model choice ------------------------------------------------------
+
+  fastify.get('/models', async () =>
+    knownModelIds()
+      .filter((id) => id !== 'static')
+      .map((id) => {
+        const keyEnv = MODEL_KEY_ENV[id] ?? null;
+        return {
+          id,
+          keyEnv,
+          // Local models need no key.
+          keyConfigured: keyEnv ? Boolean(process.env[keyEnv]) : true,
+        };
+      })
+  );
+
+  fastify.get<{ Params: { slug: string } }>('/agents/:slug/model', async (request, reply) => {
+    const skill = skillList().find((s) => s.id === request.params.slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    return skill.manifest.model;
+  });
+
+  const modelBodySchema = z.object({
+    primary: z.enum(MODEL_IDS),
+    fallback: z.enum(MODEL_IDS).nullable().optional(),
+  });
+
+  fastify.put<{ Params: { slug: string }; Body: unknown }>(
+    '/agents/:slug/model',
+    async (request, reply) => {
+      const skill = skillList().find((s) => s.id === request.params.slug);
+      if (!skill) {
+        reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+        return reply;
+      }
+      const parsed = modelBodySchema.safeParse(request.body);
+      const available = new Set<string>(knownModelIds().filter((id) => id !== 'static'));
+      const bad = parsed.success
+        ? [parsed.data.primary, parsed.data.fallback].find((id) => id && !available.has(id))
+        : undefined;
+      if (!parsed.success || bad) {
+        reply.code(400).send({
+          error: 'invalid_model',
+          message: bad ? `no adapter for "${bad}"` : errorMessage(parsed.error),
+        });
+        return reply;
+      }
+      const { primary, fallback } = parsed.data;
+
+      await updateManifest(skill, (m) => {
+        const model = (m['model'] ?? {}) as Record<string, unknown>;
+        model['primary'] = primary;
+        if (fallback) model['fallback'] = fallback;
+        else delete model['fallback'];
+        m['model'] = model;
+      });
+      skill.manifest.model.primary = primary;
+      skill.manifest.model.fallback = fallback ?? undefined;
+      return { ok: true };
     }
   );
 

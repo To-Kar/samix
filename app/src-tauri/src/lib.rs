@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tauri::Manager;
 use std::process::Child;
 use std::sync::Mutex;
 use uuid::Uuid;
