@@ -59,6 +59,8 @@ export const manifestYamlSchema = z.object({
   routes: z.array(routeSchema).optional(),
   delegates: z.array(z.string().min(1)).optional(),
   empty_answer: z.string().min(1).max(300).optional(),
+  // What a Ressort is about; sources that search by topic use it.
+  topic: z.string().min(1).max(400).optional(),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

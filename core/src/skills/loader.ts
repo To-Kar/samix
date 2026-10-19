@@ -120,6 +120,7 @@ function normalizeManifest(m: ManifestYaml): Manifest {
     routes: m.routes,
     delegates: m.delegates,
     emptyAnswer: m.empty_answer,
+    topic: m.topic,
   };
 }
 

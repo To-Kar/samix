@@ -130,6 +130,7 @@ describe('API: create agent, edit schedule', () => {
     ['no title', { focus: 'x', sources }],
     ['no sources', { title: 'T', focus: 'x', sources: [] }],
     ['bad source config', { title: 'T', focus: 'x', sources: [{ type: 'website', config: { url: 'x.de', maxItems: 0 } }] }],
+    ['web search without query or topic', { title: 'T', focus: 'x', sources: [{ type: 'perplexity_search', config: {} }] }],
     ['bad cron', { title: 'T', focus: 'x', sources, schedule: { cron: 'nope', timezone: 'UTC' } }],
     ['unknown template', { title: 'T', focus: 'x', sources, template: 'nope' }],
     ['model without adapter', { title: 'T', focus: 'x', sources, model: { primary: 'gpt-4o-mini' } }],
@@ -138,6 +139,24 @@ describe('API: create agent, edit schedule', () => {
     expect((await post(body)).statusCode).toBe(400);
     expect(skills).toEqual([]);
     expect(readdirSync(agentsDir)).toEqual([]);
+  });
+
+  it('creates a Ressort that only searches the web for its topic, and the search can be switched off again', async () => {
+    const { app, skills, post } = await setup();
+    const res = await post({ title: 'Fussball', focus: 'Fußball-Spiele, Bundesliga', sources: [{ type: 'perplexity_search', config: { useTopic: true, recencyHours: 24 } }] });
+    expect(res.statusCode).toBe(201);
+    expect(skills[0]!.manifest.sources).toEqual([{ type: 'perplexity_search', config: { useTopic: true, recencyHours: 24 } }]);
+    // the topic the search will use is stored with the Ressort
+    expect(skills[0]!.manifest.topic).toBe('Fußball-Spiele, Bundesliga');
+
+    // adding sites next to it, then removing only the search
+    const slug = res.json().slug;
+    const put = (s: unknown) => app.inject({ method: 'PUT', url: `/agents/${slug}/sources`, headers: AUTH, payload: { sources: s } });
+    expect((await put([{ type: 'perplexity_search', config: { useTopic: true } }, ...sources])).statusCode).toBe(200);
+    expect(skills[0]!.manifest.sources!.map((x) => x.type).sort()).toEqual(['perplexity_search', 'website']);
+    expect((await put(sources)).statusCode).toBe(200);
+    expect(skills[0]!.manifest.sources!.map((x) => x.type)).toEqual(['website']);
+    expect((await put([{ type: 'perplexity_search', config: {} }])).statusCode).toBe(400);
   });
 
   it('lists templates; needs auth', async () => {

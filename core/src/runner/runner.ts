@@ -26,6 +26,7 @@ import { logger as rootLogger } from '../logger.js';
 import { notifyRunSuccess } from './hooks.js';
 import { DEFAULT_DEDUPE_DAYS, dropAlreadyPublished } from './dedupe.js';
 import { buildReaderProfile } from './profile.js';
+import { focusOf } from '../skills/focus.js';
 import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend, utcDayStart } from './budget.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
@@ -40,6 +41,7 @@ export interface RunAgentOptions {
 }
 
 interface FailureShape {
+  costUsd?: number;
   runId: string;
   agentSlug: string;
   error: string;
@@ -55,7 +57,7 @@ function buildFailureResult(f: FailureShape): RunResult {
     output: null,
     tokensInput: 0,
     tokensOutput: 0,
-    costUsd: 0,
+    costUsd: f.costUsd ?? 0,
     error: f.error,
     citations: [],
     articleIds: [],
@@ -83,9 +85,20 @@ async function markFailed(
 async function fetchSources(
   specs: SourceSpec[],
   runId: string,
-  log: Logger
-): Promise<SourceItem[]> {
-  const ctx: FetchContext = { runId, logger: log };
+  log: Logger,
+  paid: { topic?: string; reserve: (estimateUsd: number) => Promise<boolean> }
+): Promise<{ items: SourceItem[]; costUsd: number }> {
+  let costUsd = 0;
+  const ctx: FetchContext = {
+    runId,
+    logger: log,
+    topic: paid.topic,
+    reserve: (estimateUsd) => paid.reserve(costUsd + estimateUsd),
+    spend: (usd, note) => {
+      costUsd += usd;
+      log.info({ usd, note }, 'source_cost');
+    },
+  };
   const all: SourceItem[] = [];
 
   for (const spec of specs) {
@@ -106,7 +119,7 @@ async function fetchSources(
     }
   }
 
-  if (all.length === 0) return all;
+  if (all.length === 0) return { items: all, costUsd };
 
   await prisma.sourceSnapshot.createMany({
     data: all.map((item) => ({
@@ -120,7 +133,7 @@ async function fetchSources(
     })),
   });
 
-  return all;
+  return { items: all, costUsd };
 }
 
 function resolveSchemaPath(skill: Skill): string | undefined {
@@ -290,8 +303,29 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
 
   // Source fetch + snapshot persistence (only if the manifest declares any).
   let sourceItems: SourceItem[] = [];
+  let sourceCostUsd = 0;
   if (skill.manifest.sources?.length) {
-    sourceItems = await fetchSources(skill.manifest.sources, runId, log);
+    const fetched = await fetchSources(skill.manifest.sources, runId, log, {
+      topic: skill.manifest.topic ?? focusOf(skill.systemPrompt),
+      // A paid source may only spend what the agent's day and the global cap still allow,
+      // leaving room for the model call that follows.
+      reserve: async (projectedUsd) =>
+        (await checkBudget({
+          agentId: agentRow.id,
+          dailyUsdMax: skill.manifest.budget.dailyUsdMax,
+          haltOnBudgetExceeded: skill.manifest.budget.haltOnBudgetExceeded,
+          estimatedCostUsd: projectedUsd + estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax),
+          agentProjectedUsd: projectedUsd + estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax),
+          now: startedAt,
+        })) === null,
+    });
+    sourceItems = fetched.items;
+    sourceCostUsd = fetched.costUsd;
+    if (sourceCostUsd > 0) {
+      // Booked at once: the money is gone whatever the model makes of the items.
+      await recordSpend(agentRow.id, startedAt, { inputTokens: 0, outputTokens: 0 }, sourceCostUsd);
+      await prisma.agentRun.update({ where: { id: runId }, data: { costUsd: sourceCostUsd } });
+    }
   }
 
   // A skill that declares sources must have something to summarise. Calling
@@ -305,6 +339,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
       runId,
       agentSlug: skill.id,
       error: 'no_source_items',
+      costUsd: sourceCostUsd,
       startedAt,
       completedAt,
     });
@@ -331,7 +366,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
         output: { note: 'no_new_items', skipped },
         tokensInput: 0,
         tokensOutput: 0,
-        costUsd: 0,
+        costUsd: sourceCostUsd,
         citations: [],
         articleIds: [],
         startedAt,
@@ -392,16 +427,18 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
 
     // Priced against the adapter that actually served the request, not the
     // primary: fallback pricing differs (Ollama runs locally, so zero).
-    const costUsd = computeCostUsd(
+    const modelCostUsd = computeCostUsd(
       servingAdapter,
       response.usage.inputTokens,
       response.usage.outputTokens
     );
+    // What the run cost altogether: paid sources plus the model.
+    const costUsd = modelCostUsd + sourceCostUsd;
     const completedAt = new Date();
 
     // Ledger always increments on a completed adapter call — the API cost
     // was incurred regardless of whether the output validates.
-    await recordSpend(agentRow.id, startedAt, response.usage, costUsd);
+    await recordSpend(agentRow.id, startedAt, response.usage, modelCostUsd);
 
     const schemaPath = resolveSchemaPath(skill);
     const rawOutput = JSON.stringify({

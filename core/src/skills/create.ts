@@ -102,6 +102,7 @@ export async function createAgent(opts: {
   manifest['id'] = slug;
   manifest['version'] = '1.0';
   manifest['sources'] = input.sources;
+  manifest['topic'] = focus;
   if (input.schedule) {
     manifest['schedule'] = { ...(manifest['schedule'] as object | undefined), ...input.schedule };
   }

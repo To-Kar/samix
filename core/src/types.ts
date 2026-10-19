@@ -54,6 +54,8 @@ export interface Manifest {
   delegates?: string[];
   /** Shown instead of the model's text when a question surfaced no source at all. */
   emptyAnswer?: string;
+  /** What a Ressort is about (set when it is created from a template). */
+  topic?: string;
 }
 
 export interface ModelPreference {
@@ -195,6 +197,12 @@ export interface FetchContext {
   runId: string;
   logger: Logger;
   since?: Date;
+  /** The agent's topic (its focus sentence), for sources that search by topic. */
+  topic?: string;
+  /** Paid sources ask first: false = the budget does not allow spending `estimateUsd` now. */
+  reserve?(estimateUsd: number): Promise<boolean>;
+  /** Paid sources report what a request cost; the runner books it to the ledger and the run. */
+  spend?(costUsd: number, note: string): void;
 }
 
 export interface SourceFetcher<C = unknown> {

@@ -1,6 +1,6 @@
 import type { FetcherType, SourceFetcher, SourceSpec } from '../types.js';
 import { RssFetcher } from './rss.js';
-import { PerplexitySearchFetcher } from './perplexity.js';
+import { PerplexitySearchFetcher, parsePerplexityConfig } from './perplexity.js';
 import { ArxivFetcher } from './arxiv.js';
 import { WebsiteFetcher, parseWebsiteConfig } from './website.js';
 
@@ -24,6 +24,7 @@ export function registerFetcher(type: FetcherType, factory: FetcherFactory): voi
 // failing at the next scheduled run.
 export function validateSourceSpec(spec: SourceSpec): void {
   if (spec.type === 'website') parseWebsiteConfig(spec.config);
+  if (spec.type === 'perplexity_search') parsePerplexityConfig(spec.config);
 }
 
 export function resolveFetcher(type: SourceSpec['type']): SourceFetcher | undefined {

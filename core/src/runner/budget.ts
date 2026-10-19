@@ -40,6 +40,8 @@ export interface BudgetCheck {
   haltOnBudgetExceeded: boolean;
   /** Pre-call estimate against the model we intend to call. */
   estimatedCostUsd: number;
+  /** When given, the agent's own cap must also hold for this much more spending (paid sources). */
+  agentProjectedUsd?: number;
   now: Date;
 }
 
@@ -57,7 +59,10 @@ export async function checkBudget(c: BudgetCheck): Promise<BudgetRefusalDetail |
     where: { agentId_period: { agentId: c.agentId, period: periodStart } },
   });
   const spentToday = ledger?.costUsd ?? 0;
-  if (c.haltOnBudgetExceeded && c.dailyUsdMax > 0 && spentToday >= c.dailyUsdMax) {
+  // Without a projection the cap is "already reached"; with one, "would be passed".
+  const overAgentCap =
+    c.agentProjectedUsd === undefined ? spentToday >= c.dailyUsdMax : spentToday + c.agentProjectedUsd > c.dailyUsdMax;
+  if (c.haltOnBudgetExceeded && c.dailyUsdMax > 0 && overAgentCap) {
     return { refusal: 'budget_exceeded', spent: spentToday, cap: c.dailyUsdMax };
   }
 
