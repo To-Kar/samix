@@ -4,7 +4,7 @@ import { prisma } from '../src/db/prisma.js';
 import { runAgent } from '../src/runner/runner.js';
 import { logger } from '../src/logger.js';
 import { registerFetcher, resolveFetcher } from '../src/sources/index.js';
-import { PerplexitySearchFetcher, parsePerplexityConfig, perplexityDeps } from '../src/sources/perplexity.js';
+import { DEFAULT_SEARCH_COST_USD as SEARCH, PerplexitySearchFetcher, parsePerplexityConfig, perplexityDeps } from '../src/sources/perplexity.js';
 import { focusOf } from '../src/skills/focus.js';
 import { fakeAdapter, llmOutput, makeSkill, respond, seedAgent, useAdapter } from './helpers.js';
 import { useFakeNet } from './net.js';
@@ -94,7 +94,7 @@ describe('PerplexitySearchFetcher', () => {
     expect(items[1]!.publishedAt?.toISOString()).toBe('2026-10-17T12:00:00.000Z');
     expect(items.find((i) => i.url.includes('undated'))).toBeUndefined();
     // each search is booked
-    expect(spent).toEqual([0.01, 0.01]);
+    expect(spent).toEqual([SEARCH, SEARCH]);
   });
 
   it('does not search when the budget says no, and fetches nothing', async () => {
@@ -109,7 +109,7 @@ describe('PerplexitySearchFetcher', () => {
     fakeSearch([new Response('rate limited', { status: 429 }), searchResponse([])]);
     const spent: number[] = [];
     await new PerplexitySearchFetcher().fetch({ queries: ['a', 'b'] }, ctx({ spend: (usd: number) => spent.push(usd) }));
-    expect(spent).toEqual([0.01]);
+    expect(spent).toEqual([SEARCH]);
   });
 
   it('uses a configurable price estimate and needs a key', async () => {
@@ -201,13 +201,13 @@ describe('a run with a web search', () => {
 
     expect(result.status).toBe('success');
     expect(requests[0]!.body.messages[1]!.content).toBe('Fußball-Spiele');
-    // model: 1000 in + 500 out at 1/5 per million = 0.0035; one search = 0.01
-    expect(result.costUsd).toBeCloseTo(0.0135, 6);
+    // model: 1000 in + 500 out at 1/5 per million = 0.0035, plus one search
+    expect(result.costUsd).toBeCloseTo(0.0035 + SEARCH, 6);
     const run = await prisma.agentRun.findUniqueOrThrow({ where: { id: result.runId } });
-    expect(run.costUsd).toBeCloseTo(0.0135, 6);
-    expect(run.sourceCostUsd).toBeCloseTo(0.01, 6); // the search part, shown separately in the cost view
+    expect(run.costUsd).toBeCloseTo(0.0035 + SEARCH, 6);
+    expect(run.sourceCostUsd).toBeCloseTo(SEARCH, 6); // the search part, shown separately in the cost view
     const ledger = await prisma.budgetLedger.findFirstOrThrow({ where: { agent: { slug: skill.id } } });
-    expect(ledger.costUsd).toBeCloseTo(0.0135, 6);
+    expect(ledger.costUsd).toBeCloseTo(0.0035 + SEARCH, 6);
     const rows = await prisma.article.findMany({ where: { agentRunId: result.runId } });
     expect(rows.map((r) => r.sourceName).sort()).toEqual(six.slice(0, 5).map((u) => new URL(u).hostname).sort());
   });
@@ -217,7 +217,7 @@ describe('a run with a web search', () => {
     fakeSearch([searchResponse(six.map((url) => ({ url })))]);
     const model = fakeAdapter('claude-haiku-4-5', async () => respond(llmOutput(six.slice(0, 5))));
     useAdapter(model);
-    // cap 0.01 $: one search (0.01) plus the model estimate would pass it
+    // cap 0.01 $: one search plus the model estimate (0.024 $) would pass it
     const skill = searchSkill({ dailyUsdMax: 0.01 });
     await seedAgent(skill);
 
@@ -237,7 +237,7 @@ describe('a run with a web search', () => {
     const result = await runAgent({ skill, trigger: 'manual', logger });
 
     expect(result).toMatchObject({ status: 'failed', error: 'no_source_items' });
-    expect(result.costUsd).toBeCloseTo(0.01, 6);
-    expect((await prisma.agentRun.findUniqueOrThrow({ where: { id: result.runId } })).costUsd).toBeCloseTo(0.01, 6);
+    expect(result.costUsd).toBeCloseTo(SEARCH, 6);
+    expect((await prisma.agentRun.findUniqueOrThrow({ where: { id: result.runId } })).costUsd).toBeCloseTo(SEARCH, 6);
   });
 });

@@ -166,7 +166,7 @@ export function Sources({ api, slug }: SourcesProps) {
         <label className="text-xs text-neutral-600 dark:text-neutral-400">Weitere Suchanfragen (eine pro Zeile, optional)</label>
         <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder="Bundesliga Spieltag Ergebnisse" />
         <p className="text-xs text-neutral-400">
-          Jede Suche kostet extra (geschätzt etwa 1 Cent, abgebucht vom Tageslimit des Ressorts). Die gefundenen Seiten werden
+          Jede Suche kostet extra (geschätzt etwa 0,25 Cent, abgebucht vom Tageslimit des Ressorts). Die gefundenen Seiten werden
           wie andere Quellen geprüft: ohne Datum und ohne abrufbare URL erscheint nichts. Ohne Haken und ohne Anfragen sucht
           das Ressort nur auf den Seiten und Feeds oben.
         </p>

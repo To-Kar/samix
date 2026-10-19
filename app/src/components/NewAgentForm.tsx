@@ -104,7 +104,7 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
         ))}
         {searches ? (
           <p className="text-xs text-neutral-500">
-            Jede Suche kostet extra (geschätzt etwa 1 Cent, abgebucht vom Tageslimit des Ressorts). Das lässt sich später unter
+            Jede Suche kostet extra (geschätzt etwa 0,25 Cent, abgebucht vom Tageslimit des Ressorts). Das lässt sich später unter
             „Quellen“ des Ressorts ändern.
             {!searchKey ? <span className="text-amber-700 dark:text-amber-400"> Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter).</span> : null}
           </p>

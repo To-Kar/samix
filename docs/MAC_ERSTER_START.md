@@ -16,7 +16,7 @@ Alles Folgende ist in der Entwicklungsumgebung (Linux, kein Mac, kein API-Schlü
 ## 2. Reihenfolge der Prüfung (billig → teuer)
 1. App startet, Banner „Core connected“, Fenster schließen → Tray/Menüleiste bleibt, Beenden über Tray.
 2. Ressort „KI-News“ **einmal manuell** laufen lassen. Erwartet: Artikel, Kosten wenige Cent in der Lauf-Historie (Ressorts → Lauf-Historie). Kosten gegen die Abrechnung des Anbieters vergleichen.
-2b. **Websuche (optional):** Perplexity-Schlüssel unter „Einrichtung → Weitere Anbieter“, dann ein Ressort mit „Allgemein im Web suchen“ anlegen und „Neue Artikel holen“. Die Kosten je Suche sind ein **Schätzwert** (0,01 $); vergleiche mit der Abrechnung von Perplexity. Prüfe, ob die Treffer zum Thema passen und ob "n Quellen berichten" sinnvoll gruppiert.
+2b. **Websuche (optional):** Perplexity-Schlüssel unter „Einrichtung → Weitere Anbieter“, dann ein Ressort mit „Allgemein im Web suchen“ anlegen und „Neue Artikel holen“. Die Kosten je Suche sind ein **Schätzwert** (0,0025 $); vergleiche mit der Abrechnung von Perplexity. Prüfe, ob die Treffer zum Thema passen und ob "n Quellen berichten" sinnvoll gruppiert.
 3. Artikel im Reader öffnen (Volltext, Bilder). [Unverified: echte Webseiten]
 4. Fragen: „Was gab es zu <Thema aus dem Ressort>?“ → Antwort mit Quellen, „Weitergeleitet an …“, Kosten. Danach eine Frage zu etwas, das nicht gesammelt wurde → „nichts gefunden“ statt einer Antwort.
 5. Notiz anlegen, Frage stellen, prüfen ob `read_notes` im Ablauf auftaucht.

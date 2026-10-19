@@ -83,7 +83,7 @@ export function Costs({ api }: { api: ApiClient }) {
         <p className="mb-2 text-ink-soft dark:text-ink-soft-dark">
           Samix rechnet die Kosten selbst aus Tokenzahlen und diesen Preisen. Die eingebauten Preise habe ich nicht gegen die
           Preisseiten der Anbieter geprüft: trage ein, was dort steht, dann gilt ab sofort dein Wert. Perplexity-Suchen werden
-          pauschal mit 0,01 $ geschätzt.
+          pauschal mit 0,0025 $ geschätzt (gemessen an Perplexitys Abrechnung vom 19.10.: etwa 0,0024 $ je Suche, davon 0,001 $ Suchgebühr).
         </p>
         <ul className="flex flex-col gap-1">
           {data.prices.map((p) => (

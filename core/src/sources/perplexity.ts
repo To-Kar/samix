@@ -49,12 +49,17 @@ const EXCERPT_CHARS = 500;
 const EXCERPT_CONCURRENCY = 4;
 const EXCERPT_MAX_BYTES = 1_500_000;
 
-// [Unverified] Perplexity bills per request on top of tokens; the exact amount
-// is not known here, so each search is booked at this estimate (override with
-// SAMIX_PERPLEXITY_COST_PER_SEARCH). The ledger labels it as an estimate in the log.
+// What one search is booked at. Measured once from Perplexity's own billing
+// breakdown (2026-10-19): 3 web searches cost 0.00714 $ altogether — 0.001 $ per
+// search call plus about 0.0014 $ of tokens each, so roughly 0.0024 $. Rounded up
+// to 0.0025. It is an estimate, not what the API reports: change it with
+// SAMIX_PERPLEXITY_COST_PER_SEARCH if your billing shows something else.
+export const DEFAULT_SEARCH_COST_USD = 0.0025;
+
 export function searchCostEstimateUsd(): number {
-  const n = Number(process.env.SAMIX_PERPLEXITY_COST_PER_SEARCH);
-  return Number.isFinite(n) && n >= 0 && process.env.SAMIX_PERPLEXITY_COST_PER_SEARCH ? n : 0.01;
+  const raw = process.env.SAMIX_PERPLEXITY_COST_PER_SEARCH;
+  const n = Number(raw);
+  return raw && Number.isFinite(n) && n >= 0 ? n : DEFAULT_SEARCH_COST_USD;
 }
 
 const SEARCH_SYSTEM_PROMPT =
