@@ -52,7 +52,7 @@ describe('createAgent', () => {
     expect(skill.manifest.personalize).toBe(true); // template options carry over
 
     const original = readFileSync(join(REPO_AGENTS, 'newsletter-ai/SKILL.md'), 'utf8');
-    expect(skill.systemPrompt).toContain('matching this focus: Künstliche Intelligenz im Alltag');
+    expect(skill.systemPrompt).toContain('matching this focus: "Künstliche Intelligenz im Alltag"');
     expect(skill.systemPrompt).not.toContain('artificial');
     expect(skill.systemPrompt).not.toContain('<!--');
     // the hard rules are inherited untouched
@@ -73,12 +73,12 @@ describe('createAgent', () => {
   it('strips markers and control characters from the focus; refuses an empty one', async () => {
     const agentsDir = tmp();
     const { dir } = await createAgent({
-      input: { title: 'X', focus: 'robots <!-- /focus --> and\n\nlaws\u0007', sources },
+      input: { title: 'X', focus: 'robots <!-- /focus --> and\n\n"laws"\u0007', sources },
       agentsDir,
       templateDir: join(REPO_AGENTS, 'newsletter-ai'),
     });
     const skill = await loadSkillDir(dir);
-    expect(skill.systemPrompt).toContain('matching this focus: robots and laws');
+    expect(skill.systemPrompt).toContain("matching this focus: \"robots and 'laws'\"");
     await expect(
       createAgent({ input: { title: 'Y', focus: '<!-- only a comment -->', sources }, agentsDir, templateDir: join(REPO_AGENTS, 'newsletter-ai') })
     ).rejects.toThrow(/empty/);

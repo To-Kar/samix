@@ -102,6 +102,21 @@ await check('agent run through the bundled core', async () => {
   const res = await fetch(`${base}/agents/hello-world/run`, { method: 'POST', headers: auth });
   return (await res.json()).status === 'success';
 });
+await check('create an agent from the bundled template', async () => {
+  const res = await fetch(`${base}/agents`, {
+    method: 'POST',
+    headers: { ...auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Bundle Check',
+      focus: 'anything',
+      sources: [{ type: 'website', config: { url: 'example.com' } }],
+    }),
+  });
+  if (res.status !== 201) return false;
+  const created = existsSync(join(work, 'data', 'agents', 'bundle-check', 'SKILL.md'));
+  const list = await (await fetch(`${base}/agents`, { headers: auth })).json();
+  return created && list.some((a) => a.slug === 'bundle-check' && a.title === 'Bundle Check');
+});
 await check('log file written', async () => {
   await new Promise((r) => setTimeout(r, 600)); // async log destination
   const log = join(work, 'logs', 'core.log');

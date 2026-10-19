@@ -1,5 +1,6 @@
 ---
 name: newsletter-ai
+title: KI-News
 description: Daily AI-news digest built from RSS + Arxiv feeds
 ---
 

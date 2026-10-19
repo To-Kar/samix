@@ -1,24 +1,68 @@
 import { invoke } from '@tauri-apps/api/core';
 
+export interface ScheduleInfo {
+  cron: string;
+  timezone: string;
+  jitterSeconds?: number;
+  catchupOnStartup?: boolean;
+}
+
 export interface AgentSummary {
   id: string;
   slug: string;
+  /** Display name (the Ressort's title). */
+  title: string;
+  description: string;
   type: string;
   enabled: boolean;
+  schedule: ScheduleInfo | null;
+  model: string | null;
+  personalize: boolean;
+  lastRun: { startedAt: string; status: string; error: string | null; costUsd: number } | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RunSummary {
+  id: string;
+  agentSlug: string;
+  status: 'running' | 'success' | 'failed' | 'partial';
+  trigger: string;
+  model: string | null;
+  costUsd: number;
+  tokensInput: number;
+  tokensOutput: number;
+  error: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  articleCount: number;
+  sourceCount: number;
+  nothingNew: boolean;
+}
+
+export interface ReaderProfile {
+  liked: { title: string; topic?: string }[];
+  disliked: { title: string; topic?: string }[];
+}
+
+export interface NewAgent {
+  title: string;
+  focus: string;
+  sources: SourceSpec[];
+  schedule?: { cron: string; timezone: string };
 }
 
 export interface RunResult {
   runId: string;
   agentSlug: string;
   status: 'success' | 'failed' | 'partial';
-  output: { content: string; stopReason: string } | null;
+  output: unknown;
   tokensInput: number;
   tokensOutput: number;
   costUsd: number;
   error?: string;
   citations: unknown[];
+  articleIds?: string[];
   startedAt: string;
   completedAt: string;
 }
@@ -78,6 +122,8 @@ export interface EditionArticle {
   importance: number;
   importanceReason: string | null;
   createdAt: string;
+  /** +1 liked, -1 disliked, null no vote. */
+  vote: number | null;
   content: { status: ContentStatus; readingMinutes: number; leadImageId: string | null } | null;
   excerpt: ContentBlock[] | null;
 }
@@ -221,8 +267,11 @@ export class ApiClient {
     return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
   }
 
-  getEdition(id: string, leadParagraphs: number): Promise<Edition> {
-    return this.request<Edition>(`/editions/${id}?leadParagraphs=${leadParagraphs}`);
+  /** `id` may be "latest"; with `agent` that means the newest edition of that Ressort. */
+  getEdition(id: string, leadParagraphs: number, agent?: string): Promise<Edition> {
+    const q = new URLSearchParams({ leadParagraphs: String(leadParagraphs) });
+    if (agent) q.set('agent', agent);
+    return this.request<Edition>(`/editions/${id}?${q}`);
   }
 
   listEditions(limit = 30): Promise<EditionSummary[]> {
@@ -253,6 +302,50 @@ export class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(spec),
+    });
+  }
+
+  setAgentEnabled(slug: string, enabled: boolean): Promise<{ ok: boolean; enabled: boolean }> {
+    return this.json('PUT', `/agents/${slug}/enabled`, { enabled });
+  }
+
+  renameAgent(slug: string, title: string): Promise<{ ok: boolean; title: string }> {
+    return this.json('PUT', `/agents/${slug}/title`, { title });
+  }
+
+  setPersonalize(slug: string, enabled: boolean): Promise<{ ok: boolean }> {
+    return this.json('PUT', `/agents/${slug}/personalize`, { enabled });
+  }
+
+  putSchedule(slug: string, schedule: { cron: string; timezone: string } | null): Promise<{ ok: boolean }> {
+    return this.json('PUT', `/agents/${slug}/schedule`, { schedule });
+  }
+
+  createAgent(agent: NewAgent): Promise<{ slug: string; title: string }> {
+    return this.json('POST', '/agents', agent);
+  }
+
+  vote(articleId: string, value: -1 | 0 | 1): Promise<{ vote: number | null }> {
+    return this.json('PUT', `/articles/${articleId}/vote`, { value });
+  }
+
+  getProfile(slug: string): Promise<{ agent: string; profile: ReaderProfile | null }> {
+    return this.request(`/profile?agent=${encodeURIComponent(slug)}`);
+  }
+
+  clearVotes(slug: string): Promise<{ deleted: number }> {
+    return this.request(`/votes?agent=${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  }
+
+  listRuns(slug: string, limit = 20): Promise<RunSummary[]> {
+    return this.request(`/runs?agent=${encodeURIComponent(slug)}&limit=${limit}`);
+  }
+
+  private json<T>(method: string, path: string, body: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
   }
 

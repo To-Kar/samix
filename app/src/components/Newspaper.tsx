@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ApiClient, Edition, EditionArticle } from '../lib/api';
+import type { AgentSummary, ApiClient, Edition, EditionArticle } from '../lib/api';
 import { formatLongDate, formatShortDate, formatUsd, hostnameOf } from '../lib/format';
 import { layoutEdition, readingOrder } from '../lib/layout';
-import { getLeadParagraphs, isOnboarded } from '../lib/prefs';
+import { explainFailure, explainPartial } from '../lib/explain';
+import { getLeadParagraphs, getRessort, isOnboarded, setRessort } from '../lib/prefs';
 import { onTrayRunNow } from '../lib/native';
 import { Onboarding } from './Onboarding';
+import { VoteButtons } from './VoteButtons';
 import { AuthImage } from './AuthImage';
 import { Blocks } from './Blocks';
 
@@ -18,6 +20,8 @@ interface NewspaperProps {
 }
 
 export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [slug, setSlug] = useState<string | null>(getRessort());
   const [editionId, setEditionId] = useState('latest');
   const [edition, setEdition] = useState<Edition | null>(null);
   const [empty, setEmpty] = useState(false);
@@ -30,7 +34,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
     async (id: string) => {
       setLoadError(null);
       try {
-        setEdition(await api.getEdition(id, getLeadParagraphs()));
+        setEdition(await api.getEdition(id, getLeadParagraphs(), id === 'latest' ? slug ?? undefined : undefined));
         setEmpty(false);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -43,20 +47,47 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
         }
       }
     },
-    [api]
+    [api, slug]
   );
+
+  // The Ressorts (proactive agents). Remember the chosen one; fall back to
+  // the first when the remembered one no longer exists.
+  useEffect(() => {
+    api
+      .listAgents()
+      .then((all) => {
+        const proactive = all.filter((a) => a.type === 'proactive');
+        setAgents(proactive);
+        setSlug((cur) => (proactive.some((a) => a.slug === cur) ? cur : proactive[0]?.slug ?? null));
+      })
+      .catch(() => undefined);
+  }, [api, refreshToken]);
 
   useEffect(() => {
     void load(editionId);
   }, [load, editionId, refreshToken]);
 
+  const chooseRessort = (next: string) => {
+    // Already showing it: resetting here would clear the page without a reload.
+    if (next === slug) return;
+    setRessort(next);
+    setSlug(next);
+    setEdition(null);
+    setEmpty(false);
+    setRunMessage(null);
+    setEditionId('latest');
+  };
+
+  const current = agents.find((a) => a.slug === slug) ?? null;
+
   const runNewsletter = async () => {
     setRunning(true);
     setRunMessage(null);
     try {
-      const result = await api.runAgent(NEWSLETTER_SLUG);
+      const result = await api.runAgent(slug ?? NEWSLETTER_SLUG);
       if (result.status === 'success') {
-        setRunMessage(null);
+        const nothingNew = (result.output as { note?: string } | null)?.note === 'no_new_items';
+        setRunMessage(nothingNew ? 'Nichts Neues: alle gefundenen Beiträge wurden schon veröffentlicht.' : null);
       } else if (result.status === 'partial') {
         setRunMessage(`Keine Ausgabe: ${explainPartial(result.error)}`);
       } else {
@@ -71,23 +102,61 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
     }
   };
 
-  // First start: no edition and no hosted model with a key → offer setup.
-  // (Ollama alone doesn't count: whether it is installed can't be known here.)
+  // First start: no edition in ANY Ressort and no hosted model with a key →
+  // offer setup. (An empty Ressort next to ones that have editions is not a
+  // first start. Ollama alone doesn't count: whether it is installed can't be
+  // known here.)
   useEffect(() => {
     if (!empty || isOnboarded()) {
       setNeedsSetup(false);
       return;
     }
-    api
-      .listModels()
-      .then((models) => setNeedsSetup(!models.some((m) => m.keyEnv && m.keyConfigured)))
+    Promise.all([api.listModels(), api.listEditions(1)])
+      .then(([models, editions]) =>
+        setNeedsSetup(editions.length === 0 && !models.some((m) => m.keyEnv && m.keyConfigured))
+      )
       .catch(() => setNeedsSetup(false));
   }, [api, empty]);
 
-  // "Jetzt aktualisieren" from the menu-bar / tray icon.
-  const runRef = useRef(runNewsletter);
-  runRef.current = runNewsletter;
-  useEffect(() => onTrayRunNow(() => void runRef.current()), []);
+  // "Jetzt aktualisieren" from the menu-bar / tray icon: every active Ressort,
+  // one after the other (each has its own budget).
+  const runAll = async () => {
+    setRunning(true);
+    setRunMessage(null);
+    const lines: string[] = [];
+    try {
+      for (const a of agents.filter((x) => x.enabled)) {
+        try {
+          const r = await api.runAgent(a.slug);
+          const n = r.articleIds?.length ?? 0;
+          lines.push(`${a.title}: ${r.status === 'success' ? (n ? `${n} Artikel` : 'nichts Neues') : explainFailure(r.error)}`);
+        } catch (e) {
+          lines.push(`${a.title}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      setRunMessage(lines.join(' · ') || 'Kein aktives Ressort.');
+      setEditionId('latest');
+      await load('latest');
+    } finally {
+      setRunning(false);
+    }
+  };
+  const runAllRef = useRef(runAll);
+  runAllRef.current = runAll;
+  useEffect(() => onTrayRunNow(() => void runAllRef.current()), []);
+
+  // Optimistic: show the vote at once, put it back if the core refuses.
+  const vote = async (articleId: string, value: -1 | 0 | 1) => {
+    const set = (v: number | null) =>
+      setEdition((e) => (e ? { ...e, articles: e.articles.map((a) => (a.id === articleId ? { ...a, vote: v } : a)) } : e));
+    const before = edition?.articles.find((a) => a.id === articleId)?.vote ?? null;
+    set(value === 0 ? null : value);
+    try {
+      await api.vote(articleId, value);
+    } catch {
+      set(before);
+    }
+  };
 
   const layout = useMemo(() => (edition ? layoutEdition(edition.articles) : null), [edition]);
   const order = useMemo(() => (layout ? readingOrder(layout) : []), [layout]);
@@ -98,11 +167,34 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
       <Masthead
         edition={edition}
         running={running}
+        canRun={current ? current.enabled : true}
         onRun={() => void runNewsletter()}
         onRefresh={() => void load(editionId)}
         onOlder={edition?.olderId ? () => setEditionId(edition.olderId!) : undefined}
         onNewer={edition?.newerId ? () => setEditionId(edition.newerId!) : undefined}
       />
+
+      {agents.length > 1 ? (
+        <nav className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule dark:border-rule-dark pb-2 -mt-2" aria-label="Ressorts">
+          {agents.map((a) => (
+            <button
+              key={a.slug}
+              onClick={() => chooseRessort(a.slug)}
+              className={`text-sm uppercase tracking-[0.15em] pb-1 ${
+                a.slug === slug ? 'font-bold border-b-2 border-ink dark:border-ink-dark' : 'text-ink-soft dark:text-ink-soft-dark hover:underline'
+              } ${a.enabled ? '' : 'line-through opacity-60'}`}
+            >
+              {a.title}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      {current && !current.enabled ? (
+        <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm">
+          Dieses Ressort ist ausgeschaltet (unter „Ressorts“ wieder einschalten).
+        </div>
+      ) : null}
 
       {runMessage ? (
         <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm">{runMessage}</div>
@@ -126,9 +218,10 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
 
       {empty && !running && !needsSetup ? (
         <div className="py-16 text-center text-ink-soft dark:text-ink-soft-dark">
-          <p className="font-serif text-2xl mb-2">Noch keine Ausgabe.</p>
+          <p className="font-serif text-2xl mb-2">Noch keine Ausgabe{current ? ` in „${current.title}“` : ''}.</p>
           <p className="text-sm">
-            Hinterlege in den Einstellungen einen API-Schlüssel und erstelle die erste Ausgabe.
+            „Neue Ausgabe erstellen“ holt die ersten Artikel. Dafür braucht Samix einen API-Schlüssel (Einstellungen)
+            oder ein lokales Modell.
           </p>
         </div>
       ) : null}
@@ -139,7 +232,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
             <section className="grid gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] border-b border-rule dark:border-rule-dark pb-8">
               <div className="flex flex-col gap-8">
                 {layout.lead.map((a, i) => (
-                  <LeadStory key={a.id} api={api} article={a} primary={i === 0} onOpen={open} />
+                  <LeadStory key={a.id} api={api} article={a} primary={i === 0} onOpen={open} onVote={vote} />
                 ))}
               </div>
               <aside className="md:border-l md:pl-8 border-rule dark:border-rule-dark">
@@ -151,7 +244,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
                 ) : (
                   <ul className="flex flex-col gap-4">
                     {layout.brief.map((a) => (
-                      <BriefItem key={a.id} article={a} onOpen={open} />
+                      <BriefItem key={a.id} article={a} onOpen={open} onVote={vote} />
                     ))}
                   </ul>
                 )}
@@ -162,7 +255,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
           {layout.main.length > 0 ? (
             <section className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
               {layout.main.map((a) => (
-                <ArticleBlock key={a.id} article={a} onOpen={open} />
+                <ArticleBlock key={a.id} article={a} onOpen={open} onVote={vote} />
               ))}
             </section>
           ) : null}
@@ -172,38 +265,19 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
   );
 }
 
-function explainFailure(error: string | undefined): string {
-  switch (error) {
-    case 'no_source_items':
-      return 'Keine Quelle lieferte Beiträge (Netzwerk oder Quellen prüfen). Es wurde nichts bezahlt.';
-    case 'already_running':
-      return 'Es läuft bereits ein Lauf.';
-    case 'budget_exceeded':
-    case 'global_budget_exceeded':
-      return 'Tagesbudget erreicht.';
-    default:
-      return error ?? 'unbekannt';
-  }
-}
-
-function explainPartial(error: string | undefined): string {
-  if (error?.startsWith('traceability')) return 'Das Modell nannte Quellen, die nicht abgerufen wurden. Es wurde nichts veröffentlicht.';
-  if (error?.startsWith('schema_violation')) return 'Die Modellantwort war nicht im erwarteten Format.';
-  return error ?? 'unbekannt';
-}
-
 // ---- masthead ------------------------------------------------------------
 
 interface MastheadProps {
   edition: Edition | null;
   running: boolean;
+  canRun: boolean;
   onRun: () => void;
   onRefresh: () => void;
   onOlder?: () => void;
   onNewer?: () => void;
 }
 
-function Masthead({ edition, running, onRun, onRefresh, onOlder, onNewer }: MastheadProps) {
+function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer }: MastheadProps) {
   const btn =
     'px-2 py-1 text-xs uppercase tracking-wider hover:underline disabled:opacity-30 disabled:no-underline';
   return (
@@ -231,7 +305,7 @@ function Masthead({ edition, running, onRun, onRefresh, onOlder, onNewer }: Mast
           <button className={btn} onClick={onRefresh} disabled={running}>
             Aktualisieren
           </button>
-          <button className={btn} onClick={onRun} disabled={running}>
+          <button className={btn} onClick={onRun} disabled={running || !canRun} title={canRun ? undefined : 'Das Ressort ist ausgeschaltet'}>
             {running ? 'Wird erstellt …' : 'Neue Ausgabe erstellen'}
           </button>
         </div>
@@ -245,15 +319,29 @@ function Masthead({ edition, running, onRun, onRefresh, onOlder, onNewer }: Mast
 interface StoryProps {
   article: EditionArticle;
   onOpen: (id: string) => void;
+  onVote: (id: string, value: -1 | 0 | 1) => void;
 }
 
-function Meta({ article, withReading }: { article: EditionArticle; withReading?: boolean }) {
+function Meta({
+  article,
+  withReading,
+  onVote,
+}: {
+  article: EditionArticle;
+  withReading?: boolean;
+  onVote: (id: string, value: -1 | 0 | 1) => void;
+}) {
   const parts = [
     article.sourceName ?? hostnameOf(article.sourceUrl),
     formatShortDate(article.publishedAt),
     withReading && article.content?.status === 'ok' ? `${article.content.readingMinutes} Min. Lesezeit` : '',
   ].filter(Boolean);
-  return <p className="text-xs text-ink-soft dark:text-ink-soft-dark">{parts.join(' · ')}</p>;
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs text-ink-soft dark:text-ink-soft-dark">
+      <p>{parts.join(' · ')}</p>
+      <VoteButtons vote={article.vote} onVote={(v) => onVote(article.id, v)} />
+    </div>
+  );
 }
 
 function Kicker({ article }: { article: EditionArticle }) {
@@ -265,7 +353,7 @@ function Kicker({ article }: { article: EditionArticle }) {
   );
 }
 
-function LeadStory({ api, article, primary, onOpen }: StoryProps & { api: ApiClient; primary: boolean }) {
+function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api: ApiClient; primary: boolean }) {
   const imageId = article.content?.leadImageId;
   return (
     <article className={primary ? '' : 'border-t border-rule dark:border-rule-dark pt-8'}>
@@ -277,7 +365,7 @@ function LeadStory({ api, article, primary, onOpen }: StoryProps & { api: ApiCli
           {article.title}
         </button>
       </h2>
-      <Meta article={article} withReading />
+      <Meta article={article} withReading onVote={onVote} />
 
       {imageId ? (
         <button onClick={() => onOpen(article.id)} className="block w-full my-4">
@@ -316,7 +404,7 @@ function LeadStory({ api, article, primary, onOpen }: StoryProps & { api: ApiCli
   );
 }
 
-function ArticleBlock({ article, onOpen }: StoryProps) {
+function ArticleBlock({ article, onOpen, onVote }: StoryProps) {
   return (
     <article className="border-t-2 border-ink dark:border-ink-dark pt-3">
       <Kicker article={article} />
@@ -326,19 +414,19 @@ function ArticleBlock({ article, onOpen }: StoryProps) {
         </button>
       </h3>
       <p className="font-serif text-[0.95rem] leading-snug mb-2">{article.summary}</p>
-      <Meta article={article} />
+      <Meta article={article} onVote={onVote} />
     </article>
   );
 }
 
-function BriefItem({ article, onOpen }: StoryProps) {
+function BriefItem({ article, onOpen, onVote }: StoryProps) {
   return (
     <li className="border-b border-rule dark:border-rule-dark pb-3 last:border-0">
       <button onClick={() => onOpen(article.id)} className="text-left">
         <span className="block font-serif font-bold leading-snug hover:underline">{article.title}</span>
       </button>
       <p className="font-serif text-sm leading-snug mt-1 line-clamp-3">{article.summary}</p>
-      <Meta article={article} />
+      <Meta article={article} onVote={onVote} />
     </li>
   );
 }

@@ -12,7 +12,7 @@ describe('agents shipped in the repo', () => {
 
     expect(Object.keys(by)).toEqual(expect.arrayContaining(['newsletter-ai', 'hello-world']));
     expect(by['newsletter-ai']).toMatchObject({
-      title: 'newsletter-ai',
+      title: 'KI-News',
       enabled: true,
       manifest: { personalize: true, dedupeDays: 14 },
     });

@@ -24,6 +24,7 @@ Architecture decisions are recorded as ADRs in [`docs/decisions/`](docs/decision
 
 - **A newspaper, not a feed.** Each run is an edition: a lead story with the opening of the original text, article blocks, and short notices, ordered by the model's importance rating (with its stated reason). Click an article to read the full original text inside the app, with images. If the text can't be fetched (paywall, JavaScript-only page, blocked) the reader says so and offers the browser.
 - **Websites as sources.** Enter `chip.de`, optionally with keywords: Samix finds the newest articles via the site's feed, its sitemap, or its headline links, without site-specific code. A preview in the Sources page shows what would be fetched.
+- **Ressorts.** Create your own sections: a name, a topic ("AI in everyday life"), sources (e.g. `chip.de` with the keyword `KI`) and a schedule. Each has its own budget, front page tab, model and run history. A 👍/👎 on articles teaches the ranking what you like (opt-in per Ressort; the Ressorts page shows exactly what is sent and can reset it). Stories already published are not shown again.
 - **Safe fetching.** Links in feeds are third-party input. Every fetch (pages, images, feeds) refuses loopback, private and link-local addresses, checks each redirect, and caps size. Page text becomes structured blocks, never raw HTML; images are downloaded by the core and shown from the local cache.
 
 ## Not built yet

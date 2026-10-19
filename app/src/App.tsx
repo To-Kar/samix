@@ -3,13 +3,13 @@ import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { Settings } from './components/Settings';
 import { Newspaper } from './components/Newspaper';
-import { Sources } from './components/Sources';
+import { Agents } from './components/Agents';
 import { Reader } from './components/Reader';
 
 type View =
   | { kind: 'paper' }
   | { kind: 'settings' }
-  | { kind: 'sources' }
+  | { kind: 'agents' }
   | { kind: 'reader'; id: string; order: string[] };
 
 export default function App() {
@@ -73,9 +73,9 @@ export default function App() {
         <div className="flex justify-end gap-1">
           <button
             className={topBtn}
-            onClick={() => (view.kind === 'sources' ? goPaper() : setView({ kind: 'sources' }))}
+            onClick={() => (view.kind === 'agents' ? goPaper() : setView({ kind: 'agents' }))}
           >
-            {view.kind === 'sources' ? 'Sources schließen' : 'Sources'}
+            {view.kind === 'agents' ? 'Ressorts schließen' : 'Ressorts'}
           </button>
           <button
             className={topBtn}
@@ -90,16 +90,16 @@ export default function App() {
             <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
               Einstellungen
             </h2>
-            <Settings api={api} />
+            <Settings />
           </section>
         ) : null}
 
-        {view.kind === 'sources' ? (
-          <section className="max-w-3xl">
+        {view.kind === 'agents' ? (
+          <section>
             <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
-              Sources
+              Ressorts
             </h2>
-            <Sources api={api} />
+            <Agents api={api} onChanged={() => setPaperToken((t) => t + 1)} />
           </section>
         ) : null}
 

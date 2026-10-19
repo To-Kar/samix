@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiClient, ModelInfo } from '../lib/api';
 import { autostart, isInstalledApp, restartCore, revealLogFile } from '../lib/native';
 import { LEAD_PARAGRAPH_OPTIONS, getLeadParagraphs, setLeadParagraphs } from '../lib/prefs';
 import {
@@ -27,13 +26,12 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
   },
 ];
 
-export function Settings({ api }: { api: ApiClient }) {
+export function Settings() {
   const [configured, setConfigured] = useState<Record<SecretAccount, boolean>>(
     () => Object.fromEntries(SECRET_ACCOUNTS.map((a) => [a, false])) as Record<SecretAccount, boolean>
   );
   const [savedFlash, setSavedFlash] = useState<SecretAccount | null>(null);
   const [restartNote, setRestartNote] = useState<string | null>(null);
-  const [modelsVersion, setModelsVersion] = useState(0);
 
   // A changed key only reaches the core through its environment, so the core
   // is restarted (the installed app does this itself; `tauri dev` can't).
@@ -45,7 +43,6 @@ export function Settings({ api }: { api: ApiClient }) {
         ? 'Key change is active.'
         : `Saved, but the core was not restarted: ${result.reason}`
     );
-    setModelsVersion((v) => v + 1);
   }, []);
 
   async function refreshAll() {
@@ -99,99 +96,9 @@ export function Settings({ api }: { api: ApiClient }) {
           {restartNote}
         </div>
       ) : null}
-      <ModelChoice api={api} version={modelsVersion} />
       <LeadLength />
       <AppSection />
     </div>
-  );
-}
-
-const NEWSLETTER_SLUG = 'newsletter-ai';
-
-function ModelChoice({ api, version }: { api: ApiClient; version: number }) {
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [primary, setPrimary] = useState('');
-  const [fallback, setFallback] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    void (async () => {
-      try {
-        const [list, current] = await Promise.all([api.listModels(), api.getAgentModel(NEWSLETTER_SLUG)]);
-        if (!live) return;
-        setModels(list);
-        setPrimary(current.primary);
-        setFallback(current.fallback ?? '');
-      } catch (e) {
-        if (live) setMessage(e instanceof Error ? e.message : String(e));
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, [api, version]);
-
-  const label = (m: ModelInfo) =>
-    `${m.id}${m.keyEnv ? (m.keyConfigured ? ' — key set' : ' — no key') : ' — local'}`;
-  const selected = models.find((m) => m.id === primary);
-
-  const save = async () => {
-    setMessage(null);
-    try {
-      await api.putAgentModel(NEWSLETTER_SLUG, { primary, fallback: fallback || null });
-      setMessage('Saved — the next run uses this model.');
-    } catch (e) {
-      setMessage(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
-  const select =
-    'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs';
-  return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-        Model for <code>{NEWSLETTER_SLUG}</code>
-      </h3>
-      <label className="flex items-center gap-3 text-xs">
-        <span className="w-24 font-medium text-neutral-700 dark:text-neutral-300">Primary</span>
-        <select className={select} value={primary} onChange={(e) => setPrimary(e.target.value)}>
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {label(m)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-3 text-xs">
-        <span className="w-24 font-medium text-neutral-700 dark:text-neutral-300">Fallback</span>
-        <select className={select} value={fallback} onChange={(e) => setFallback(e.target.value)}>
-          <option value="">none</option>
-          {models
-            .filter((m) => m.id !== primary)
-            .map((m) => (
-              <option key={m.id} value={m.id}>
-                {label(m)}
-              </option>
-            ))}
-        </select>
-      </label>
-      {selected && !selected.keyConfigured ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          No API key for {selected.id}: enter {selected.keyEnv} above first.
-        </p>
-      ) : null}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => void save()}
-          disabled={!primary}
-          className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
-        >
-          Save model
-        </button>
-        {message ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{message}</span> : null}
-      </div>
-    </section>
   );
 }
 

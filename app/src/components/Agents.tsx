@@ -1,0 +1,205 @@
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import type { AgentSummary, ApiClient } from '../lib/api';
+import { describeCron } from '../lib/cron';
+import { RUN_STATUS } from '../lib/explain';
+import { formatDateTime, formatUsd } from '../lib/format';
+import { AgentModel } from './AgentModel';
+import { NewAgentForm } from './NewAgentForm';
+import { ProfilePanel } from './ProfilePanel';
+import { RunHistory } from './RunHistory';
+import { ScheduleEditor, type ScheduleValue } from './ScheduleEditor';
+import { Sources } from './Sources';
+
+// Ressorts = proactive agents. One page to see them, switch them on and off,
+// create new ones and edit how each one works.
+
+interface Props {
+  api: ApiClient;
+  /** Called after something changed that the front page should reload. */
+  onChanged: () => void;
+}
+
+const btn =
+  'rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40';
+
+export function Agents({ api, onChanged }: Props) {
+  const [agents, setAgents] = useState<AgentSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [version, setVersion] = useState(0);
+
+  const refresh = useCallback(async () => {
+    try {
+      const list = await api.listAgents();
+      setAgents(list.filter((a) => a.type === 'proactive'));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [api]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh, version]);
+
+  const changed = () => {
+    setVersion((v) => v + 1);
+    onChanged();
+  };
+
+  const toggle = async (a: AgentSummary) => {
+    try {
+      await api.setAgentEnabled(a.slug, !a.enabled);
+      changed();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  if (creating) {
+    return (
+      <NewAgentForm
+        api={api}
+        onCancel={() => setCreating(false)}
+        onCreated={(slug) => {
+          setCreating(false);
+          setSelected(slug);
+          changed();
+        }}
+      />
+    );
+  }
+
+  const current = agents?.find((a) => a.slug === selected) ?? null;
+
+  return (
+    <div className="flex flex-col gap-6 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-neutral-500">
+          Jedes Ressort hat eigene Quellen, einen eigenen Zeitplan und sein eigenes Tageslimit.
+        </p>
+        <button className={btn} onClick={() => setCreating(true)}>
+          + Neues Ressort
+        </button>
+      </div>
+
+      {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}
+      {!agents ? <p className="text-sm text-neutral-400">Lädt …</p> : null}
+
+      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 border-y border-neutral-200 dark:border-neutral-800">
+        {agents?.map((a) => (
+          <li key={a.slug} className={`py-3 flex flex-col gap-1 ${a.enabled ? '' : 'opacity-60'}`}>
+            <div className="flex items-baseline gap-3">
+              <button className="font-serif font-bold text-lg text-left hover:underline" onClick={() => setSelected(selected === a.slug ? null : a.slug)}>
+                {a.title}
+              </button>
+              <span className="text-xs text-neutral-500">{a.schedule ? describeCron(a.schedule.cron) : 'nur manuell'}</span>
+              <label className="ml-auto flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={a.enabled} onChange={() => void toggle(a)} />
+                aktiv
+              </label>
+            </div>
+            {a.description ? <p className="text-xs text-neutral-500">{a.description}</p> : null}
+            <p className="text-xs text-neutral-500">
+              {a.model ?? 'kein Modell'}
+              {a.lastRun
+                ? ` · letzter Lauf ${formatDateTime(a.lastRun.startedAt)}: ${RUN_STATUS[a.lastRun.status]?.label ?? a.lastRun.status} (${formatUsd(a.lastRun.costUsd)})`
+                : ' · noch kein Lauf'}
+            </p>
+
+            {current?.slug === a.slug ? (
+              <AgentDetail api={api} agent={a} onChanged={changed} version={version} />
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 border-b border-neutral-200 dark:border-neutral-800 pb-1">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent: AgentSummary; onChanged: () => void; version: number }) {
+  const [schedule, setSchedule] = useState<ScheduleValue | null>(
+    agent.schedule ? { cron: agent.schedule.cron, timezone: agent.schedule.timezone } : null
+  );
+  const [message, setMessage] = useState<string | null>(null);
+  const [title, setTitle] = useState(agent.title);
+  const [titleMessage, setTitleMessage] = useState<string | null>(null);
+
+  const saveTitle = async () => {
+    setTitleMessage(null);
+    try {
+      await api.renameAgent(agent.slug, title);
+      setTitleMessage('Umbenannt.');
+      onChanged();
+    } catch (e) {
+      setTitleMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const saveSchedule = async () => {
+    setMessage(null);
+    try {
+      await api.putSchedule(agent.slug, schedule);
+      setMessage('Zeitplan gespeichert.');
+      onChanged();
+    } catch (e) {
+      setMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  return (
+    <div className="mt-4 mb-2 flex flex-col gap-6 pl-4 border-l-2 border-neutral-200 dark:border-neutral-800">
+      <Section title="Name">
+        <div className="flex items-center gap-3">
+          <input
+            className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-sm w-64"
+            value={title}
+            maxLength={60}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Name des Ressorts"
+          />
+          <button className={btn} onClick={() => void saveTitle()} disabled={!title.trim() || title.trim() === agent.title}>
+            Umbenennen
+          </button>
+          {titleMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{titleMessage}</span> : null}
+        </div>
+      </Section>
+      <Section title="Zeitplan">
+        <ScheduleEditor value={schedule} onChange={setSchedule} />
+        <div className="flex items-center gap-3">
+          <button className={btn} onClick={() => void saveSchedule()}>
+            Zeitplan speichern
+          </button>
+          {message ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{message}</span> : null}
+        </div>
+        <p className="text-xs text-neutral-400">
+          Verpasste Läufe (Rechner aus oder im Ruhezustand) werden nachgeholt, sobald Samix wieder läuft.
+        </p>
+      </Section>
+      <Section title="Quellen">
+        <Sources api={api} slug={agent.slug} />
+      </Section>
+      <Section title="Modell">
+        <AgentModel api={api} slug={agent.slug} version={version} />
+      </Section>
+      <Section title="Dein Profil">
+        <ProfilePanel api={api} agent={agent} onChanged={onChanged} />
+      </Section>
+      <Section title="Läufe">
+        <RunHistory api={api} slug={agent.slug} version={version} />
+      </Section>
+    </div>
+  );
+}

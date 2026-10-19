@@ -55,6 +55,7 @@ function cleanFocus(focus: string): string {
   return focus
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/["“”„]/g, "'") // the focus is quoted in the prompt
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -91,7 +92,7 @@ export async function createAgent(opts: {
 
   const slug = await uniqueSlug(agentsDir, slugify(input.title));
   const parsed = matter(skillRaw);
-  const skillMd = matter.stringify(parsed.content.replace(FOCUS_RE, () => `matching this focus: ${focus}`), {
+  const skillMd = matter.stringify(parsed.content.replace(FOCUS_RE, () => `matching this focus: "${focus}"`), {
     name: slug,
     title: input.title.trim(),
     description: `Digest of: ${focus}`.slice(0, 160),

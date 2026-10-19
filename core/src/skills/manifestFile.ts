@@ -1,4 +1,5 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
+import matter from 'gray-matter';
 import { dirname, join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { Skill } from '../types.js';
@@ -19,4 +20,16 @@ export async function updateManifest(
 
   await writeFile(tmp, stringifyYaml(manifest), 'utf8');
   await rename(tmp, path);
+}
+
+// Changes the display title in SKILL.md's frontmatter (the prompt body is
+// left exactly as it is), with the same temp-file-and-rename write.
+export async function updateSkillTitle(skill: Skill, title: string): Promise<void> {
+  const path = skill.skillMdPath;
+  const tmp = `${path}.tmp`;
+  const parsed = matter(await readFile(path, 'utf8'));
+  parsed.data['title'] = title;
+  await writeFile(tmp, matter.stringify(parsed.content, parsed.data), 'utf8');
+  await rename(tmp, path);
+  skill.title = title;
 }

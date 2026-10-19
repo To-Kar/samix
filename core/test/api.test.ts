@@ -405,3 +405,49 @@ describe('run history', () => {
     expect((await local.inject({ url: '/runs' })).statusCode).toBe(401);
   });
 });
+
+describe('personalize switch', () => {
+  it('writes the manifest and the running skill; listed in /agents', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'samix-pers-'));
+    writeFileSync(join(dir, 'manifest.yaml'), 'id: x\npersonalize: false\n');
+    const skill = makeSkill();
+    skill.skillMdPath = join(dir, 'SKILL.md');
+    await seedAgent(skill);
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+    const put = (payload: unknown, slug = skill.id) =>
+      local.inject({ method: 'PUT', url: `/agents/${slug}/personalize`, headers: AUTH, payload: payload as object });
+
+    expect((await put({ enabled: 'yes' })).statusCode).toBe(400);
+    expect((await put({ enabled: true }, 'nope')).statusCode).toBe(404);
+    expect((await put({ enabled: true })).json()).toEqual({ ok: true, personalize: true });
+    expect(readFileSync(join(dir, 'manifest.yaml'), 'utf8')).toContain('personalize: true');
+    expect(skill.manifest.personalize).toBe(true);
+    const list = (await local.inject({ url: '/agents', headers: AUTH })).json() as { slug: string; personalize: boolean }[];
+    expect(list.find((a) => a.slug === skill.id)!.personalize).toBe(true);
+  });
+});
+
+describe('rename', () => {
+  it('changes only the title in SKILL.md and the running skill', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'samix-title-'));
+    const body = 'You are an agent.\n\nKeep this prompt: exactly.\n';
+    writeFileSync(join(dir, 'SKILL.md'), `---\nname: x\ndescription: d\n---\n\n${body}`);
+    const skill = makeSkill();
+    skill.skillMdPath = join(dir, 'SKILL.md');
+    await seedAgent(skill);
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+    const put = (title: unknown, slug = skill.id) =>
+      local.inject({ method: 'PUT', url: `/agents/${slug}/title`, headers: AUTH, payload: { title } });
+
+    expect((await put('  Tech & KI  ')).json()).toEqual({ ok: true, title: 'Tech & KI' });
+    const md = readFileSync(join(dir, 'SKILL.md'), 'utf8');
+    expect(md).toContain('title: Tech & KI');
+    expect(md).toContain('name: x');
+    expect(md).toContain('Keep this prompt: exactly.');
+    expect(skill.title).toBe('Tech & KI');
+
+    for (const bad of ['', '   ', 'x'.repeat(61), 5, null]) expect((await put(bad)).statusCode, String(bad)).toBe(400);
+    expect((await put('ok', 'nope')).statusCode).toBe(404);
+    expect(skill.title).toBe('Tech & KI');
+  });
+});

@@ -39,3 +39,21 @@ export function setOnboarded(): void {
     /* ignore */
   }
 }
+
+const KEY_RESSORT = 'samix.ressort';
+
+export function getRessort(): string | null {
+  try {
+    return localStorage.getItem(KEY_RESSORT);
+  } catch {
+    return null;
+  }
+}
+
+export function setRessort(slug: string): void {
+  try {
+    localStorage.setItem(KEY_RESSORT, slug);
+  } catch {
+    /* ignore */
+  }
+}

@@ -366,6 +366,37 @@ Zusätzlich geprüft: zweiter Start auf bestehenden Daten (keine erneute Migrati
 
 ---
 
+### Status 2c (2026-10-19)
+
+Gebaut, mit Tests (Core: 213, App: 11) und im Browser mit dem echten Core angesehen:
+
+| Plan | Umsetzung |
+|---|---|
+| Voting | 👍/👎 an Karten und im Reader; ein Votum pro Artikel, lokal gespeichert; Klick auf das aktive Votum löscht es |
+| Interessenprofil | Opt-in pro Agent (`personalize: true`): die letzten ≤ 10 gemochten/nicht gemochten Titel (+Thema) gehen als `readerProfile` an das Modell, **nur** zum Gewichten der Wichtigkeit; der Prompt verlangt, dass das in `importanceReason` offengelegt wird. Die Seite „Dein Profil“ zeigt genau diese Liste und setzt sie zurück |
+| Dubletten über Läufe | URL-genau, pro Agent, `dedupe_days` (Standard 14). Ist alles schon veröffentlicht: Lauf ohne Modellaufruf, Kosten 0, „Nichts Neues“ |
+| Zweiter Agent / Ressorts | Statt eines fest eingebauten zweiten Agenten: **Ressort anlegen** aus der Vorlage (Name, Themen-Fokus, Quellen, Zeitplan) – nur der markierte Fokus-Satz von `newsletter-ai` wird ersetzt. Ressort-Leiste in der Zeitung; Ressorts lassen sich ein-/ausschalten und umbenennen |
+| Generischer Quellen-Editor | Quellen-, Zeitplan-, Modell- und Profil-Bearbeitung pro Ressort („Ressorts“-Seite). Zeitplan ohne Cron-Kenntnis (täglich/wöchentlich/eigener Ausdruck/nur manuell) |
+| Lauf-Historie | pro Ressort: Status, Auslöser, Modell, Kosten, Tokens und eine verständliche Erklärung je Lauf |
+| „Jetzt aktualisieren“ (Tray) | läuft jetzt über alle aktiven Ressorts nacheinander |
+
+**Bewusst nicht gemacht / offen:**
+- **OpenAI-Adapter:** nicht gebaut. Modellnamen und Preise lassen sich von hier nicht verlässlich prüfen (gleiches Problem wie bei DeepSeek), und du nutzt DeepSeek. Der DeepSeek-Adapter ist OpenAI-kompatibel; ein weiterer Anbieter wäre eine kleine Erweiterung.
+- **Filter `semantic`:** weiterhin abgelehnt. Das leistet jetzt der **Themen-Fokus eines Ressorts** (das Modell wählt passende Beiträge aus); die Stichwort-Filter an den Quellen sparen vorher Kosten.
+- **Ressort löschen:** nicht gebaut (ausschalten statt löschen, Verlauf bleibt erhalten).
+- **Dieselbe Meldung unter anderer URL** wird nicht als Dublette erkannt.
+- **Delivery-Kanäle (E-Mail/Telegram):** nicht gebaut, weiter ohne Bedarf.
+
+**Nicht verifiziert:**
+- **Ob das Profil das Ranking wirklich verbessert.** Geprüft ist nur, dass es genau dann und genau so im Modell-Aufruf steht (Test mit Fake-Modell). Gegen ein echtes Modell (DeepSeek/Claude) nie gelaufen.
+- Die Fokus-Formulierung im generierten Prompt („matching this focus: "…"") ist nicht mit einem echten Modell erprobt.
+- Wie sich ein neues Ressort mit echten Quellen verhält (kein Netz in der Entwicklungsumgebung).
+- Oberfläche nur in Chromium, nicht in den Tauri-Fenstern; keine automatisierten Komponententests.
+- Ressorts erscheinen alphabetisch nach Namen, nicht nach Aktivität.
+- Die Verwaltungsseiten sind deutsch, die Einstellungen (Schlüssel, App) noch englisch.
+
+**Gefunden und behoben beim Ansehen im Browser:** Klick auf das bereits aktive Ressort leerte die Seite ohne Neuladen; für ein bloß leeres Ressort erschien das Erststart-Onboarding; CORS ließ `DELETE` nicht zu.
+
 ## Phase 3 — Reaktive Agenten (v2.0)
 
 Wie in `SAMIX_ABOUT.md` vorgesehen: Agenten, die auf Anfrage arbeiten (z. B. Coding-Assistent mit Projektkontext). Gleiche Skill-Abstraktion, Adapter, Budget-Gates. Tool-Use im Adapter-Interface. Primär-Interface bleibt der Informationsraum, kein Chat-Fenster als Hauptansicht. Eigenes Spec vor Start.

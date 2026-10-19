@@ -12,7 +12,7 @@ import { createAgent, listTemplates } from './skills/create.js';
 import { loadSkillDir } from './skills/loader.js';
 import { validateSchedule } from './skills/schedule.js';
 import { knownModelIds, MODEL_KEY_ENV } from './adapters/index.js';
-import { updateManifest } from './skills/manifestFile.js';
+import { updateManifest, updateSkillTitle } from './skills/manifestFile.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
 import { normalizeUrl } from './output/traceability.js';
 import { ensureArticleContent } from './content/articleContent.js';
@@ -112,6 +112,7 @@ export async function buildApp(deps: AppDeps) {
         enabled: a.enabled,
         schedule: skill?.manifest.schedule ?? null,
         model: skill?.manifest.model.primary ?? null,
+        personalize: skill?.manifest.personalize ?? false,
         lastRun: lastRuns[i] ?? null,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,
@@ -446,6 +447,46 @@ export async function buildApp(deps: AppDeps) {
   );
 
   // ---- Creating agents, schedules ----------------------------------------
+
+  fastify.put<{ Params: { slug: string }; Body: { title?: unknown } }>(
+    '/agents/:slug/title',
+    async (request, reply) => {
+      const skill = skillList().find((s) => s.id === request.params.slug);
+      if (!skill) {
+        reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+        return reply;
+      }
+      const title = z.string().trim().min(1).max(60).safeParse(request.body?.title);
+      if (!title.success) {
+        reply.code(400).send({ error: 'invalid_title', message: 'title must be 1–60 characters' });
+        return reply;
+      }
+      await updateSkillTitle(skill, title.data);
+      return { ok: true, title: skill.title };
+    }
+  );
+
+  // Whether the reader's votes are sent along with a run (see runner/profile.ts).
+  fastify.put<{ Params: { slug: string }; Body: { enabled?: unknown } }>(
+    '/agents/:slug/personalize',
+    async (request, reply) => {
+      const skill = skillList().find((s) => s.id === request.params.slug);
+      if (!skill) {
+        reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+        return reply;
+      }
+      if (typeof request.body?.enabled !== 'boolean') {
+        reply.code(400).send({ error: 'invalid_body', message: 'enabled must be true or false' });
+        return reply;
+      }
+      const on = request.body.enabled;
+      await updateManifest(skill, (m) => {
+        m['personalize'] = on;
+      });
+      skill.manifest.personalize = on;
+      return { ok: true, personalize: on };
+    }
+  );
 
   fastify.get('/agent-templates', async () => (deps.templateDir ? listTemplates(deps.templateDir) : []));
 

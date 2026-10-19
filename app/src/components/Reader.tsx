@@ -4,6 +4,7 @@ import { formatDateTime, formatShortDate, hostnameOf } from '../lib/format';
 import { openExternal } from '../lib/external';
 import { AuthImage } from './AuthImage';
 import { Blocks } from './Blocks';
+import { VoteButtons } from './VoteButtons';
 
 interface ReaderProps {
   api: ApiClient;
@@ -143,6 +144,18 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
               </p>
             ) : null}
           </aside>
+
+          <div className="mb-6 flex items-center gap-3 text-xs text-ink-soft dark:text-ink-soft-dark">
+            <span>Mehr oder weniger davon?</span>
+            <VoteButtons
+              vote={detail.vote}
+              onVote={(value) => {
+                const before = detail.vote;
+                setDetail({ ...detail, vote: value === 0 ? null : value });
+                api.vote(detail.id, value).catch(() => setDetail((d) => (d ? { ...d, vote: before } : d)));
+              }}
+            />
+          </div>
 
           {showLeadImage ? (
             <AuthImage api={api} id={content!.leadImageId!} className="w-full h-auto mb-8" />

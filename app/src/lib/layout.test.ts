@@ -13,6 +13,7 @@ const art = (id: string, importance: number): EditionArticle => ({
   importance,
   importanceReason: null,
   createdAt: '2026-10-19T00:00:00Z',
+  vote: null,
   content: null,
   excerpt: null,
 });
