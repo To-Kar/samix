@@ -8,7 +8,8 @@ import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { askAgent } from './runner/converse.js';
 import { routeQuestion } from './runner/orchestrate.js';
-import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './runner/budget.js';
+import { checkBudget, computeCostUsd, estimateRunCostUsd, readGlobalCap, recordSpend, utcDayStart } from './runner/budget.js';
+import { GLOBAL_CAP_KEY, clearPriceOverride, deleteSetting, getPriceOverride, getSetting, setPriceOverride, setSetting } from './settings.js';
 import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { validateProjectRoot } from './projects/safePath.js';
@@ -169,6 +170,116 @@ export async function buildApp(deps: AppDeps) {
       return result;
     }
   );
+
+  // ---- Costs, limits and prices -------------------------------------------
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const usdSchema = z.number().finite().min(0).max(1000);
+
+  fastify.get('/costs', async () => {
+    const today = utcDayStart(new Date());
+    const since = new Date(today.getTime() - 6 * DAY_MS);
+    const [ledgers, runsToday] = await Promise.all([
+      prisma.budgetLedger.findMany({ where: { period: { gte: since } }, include: { agent: { select: { slug: true } } } }),
+      prisma.agentRun.findMany({ where: { startedAt: { gte: today } }, select: { agent: { select: { slug: true } }, sourceCostUsd: true } }),
+    ]);
+    const days = Array.from({ length: 7 }, (_, i) => new Date(today.getTime() - (6 - i) * DAY_MS));
+    const dayTotals = days.map((d) => ({
+      day: d.toISOString().slice(0, 10),
+      costUsd: ledgers.filter((l) => l.period.getTime() === d.getTime()).reduce((sum, l) => sum + l.costUsd, 0),
+    }));
+    const searchBy = new Map<string, number>();
+    for (const r of runsToday) searchBy.set(r.agent.slug, (searchBy.get(r.agent.slug) ?? 0) + r.sourceCostUsd);
+
+    const agents = skillList()
+      .filter((s) => s.manifest.model.primary !== 'static')
+      .map((s) => ({
+        slug: s.id,
+        title: s.title,
+        type: s.type,
+        model: s.manifest.model.primary,
+        dailyUsdMax: s.manifest.budget.dailyUsdMax,
+        haltOnBudgetExceeded: s.manifest.budget.haltOnBudgetExceeded,
+        todayUsd: ledgers.filter((l) => l.agent.slug === s.id && l.period.getTime() === today.getTime()).reduce((sum, l) => sum + l.costUsd, 0),
+        todaySearchUsd: searchBy.get(s.id) ?? 0,
+      }));
+
+    const prices = knownModelIds()
+      .filter((id) => id !== 'static')
+      .flatMap((id) => {
+        try {
+          const a = resolveAdapter(id);
+          const custom = getPriceOverride(id);
+          return [{ model: id, builtIn: a.pricing, custom: custom ?? null }];
+        } catch {
+          return [];
+        }
+      });
+
+    const env = process.env.SAMIX_GLOBAL_DAILY_USD_MAX;
+    return {
+      today: dayTotals.at(-1)?.costUsd ?? 0,
+      days: dayTotals,
+      globalCapUsd: readGlobalCap(),
+      globalCapSource: getSetting(GLOBAL_CAP_KEY) !== undefined ? 'app' : env ? 'env' : 'default',
+      agents,
+      prices,
+    };
+  });
+
+  fastify.put('/budget/global', async (request, reply) => {
+    const parsed = z.object({ usd: usdSchema }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: 'usd must be a number between 0 and 1000 (0 = no global limit)' });
+      return reply;
+    }
+    await setSetting(GLOBAL_CAP_KEY, String(parsed.data.usd));
+    return { globalCapUsd: readGlobalCap() };
+  });
+
+  fastify.delete('/budget/global', async () => {
+    await deleteSetting(GLOBAL_CAP_KEY);
+    return { globalCapUsd: readGlobalCap() };
+  });
+
+  fastify.put<{ Params: { slug: string } }>('/agents/:slug/budget', async (request, reply) => {
+    const skill = skillList().find((s) => s.id === request.params.slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    const parsed = z.object({ dailyUsdMax: usdSchema }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: 'dailyUsdMax must be a number between 0 and 1000' });
+      return reply;
+    }
+    const { dailyUsdMax } = parsed.data;
+    await updateManifest(skill, (m) => {
+      const budget = (m['budget'] ?? {}) as Record<string, unknown>;
+      budget['daily_usd_max'] = dailyUsdMax;
+      m['budget'] = budget;
+    });
+    skill.manifest.budget.dailyUsdMax = dailyUsdMax;
+    return { dailyUsdMax };
+  });
+
+  const priceBody = z.object({ inputPerMillionTokens: usdSchema, outputPerMillionTokens: usdSchema });
+
+  fastify.put<{ Params: { model: string } }>('/prices/:model', async (request, reply) => {
+    const model = request.params.model;
+    const parsed = priceBody.safeParse(request.body);
+    if (!MODEL_IDS.includes(model as (typeof MODEL_IDS)[number]) || model === 'static' || !parsed.success) {
+      reply.code(400).send({ error: 'invalid_price', message: 'a known model and two prices (USD per million tokens) are required' });
+      return reply;
+    }
+    await setPriceOverride(model, parsed.data);
+    return { model, ...parsed.data };
+  });
+
+  fastify.delete<{ Params: { model: string } }>('/prices/:model', async (request) => {
+    await clearPriceOverride(request.params.model);
+    return { ok: true };
+  });
 
   // ---- Notes: the reader's visible memory
 

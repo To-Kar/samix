@@ -4,6 +4,7 @@ import { prisma } from './db/prisma.js';
 import { loadSkills } from './skills/loader.js';
 import { recoverInterruptedRuns } from './runner/recovery.js';
 import { applyMigrations } from './db/migrate.js';
+import { loadSettings } from './settings.js';
 import { watchParent } from './watchdog.js';
 import { startScheduler, startWakeDetector } from './scheduler/index.js';
 import { seedAgents } from './skills/seed.js';
@@ -45,6 +46,7 @@ const fastify = await buildApp({
 async function start(): Promise<void> {
   applyMigrations({ logger });
   await prisma.$connect();
+  await loadSettings();
   await recoverInterruptedRuns(logger);
   if (bundledAgentsDir) seedAgents(bundledAgentsDir, agentsDir, logger);
   skills = await loadSkills({ agentsDir });

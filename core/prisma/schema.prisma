@@ -34,6 +34,8 @@ model AgentRun {
   tokensOutput Int       @default(0)
   costUsd      Float     @default(0)
   error        String?
+  // Of costUsd: what paid sources (web search) cost; the rest is the model.
+  sourceCostUsd Float    @default(0)
   // The adapter that actually served the call (may be the fallback).
   model        String?
   startedAt    DateTime  @default(now())
@@ -184,4 +186,11 @@ model Project {
   path             String   @unique
   allowModelAccess Boolean  @default(false)
   createdAt        DateTime @default(now())
+}
+
+// Settings the reader changes in the app (limits, prices): key → JSON value.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

@@ -332,7 +332,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     if (sourceCostUsd > 0) {
       // Booked at once: the money is gone whatever the model makes of the items.
       await recordSpend(agentRow.id, startedAt, { inputTokens: 0, outputTokens: 0 }, sourceCostUsd);
-      await prisma.agentRun.update({ where: { id: runId }, data: { costUsd: sourceCostUsd } });
+      await prisma.agentRun.update({ where: { id: runId }, data: { costUsd: sourceCostUsd, sourceCostUsd } });
     }
   }
 

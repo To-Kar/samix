@@ -1,5 +1,6 @@
 import type { ModelAdapter } from '../types.js';
 import { prisma } from '../db/prisma.js';
+import { GLOBAL_CAP_KEY, getPriceOverride, getSetting } from '../settings.js';
 
 // Budget arithmetic and gates shared by every kind of run (article runs and
 // conversations). The gate always runs *before* a provider call.
@@ -10,9 +11,15 @@ export function utcDayStart(d: Date): Date {
   return new Date(Math.floor(d.getTime() / UTC_DAY_MS) * UTC_DAY_MS);
 }
 
+// The price Samix calculates with: what the reader entered in the app, else the adapter's built-in table.
+export function effectivePricing(adapter: ModelAdapter): ModelAdapter['pricing'] {
+  return getPriceOverride(adapter.name) ?? adapter.pricing;
+}
+
 export function computeCostUsd(adapter: ModelAdapter, inputTokens: number, outputTokens: number): number {
-  const inCost = (inputTokens / 1_000_000) * adapter.pricing.inputPerMillionTokens;
-  const outCost = (outputTokens / 1_000_000) * adapter.pricing.outputPerMillionTokens;
+  const price = effectivePricing(adapter);
+  const inCost = (inputTokens / 1_000_000) * price.inputPerMillionTokens;
+  const outCost = (outputTokens / 1_000_000) * price.outputPerMillionTokens;
   return inCost + outCost;
 }
 
@@ -21,12 +28,14 @@ export function computeCostUsd(adapter: ModelAdapter, inputTokens: number, outpu
 // maxTokens — but the loosest honest estimate given what the runner knows
 // before the call. Underestimating here would defeat the pre-call gate.
 export function estimateRunCostUsd(adapter: ModelAdapter, maxTokens: number): number {
-  const combinedRate = adapter.pricing.inputPerMillionTokens + adapter.pricing.outputPerMillionTokens;
+  const price = effectivePricing(adapter);
+  const combinedRate = price.inputPerMillionTokens + price.outputPerMillionTokens;
   return (maxTokens / 1_000_000) * combinedRate;
 }
 
+// The reader's setting wins over the environment; 0 switches the global cap off.
 export function readGlobalCap(): number {
-  const raw = process.env.SAMIX_GLOBAL_DAILY_USD_MAX;
+  const raw = getSetting(GLOBAL_CAP_KEY) ?? process.env.SAMIX_GLOBAL_DAILY_USD_MAX;
   if (raw == null || raw === '') return 5.0;
   const n = Number(raw);
   return Number.isFinite(n) ? n : 5.0;

@@ -205,6 +205,7 @@ describe('a run with a web search', () => {
     expect(result.costUsd).toBeCloseTo(0.0135, 6);
     const run = await prisma.agentRun.findUniqueOrThrow({ where: { id: result.runId } });
     expect(run.costUsd).toBeCloseTo(0.0135, 6);
+    expect(run.sourceCostUsd).toBeCloseTo(0.01, 6); // the search part, shown separately in the cost view
     const ledger = await prisma.budgetLedger.findFirstOrThrow({ where: { agent: { slug: skill.id } } });
     expect(ledger.costUsd).toBeCloseTo(0.0135, 6);
     const rows = await prisma.article.findMany({ where: { agentRunId: result.runId } });
