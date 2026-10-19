@@ -49,6 +49,8 @@ export interface RunSummary {
 export interface ReaderProfile {
   liked: { title: string; topic?: string }[];
   disliked: { title: string; topic?: string }[];
+  /** The reader's notes, sent along when the Ressort personalises. */
+  interests?: string[];
 }
 
 export interface NewAgent {

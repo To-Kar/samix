@@ -48,9 +48,9 @@ export function Notes({ api }: { api: ApiClient }) {
   return (
     <div className="flex flex-col gap-2 text-xs">
       <p className="text-ink-soft dark:text-ink-soft-dark">
-        Was du hier einträgst, kann die Auskunft lesen, um Suchen an deine Interessen anzupassen. Es wird nur dann an das
-        Modell gesendet, wenn sie es liest (dann steht „read_notes“ unter „Wie kam das zustande?“). Notizen sind keine
-        Quellen.
+        Was du hier einträgst, kann die Auskunft lesen, um Suchen an deine Interessen anzupassen (dann steht „read_notes“
+        unter „Wie kam das zustande?“), und Ressorts mit eingeschalteter Personalisierung nutzen es beim Ranking (siehe „Dein
+        Profil“ des Ressorts). Nur dann geht es an das Modell. Notizen sind keine Quellen.
       </p>
       <ul className="flex flex-col gap-1">
         {(notes ?? []).map((n) => (

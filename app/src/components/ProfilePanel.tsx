@@ -47,9 +47,10 @@ export function ProfilePanel({ api, agent, onChanged }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-neutral-500">
-        Mit 👍 und 👎 an den Artikeln sagst du Samix, was dich interessiert. Ist die Personalisierung an, geht beim
-        nächsten Lauf genau die Liste unten (die letzten Titel, höchstens 10 je Seite) an das Modell – nur um die
-        Wichtigkeit zu gewichten. Sonst wird nichts über dich gesendet. Die Bewertungen bleiben auf diesem Rechner.
+        Mit 👍 und 👎 an den Artikeln und mit deinen Notizen (Einrichtung → Daten) sagst du Samix, was dich interessiert.
+        Ist die Personalisierung an, geht beim nächsten Lauf genau die Liste unten (die letzten Titel, höchstens 10 je
+        Seite, und bis zu 20 Notizen) an das Modell – nur um die Wichtigkeit zu gewichten. Sonst wird nichts über dich
+        gesendet. Bewertungen und Notizen bleiben auf diesem Rechner.
       </p>
       <label className="flex items-center gap-2 text-xs">
         <input
@@ -62,19 +63,29 @@ export function ProfilePanel({ api, agent, onChanged }: Props) {
               .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
           }}
         />
-        Bewertungen beim Ranking berücksichtigen
+        Bewertungen und Notizen beim Ranking berücksichtigen
       </label>
 
       {profile === undefined ? <p className="text-xs text-neutral-400">Lädt …</p> : null}
-      {profile === null ? <p className="text-xs text-neutral-400">Noch keine Bewertungen für dieses Ressort.</p> : null}
+      {profile === null ? <p className="text-xs text-neutral-400">Noch keine Bewertungen und Notizen.</p> : null}
       {profile ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {list('👍 Gefällt', profile.liked)}
           {list('👎 Gefällt nicht', profile.disliked)}
         </div>
       ) : null}
+      {profile?.interests?.length ? (
+        <div>
+          <p className="text-xs font-semibold mb-1">📝 Deine Notizen</p>
+          <ul className="list-disc pl-5 text-xs space-y-0.5">
+            {profile.interests.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      {profile ? (
+      {profile && profile.liked.length + profile.disliked.length > 0 ? (
         <button
           className={`${btn} self-start`}
           onClick={() => {
@@ -88,7 +99,7 @@ export function ProfilePanel({ api, agent, onChanged }: Props) {
               .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
           }}
         >
-          Profil zurücksetzen
+          Bewertungen zurücksetzen
         </button>
       ) : null}
       {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}

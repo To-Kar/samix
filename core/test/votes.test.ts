@@ -104,6 +104,55 @@ describe('vote API', () => {
   });
 });
 
+describe('notes as interests', () => {
+  it('travel with the profile: alone they make one, newest first, capped in number and length', async () => {
+    const skill = makeSkill();
+    const id = await seedAgent(skill);
+    await prisma.memoryNote.deleteMany();
+    expect(await buildReaderProfile(id)).toBeNull();
+
+    await prisma.memoryNote.create({ data: { text: 'alt', createdAt: new Date('2026-01-01') } });
+    await prisma.memoryNote.create({ data: { text: 'x'.repeat(300), createdAt: new Date('2026-02-01') } });
+    const p = (await buildReaderProfile(id))!;
+    expect(p.liked).toEqual([]);
+    expect(p.interests).toHaveLength(2);
+    expect(p.interests![0]).toHaveLength(200);
+    expect(p.interests![1]).toBe('alt');
+
+    await prisma.memoryNote.createMany({ data: Array.from({ length: 30 }, (_, i) => ({ text: `n${i}`, createdAt: new Date(2026, 5, 1 + i % 28) })) });
+    expect((await buildReaderProfile(id))!.interests).toHaveLength(20);
+    await prisma.memoryNote.deleteMany();
+  });
+
+  it('are sent to a Ressort only if it personalises, and then exactly as /profile shows them', async () => {
+    await prisma.memoryNote.deleteMany();
+    await prisma.memoryNote.create({ data: { text: 'Ich verfolge Rust' } });
+    const items = sourceItems(7);
+    useRssItems(items);
+    const claude = fakeAdapter('claude-haiku-4-5', async () => respond(llmOutput(items.slice(0, 5).map((i) => i.url))));
+    useAdapter(claude);
+
+    const off = makeSkill();
+    off.manifest.personalize = false;
+    await seedAgent(off);
+    await runAgent({ skill: off, trigger: 'manual', logger });
+    expect(JSON.stringify(claude.generate.mock.calls[0]![0])).not.toContain('Rust');
+
+    const on = makeSkill();
+    on.manifest.personalize = true;
+    on.manifest.dedupeDays = 0;
+    await seedAgent(on);
+    await runAgent({ skill: on, trigger: 'manual', logger });
+    const sent = JSON.parse(claude.generate.mock.calls[1]![0].messages[0].content) as { readerProfile: { interests: string[] } };
+    expect(sent.readerProfile).toEqual({ liked: [], disliked: [], interests: ['Ich verfolge Rust'] });
+
+    const app = await buildApp({ token: 'tok', logger, getSkills: () => [on] });
+    const shown = (await app.inject({ url: `/profile?agent=${on.id}`, headers: AUTH })).json().profile;
+    expect(shown).toEqual(sent.readerProfile);
+    await prisma.memoryNote.deleteMany();
+  });
+});
+
 describe('personalised runs', () => {
   const setup = async (personalize: boolean | undefined) => {
     const items = sourceItems(7);
