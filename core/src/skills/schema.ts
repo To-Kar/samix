@@ -61,6 +61,8 @@ export const manifestYamlSchema = z.object({
   empty_answer: z.string().min(1).max(300).optional(),
   // What a Ressort is about; sources that search by topic use it.
   topic: z.string().min(1).max(400).optional(),
+  // The shipped agent a Ressort was created from (skills/sync.ts keeps its prompt current).
+  template: z.string().min(1).max(80).optional(),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;

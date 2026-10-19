@@ -1,5 +1,5 @@
 import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import matter from 'gray-matter';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { ScheduleSpec, SourceSpec, ModelId } from '../types.js';
@@ -16,6 +16,17 @@ const FOCUS_RE = /<!-- focus -->[\s\S]*?<!-- \/focus -->/;
 
 export function isTemplate(skillMd: string): boolean {
   return FOCUS_RE.test(skillMd);
+}
+
+// The prompt of an agent made from a template: the template's body with only
+// the marked sentence replaced by the (already cleaned) focus.
+export function renderTemplateBody(templateBody: string, focus: string): string {
+  return templateBody.replace(FOCUS_RE, () => `matching this focus: "${focus}"`);
+}
+
+// What an agent made from a template says about itself in its prompt.
+export function focusFromRenderedBody(body: string): string | undefined {
+  return /matching this focus: "([^"]*)"/.exec(body)?.[1]?.trim() || undefined;
 }
 
 export interface NewAgentInput {
@@ -51,7 +62,7 @@ export async function uniqueSlug(agentsDir: string, base: string): Promise<strin
 
 // The focus goes into a system prompt. It is the user's own text, but a
 // stray marker or control character would corrupt the template.
-function cleanFocus(focus: string): string {
+export function cleanFocus(focus: string): string {
   return focus
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/[\u0000-\u001f\u007f]+/g, ' ')
@@ -92,7 +103,7 @@ export async function createAgent(opts: {
 
   const slug = await uniqueSlug(agentsDir, slugify(input.title));
   const parsed = matter(skillRaw);
-  const skillMd = matter.stringify(parsed.content.replace(FOCUS_RE, () => `matching this focus: "${focus}"`), {
+  const skillMd = matter.stringify(renderTemplateBody(parsed.content, focus), {
     name: slug,
     title: input.title.trim(),
     description: `Digest of: ${focus}`.slice(0, 160),
@@ -103,6 +114,8 @@ export async function createAgent(opts: {
   manifest['version'] = '1.0';
   manifest['sources'] = input.sources;
   manifest['topic'] = focus;
+  // Which shipped agent this one came from, so its prompt can follow the template's updates.
+  manifest['template'] = basename(templateDir);
   if (input.schedule) {
     manifest['schedule'] = { ...(manifest['schedule'] as object | undefined), ...input.schedule };
   }

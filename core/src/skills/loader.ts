@@ -121,6 +121,7 @@ function normalizeManifest(m: ManifestYaml): Manifest {
     delegates: m.delegates,
     emptyAnswer: m.empty_answer,
     topic: m.topic,
+    template: m.template,
   };
 }
 

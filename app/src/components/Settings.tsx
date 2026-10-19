@@ -6,6 +6,7 @@ import { autostart, isInstalledApp, restartCore, revealLogFile } from '../lib/na
 import { LEAD_PARAGRAPH_OPTIONS, getLeadParagraphs, setLeadParagraphs } from '../lib/prefs';
 import { type SecretAccount, deleteSecret, hasSecret, setSecret } from '../lib/keychain';
 import { AgentModel } from './AgentModel';
+import { Costs } from './Costs';
 import { Notes } from './Notes';
 import { Projects } from './Projects';
 
@@ -102,7 +103,12 @@ export function Settings({ api }: { api: ApiClient }) {
       <DefaultModel api={api} models={models} agents={agents} version={version} onChanged={reload} />
 
       <section className={card}>
-        <h3 className={h3}>3 · Daten, die Agenten lesen dürfen</h3>
+        <h3 className={h3}>3 · Kosten und Limits</h3>
+        <Costs api={api} />
+      </section>
+
+      <section className={card}>
+        <h3 className={h3}>4 · Daten, die Agenten lesen dürfen</h3>
         <div className="flex flex-col gap-1">
           <h4 className="text-xs font-semibold uppercase tracking-wider">Projektordner</h4>
           <Projects api={api} />

@@ -191,6 +191,33 @@ export interface ModelTestResult {
   booked: boolean;
 }
 
+export interface CostAgent {
+  slug: string;
+  title: string;
+  type: string;
+  model: string;
+  dailyUsdMax: number;
+  todayUsd: number;
+  /** Of todayUsd: what the web search cost. */
+  todaySearchUsd: number;
+}
+
+export interface PriceInfo {
+  model: string;
+  builtIn: { inputPerMillionTokens: number; outputPerMillionTokens: number };
+  custom: { inputPerMillionTokens: number; outputPerMillionTokens: number } | null;
+}
+
+export interface Costs {
+  today: number;
+  days: { day: string; costUsd: number }[];
+  /** 0 = no global limit. */
+  globalCapUsd: number;
+  globalCapSource: 'app' | 'env' | 'default';
+  agents: CostAgent[];
+  prices: PriceInfo[];
+}
+
 export interface ModelInfo {
   id: string;
   /** Environment variable / keychain account holding its API key; null = local. */
@@ -469,6 +496,30 @@ export class ApiClient {
 
   deleteProject(id: string): Promise<void> {
     return this.request<void>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+
+  getCosts(): Promise<Costs> {
+    return this.request<Costs>('/costs');
+  }
+
+  setGlobalCap(usd: number): Promise<{ globalCapUsd: number }> {
+    return this.json('PUT', '/budget/global', { usd });
+  }
+
+  resetGlobalCap(): Promise<{ globalCapUsd: number }> {
+    return this.request('/budget/global', { method: 'DELETE' });
+  }
+
+  setAgentLimit(slug: string, dailyUsdMax: number): Promise<{ dailyUsdMax: number }> {
+    return this.json('PUT', `/agents/${encodeURIComponent(slug)}/budget`, { dailyUsdMax });
+  }
+
+  setPrice(model: string, inputPerMillionTokens: number, outputPerMillionTokens: number): Promise<unknown> {
+    return this.json('PUT', `/prices/${encodeURIComponent(model)}`, { inputPerMillionTokens, outputPerMillionTokens });
+  }
+
+  resetPrice(model: string): Promise<unknown> {
+    return this.request(`/prices/${encodeURIComponent(model)}`, { method: 'DELETE' });
   }
 
   listNotes(): Promise<Note[]> {

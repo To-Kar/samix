@@ -56,6 +56,8 @@ export interface Manifest {
   emptyAnswer?: string;
   /** What a Ressort is about (set when it is created from a template). */
   topic?: string;
+  /** The shipped agent this one was created from. */
+  template?: string;
 }
 
 export interface ModelPreference {

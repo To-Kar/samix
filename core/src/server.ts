@@ -8,6 +8,7 @@ import { loadSettings } from './settings.js';
 import { watchParent } from './watchdog.js';
 import { startScheduler, startWakeDetector } from './scheduler/index.js';
 import { seedAgents } from './skills/seed.js';
+import { syncShippedAgents } from './skills/sync.js';
 import { buildApp } from './app.js';
 import { registerContentPrefetch } from './content/prefetch.js';
 import { applyContentRetention } from './content/retention.js';
@@ -48,7 +49,10 @@ async function start(): Promise<void> {
   await prisma.$connect();
   await loadSettings();
   await recoverInterruptedRuns(logger);
-  if (bundledAgentsDir) seedAgents(bundledAgentsDir, agentsDir, logger);
+  if (bundledAgentsDir) {
+    seedAgents(bundledAgentsDir, agentsDir, logger);
+    await syncShippedAgents(bundledAgentsDir, agentsDir, logger);
+  }
   skills = await loadSkills({ agentsDir });
   registerContentPrefetch(logger);
   await applyContentRetention(logger);
