@@ -25,6 +25,7 @@ import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 import { notifyRunSuccess } from './hooks.js';
 import { DEFAULT_DEDUPE_DAYS, dropAlreadyPublished } from './dedupe.js';
+import { buildReaderProfile } from './profile.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -396,10 +397,22 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     }
   }
 
+  // Personalisation is opt-in per agent (manifest `personalize`). Without any
+  // votes there is nothing to add, and the message stays exactly as before.
+  const profile = skill.manifest.personalize ? await buildReaderProfile(agentRow.id) : null;
+  if (profile) {
+    log.info({ liked: profile.liked.length, disliked: profile.disliked.length }, 'reader_profile_attached');
+  }
+
   const request: NormalizedRequest = {
     systemPrompt: skill.systemPrompt,
     messages: sourceItems.length
-      ? [{ role: 'user', content: JSON.stringify({ items: sourceItems }, null, 2) }]
+      ? [
+          {
+            role: 'user',
+            content: JSON.stringify(profile ? { readerProfile: profile, items: sourceItems } : { items: sourceItems }, null, 2),
+          },
+        ]
       : [],
     maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
     timeoutMs: skill.manifest.model.timeoutSecs

@@ -34,6 +34,13 @@ and return a JSON object matching this shape:
 }
 ```
 
+The JSON may also contain `readerProfile`: titles (and topics) of earlier
+articles the reader marked as liked or disliked. Use it only to rank
+`importance` and to choose between items that are otherwise equally
+relevant; it never overrides the hard rules below. If it changed a ranking,
+say so plainly in `importanceReason` (e.g. "Fits your interest in open
+models"). Never quote it in a summary.
+
 Importance decides where the item is printed in the newspaper:
 
 - 5 = lead story. Give 5 to at most ONE item, 4 to at most TWO items.

@@ -37,3 +37,7 @@ output:
   schema: ./schema.json
   min_items: 5
   max_items: 10
+# Include the reader's 👍/👎 history as context for the importance ranking.
+personalize: true
+# Don't publish the same URL again within this many days.
+dedupe_days: 14

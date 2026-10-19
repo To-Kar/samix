@@ -6,6 +6,7 @@ import type { Logger } from 'pino';
 import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { reloadSkill } from './scheduler/index.js';
+import { buildReaderProfile } from './runner/profile.js';
 import { knownModelIds, MODEL_KEY_ENV } from './adapters/index.js';
 import { updateManifest } from './skills/manifestFile.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
@@ -52,7 +53,7 @@ export async function buildApp(deps: AppDeps) {
   await fastify.register(cors, {
     origin: true,
     credentials: false,
-    methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
   });
 
@@ -358,7 +359,7 @@ export async function buildApp(deps: AppDeps) {
       const [articles, snapshotCount, agent, older, newer, earlier] = await Promise.all([
         prisma.article.findMany({
           where: { agentRunId: run.id },
-          include: { content: true },
+          include: { content: true, vote: true },
         }),
         prisma.sourceSnapshot.count({ where: { agentRunId: run.id } }),
         prisma.agent.findUnique({ where: { id: run.agentId }, select: { slug: true } }),
@@ -491,10 +492,59 @@ export async function buildApp(deps: AppDeps) {
     }
   });
 
+  // ---- Votes and the reader profile --------------------------------------
+
+  fastify.put<{ Params: { id: string }; Body: { value?: unknown } }>(
+    '/articles/:id/vote',
+    async (request, reply) => {
+      const value = request.body?.value;
+      if (value !== -1 && value !== 0 && value !== 1) {
+        reply.code(400).send({ error: 'invalid_body', message: 'value must be -1, 0 (clear) or 1' });
+        return reply;
+      }
+      const exists = await prisma.article.findUnique({ where: { id: request.params.id }, select: { id: true } });
+      if (!exists) {
+        reply.code(404).send({ error: 'article_not_found', id: request.params.id });
+        return reply;
+      }
+      if (value === 0) {
+        await prisma.articleVote.deleteMany({ where: { articleId: request.params.id } });
+        return { vote: null };
+      }
+      await prisma.articleVote.upsert({
+        where: { articleId: request.params.id },
+        create: { articleId: request.params.id, value },
+        update: { value },
+      });
+      return { vote: value };
+    }
+  );
+
+  // Exactly what a personalised run sends about the reader, for one agent.
+  fastify.get<{ Querystring: { agent?: string } }>('/profile', async (request, reply) => {
+    const agent = request.query.agent ? await prisma.agent.findUnique({ where: { slug: request.query.agent } }) : null;
+    if (!agent) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.query.agent ?? null });
+      return reply;
+    }
+    return { agent: agent.slug, profile: await buildReaderProfile(agent.id) };
+  });
+
+  // Forget the reader's votes for one agent ("reset profile").
+  fastify.delete<{ Querystring: { agent?: string } }>('/votes', async (request, reply) => {
+    const agent = request.query.agent ? await prisma.agent.findUnique({ where: { slug: request.query.agent } }) : null;
+    if (!agent) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.query.agent ?? null });
+      return reply;
+    }
+    const { count } = await prisma.articleVote.deleteMany({ where: { article: { agentRun: { agentId: agent.id } } } });
+    return { deleted: count };
+  });
+
   async function loadArticleDetail(id: string) {
     const a = await prisma.article.findUnique({
       where: { id },
-      include: { content: true, agentRun: { select: { id: true, model: true, startedAt: true } } },
+      include: { content: true, vote: true, agentRun: { select: { id: true, model: true, startedAt: true } } },
     });
     if (!a) return null;
     // Evidence: the fetched item(s) of the same run that this article rests on.
@@ -597,7 +647,7 @@ const previewItem = (i: SourceItem) => ({
 });
 
 type ArticleWithContent = Awaited<
-  ReturnType<typeof prisma.article.findMany<{ include: { content: true } }>>
+  ReturnType<typeof prisma.article.findMany<{ include: { content: true; vote: true } }>>
 >[number];
 
 // Listing shape: metadata plus, for articles whose text is already cached, an
@@ -616,6 +666,8 @@ function articleSummary(a: ArticleWithContent, leadParagraphs: number) {
     importance: a.importance ?? 3,
     importanceReason: a.importanceReason,
     createdAt: a.createdAt,
+    // +1 / -1, or null if the reader hasn't voted.
+    vote: a.vote?.value ?? null,
     content: a.content
       ? {
           status: a.content.status,
