@@ -2,7 +2,9 @@ import { parseHTML } from 'linkedom';
 import { z } from 'zod';
 import { safeFetch, SafeFetchError } from '../net/safeFetch.js';
 import type { FetchContext, SourceFetcher, SourceItem } from '../types.js';
+import { keywordMatcher } from '../text/keywords.js';
 import { parseAndNormalize } from './base.js';
+export { keywordMatcher };
 import { fetchRobots, type Robots } from './robots.js';
 
 // "Give me the newest articles of this website." Works for any site without
@@ -472,15 +474,6 @@ export function parseSitemapIndex(xml: string): { loc: string; lastmod?: Date }[
 
 const decodeXml = (s: string) =>
   s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'");
-
-// Whole-word, case-insensitive, Unicode-aware: "KI" matches "KI-Modell" but
-// not "Skiing" or "Kiel".
-export function keywordMatcher(keywords: string[]): (text: string) => boolean {
-  const res = keywords.map(
-    (k) => new RegExp(`(?<![\\p{L}\\p{N}])${k.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'iu')
-  );
-  return (text) => res.some((re) => re.test(text));
-}
 
 function normalizeStartUrl(raw: string): string {
   const t = raw.trim();
