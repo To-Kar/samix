@@ -65,3 +65,19 @@ describe('POST /models/use', () => {
     expect(skills.find((s) => s.id === 'frag-die-zeitung')!.manifest.model.primary).toBe('claude-haiku-4-5');
   });
 });
+
+describe('POST /models/use with all', () => {
+  it('moves agents that already work too, but still keeps tool agents off models without tools', async () => {
+    process.env.ANTHROPIC_API_KEY = 'a';
+    process.env.DEEPSEEK_API_KEY = 'k';
+    const { app, skills } = await setup();
+    const res = await app.inject({ method: 'POST', url: '/models/use', headers: AUTH, payload: { primary: 'deepseek-chat', all: true } });
+    expect(res.json().changed).toHaveLength(3);
+    for (const s of skills) expect(s.manifest.model.primary).toBe('deepseek-chat');
+
+    delete process.env.DEEPSEEK_API_KEY;
+    const local = await app.inject({ method: 'POST', url: '/models/use', headers: AUTH, payload: { primary: 'ollama-llama3', all: true } });
+    expect(local.json().changed.map((c: { slug: string }) => c.slug)).toEqual(['newsletter-ai']);
+    expect(local.json().skipped.map((c: { slug: string }) => c.slug).sort()).toEqual(['frag-die-zeitung', 'orchestrator']);
+  });
+});

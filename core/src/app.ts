@@ -8,6 +8,7 @@ import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { askAgent } from './runner/converse.js';
 import { routeQuestion } from './runner/orchestrate.js';
+import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './runner/budget.js';
 import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { validateProjectRoot } from './projects/safePath.js';
@@ -856,7 +857,8 @@ export async function buildApp(deps: AppDeps) {
   // to the given one, which has. Agents that already work are left alone.
   // Agents that need tool calling are only switched to a model that has it.
   fastify.post('/models/use', async (request, reply) => {
-    const parsed = z.object({ primary: z.enum(MODEL_IDS) }).safeParse(request.body);
+    const parsed = z.object({ primary: z.enum(MODEL_IDS), all: z.boolean().optional() }).safeParse(request.body);
+    const everyAgent = parsed.success && parsed.data.all === true;
     const target = parsed.success ? parsed.data.primary : null;
     const targetKey = target ? MODEL_KEY_ENV[target] : undefined;
     if (!target || !knownModelIds().includes(target) || target === 'static') {
@@ -869,12 +871,18 @@ export async function buildApp(deps: AppDeps) {
     }
     const supportsTools = resolveAdapter(target).supportsTools;
     const changed: { slug: string; title: string }[] = [];
+    const skipped: { slug: string; title: string }[] = [];
     for (const skill of skillList()) {
       const cur = skill.manifest.model.primary;
       const curKey = MODEL_KEY_ENV[cur];
-      if (cur === 'static' || cur === target || !curKey || process.env[curKey]) continue;
+      if (cur === 'static' || cur === target) continue;
+      // Without `all`, only agents whose model cannot work (no key) are moved.
+      if (!everyAgent && (!curKey || process.env[curKey])) continue;
       const needsTools = (skill.manifest.tools?.length ?? 0) > 0 || (skill.manifest.routes?.length ?? 0) > 0;
-      if (needsTools && !supportsTools) continue;
+      if (needsTools && !supportsTools) {
+        skipped.push({ slug: skill.id, title: skill.title });
+        continue;
+      }
       await updateManifest(skill, (m) => {
         const model = (m['model'] ?? {}) as Record<string, unknown>;
         model['primary'] = target;
@@ -883,7 +891,40 @@ export async function buildApp(deps: AppDeps) {
       skill.manifest.model.primary = target;
       changed.push({ slug: skill.id, title: skill.title });
     }
-    return { changed };
+    return { changed, skipped };
+  });
+
+  // "Test the key": one tiny request to the model, through its adapter. The
+  // cost (a fraction of a cent) is booked to an agent that uses this model; the
+  // global cap applies like for every call.
+  fastify.post('/models/test', async (request, reply) => {
+    const parsed = z.object({ model: z.enum(MODEL_IDS) }).safeParse(request.body);
+    if (!parsed.success || parsed.data.model === 'static' || !knownModelIds().includes(parsed.data.model)) {
+      reply.code(400).send({ error: 'invalid_model' });
+      return reply;
+    }
+    const model = parsed.data.model;
+    const keyEnv = MODEL_KEY_ENV[model];
+    if (keyEnv && !process.env[keyEnv]) return { ok: false, error: 'key_missing', costUsd: 0, ms: 0, booked: false };
+    const adapter = resolveAdapter(model);
+    const refused = await checkBudget({ agentId: '-', dailyUsdMax: 0, haltOnBudgetExceeded: false, estimatedCostUsd: estimateRunCostUsd(adapter, 16), now: new Date() });
+    if (refused) return { ok: false, error: refused.refusal, costUsd: 0, ms: 0, booked: false };
+    const t0 = Date.now();
+    try {
+      const res = await adapter.generate({
+        systemPrompt: 'Reply with the single word: ok',
+        messages: [{ role: 'user', content: 'ok?' }],
+        maxTokens: 16,
+        timeoutMs: 20_000,
+      });
+      const costUsd = computeCostUsd(adapter, res.usage.inputTokens, res.usage.outputTokens);
+      const user = skillList().find((s) => s.manifest.model.primary === model);
+      const row = user ? await prisma.agent.findUnique({ where: { slug: user.id } }) : null;
+      if (row) await recordSpend(row.id, new Date(), res.usage, costUsd);
+      return { ok: true, costUsd, ms: Date.now() - t0, booked: Boolean(row) };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err), costUsd: 0, ms: Date.now() - t0, booked: false };
+    }
   });
 
   // Dry run of a source for the sources editor: what would be fetched, and by
