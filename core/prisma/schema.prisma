@@ -54,8 +54,21 @@ model Article {
   topic       String?
   metadata    String?
   createdAt   DateTime  @default(now())
+  image       ArticleImage?
 
   @@index([topic, createdAt])
+}
+
+// The picture a source declared for an article, fetched once during the run
+// and kept locally so reading never contacts the image host. `sourceUrl`
+// keeps it traceable; bytes live in their own table so article lists stay light.
+model ArticleImage {
+  articleId String   @id
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  sourceUrl String
+  mimeType  String
+  bytes     Bytes
+  fetchedAt DateTime @default(now())
 }
 
 model BudgetLedger {

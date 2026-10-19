@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import type { Article } from '../lib/api';
+import type { ApiClient, Article } from '../lib/api';
+import { ArticleImage } from './ArticleImage';
 import { useI18n } from '../i18n/I18nProvider';
 import { hostnameOf, paragraphs, sourceLabel } from '../lib/articles';
 
@@ -8,12 +9,13 @@ const dateTime = (iso: string, locale: string) =>
   new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 interface ReaderViewProps {
+  api: ApiClient;
   article: Article;
   onBack: () => void;
 }
 
 /** One article, single column at the theme's measure. Esc returns to the edition. */
-export function ReaderView({ article, onBack }: ReaderViewProps) {
+export function ReaderView({ api, article, onBack }: ReaderViewProps) {
   const { t, dateLocale } = useI18n();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,6 +40,7 @@ export function ReaderView({ article, onBack }: ReaderViewProps) {
         {article.publishedAt ? `${t.paper.published(dateTime(article.publishedAt, dateLocale))} · ` : ''}
         {t.paper.collected(dateTime(article.createdAt, dateLocale))}
       </p>
+      <ArticleImage api={api} article={article} placement="reader" />
       <div className="samix-prose">
         {paragraphs(article.summary).map((p, i) => (
           <p key={i}>{p}</p>

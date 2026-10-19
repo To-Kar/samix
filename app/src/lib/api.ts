@@ -39,6 +39,8 @@ export interface Article {
   topic: string | null;
   createdAt: string;
   agentSlug: string;
+  /** Where the stored image came from; null when the article has none. */
+  imageSourceUrl: string | null;
 }
 
 export interface SourceSpec {
@@ -63,7 +65,7 @@ export class ApiClient {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async fetchAuthed(path: string, init?: RequestInit): Promise<Response> {
     const res = await fetch(`${this.baseUrl()}${path}`, {
       ...init,
       headers: {
@@ -75,7 +77,11 @@ export class ApiClient {
       const body = await res.text().catch(() => '');
       throw new Error(`HTTP ${res.status} ${path}: ${body}`);
     }
-    return (await res.json()) as T;
+    return res;
+  }
+
+  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    return (await (await this.fetchAuthed(path, init)).json()) as T;
   }
 
   async health(): Promise<HealthResponse> {
@@ -104,6 +110,11 @@ export class ApiClient {
     if (query.limit != null) params.set('limit', String(query.limit));
     const qs = params.toString();
     return this.request<Article[]>(`/articles${qs ? `?${qs}` : ''}`);
+  }
+
+  /** The article's locally stored image; <img src> cannot carry the bearer token. */
+  async articleImage(id: string): Promise<Blob> {
+    return (await this.fetchAuthed(`/articles/${encodeURIComponent(id)}/image`)).blob();
   }
 
   getSources(slug: string): Promise<SourceSpec[]> {

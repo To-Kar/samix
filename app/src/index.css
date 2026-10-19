@@ -189,8 +189,55 @@ body {
   }
 
   .samix-lead {
+    display: grid;
+    gap: calc(1.5rem * var(--density));
     padding-bottom: calc(1.75rem * var(--density));
     margin-bottom: calc(1.75rem * var(--density));
+  }
+  /* Text beside the picture where there is room; a single-column theme keeps it above. */
+  @media (min-width: 45rem) {
+    html:not([data-columns='1']) .samix-lead:has(.samix-figure) {
+      grid-template-columns: 1.3fr 1fr;
+      align-items: start;
+    }
+  }
+  [data-columns='1'] .samix-lead .samix-figure {
+    order: -1;
+  }
+
+  /* ---- Article images ----------------------------------------------- */
+  .samix-figure img {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius);
+    background: rgb(var(--rule) / 0.4);
+  }
+  /* Front page crops to a calm, common shape; the reader shows the whole picture. */
+  :is(.samix-figure-lead, .samix-figure-column) img {
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+  .samix-figure-column {
+    margin-bottom: 0.75rem;
+  }
+  .samix-figure-reader {
+    margin-bottom: calc(1.5rem * var(--density));
+  }
+  .samix-figure-reader img {
+    max-height: 70vh;
+    object-fit: contain;
+  }
+  [data-image-treatment='grayscale'] .samix-figure img {
+    filter: grayscale(1) contrast(1.05);
+  }
+  [data-image-treatment='sepia'] .samix-figure img {
+    filter: sepia(0.4) saturate(0.8);
+  }
+  [data-image-treatment='muted'] .samix-figure img {
+    filter: saturate(0.45);
+  }
+  [data-image-treatment='dimmed'] .samix-figure img {
+    filter: brightness(0.72) saturate(0.8);
   }
   :is([data-rule='hairline'], [data-rule='solid']) .samix-lead {
     border-bottom: var(--rule-width) solid rgb(var(--rule));
@@ -203,27 +250,42 @@ body {
     color: rgb(var(--ink-soft));
   }
 
-  /* Columns flow like print: top to bottom, then the next column. */
+  /* Columns as a grid: every column gets articles even when pictures make
+     items uneven (CSS multi-column would leave columns empty). Rules sit on
+     every item that does not start a row. */
   .samix-columns {
-    column-count: 1;
+    display: grid;
+    grid-template-columns: 1fr;
     column-gap: calc(2rem * var(--density));
+    align-items: start;
+  }
+  .samix-column-item {
+    padding-bottom: calc(1.5rem * var(--density));
   }
   @media (min-width: 45rem) {
     :is([data-columns='2'], [data-columns='3']) .samix-columns {
-      column-count: 2;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    [data-column-rules='true']:is([data-columns='2'], [data-columns='3']) .samix-column-item:nth-child(2n) {
+      border-left: var(--rule-width) solid rgb(var(--rule));
+      padding-left: calc(1rem * var(--density));
+      margin-left: calc(-1rem * var(--density));
     }
   }
   @media (min-width: 64rem) {
     [data-columns='3'] .samix-columns {
-      column-count: 3;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-  }
-  [data-column-rules='true'] .samix-columns {
-    column-rule: var(--rule-width) solid rgb(var(--rule));
-  }
-  .samix-column-item {
-    break-inside: avoid;
-    padding-bottom: calc(1.5rem * var(--density));
+    [data-column-rules='true'][data-columns='3'] .samix-column-item:nth-child(2n) {
+      border-left: 0;
+      padding-left: 0;
+      margin-left: 0;
+    }
+    [data-column-rules='true'][data-columns='3'] .samix-column-item:not(:nth-child(3n + 1)) {
+      border-left: var(--rule-width) solid rgb(var(--rule));
+      padding-left: calc(1rem * var(--density));
+      margin-left: calc(-1rem * var(--density));
+    }
   }
   [data-columns='1'] .samix-column-item + .samix-column-item {
     border-top: 1px solid rgb(var(--rule));

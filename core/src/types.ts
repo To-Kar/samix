@@ -135,6 +135,8 @@ export interface SourceItem {
   snippet?: string;
   publishedAt?: Date;
   sourceName: string;
+  /** Image the feed itself declares for this item (never sent to the model). */
+  imageUrl?: string;
   raw?: Record<string, unknown>;
 }
 

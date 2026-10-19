@@ -1,4 +1,5 @@
-import type { Article } from '../lib/api';
+import type { ApiClient, Article } from '../lib/api';
+import { ArticleImage } from './ArticleImage';
 import { useI18n } from '../i18n/I18nProvider';
 import { dayKey, groupByDay, paragraphs, ressortsOf, sourceLabel } from '../lib/articles';
 
@@ -8,6 +9,7 @@ const time = (iso: string, locale: string) =>
   new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
 interface FrontPageProps {
+  api: ApiClient;
   articles: Article[];
   ressort: string | null;
   onRessort: (ressort: string | null) => void;
@@ -19,7 +21,7 @@ interface FrontPageProps {
  * the latest day), the rest of that day in columns, older days below.
  * Column count, rules and kicker style come from the theme (data-* on <html>).
  */
-export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPageProps) {
+export function FrontPage({ api, articles, ressort, onRessort, onOpen }: FrontPageProps) {
   const { t, dateLocale } = useI18n();
   const ressorts = ressortsOf(articles);
   const visible = ressort ? articles.filter((a) => a.topic === ressort) : articles;
@@ -61,20 +63,24 @@ export function FrontPage({ articles, ressort, onRessort, onOpen }: FrontPagePro
           ) : null}
 
           <article className="samix-lead">
-            {lead.topic ? <span className="samix-kicker">{lead.topic}</span> : null}
-            <h2 className="samix-headline text-4xl leading-tight mt-1">
-              <button className="samix-headline-link" onClick={() => onOpen(lead.id)}>
-                {lead.title}
-              </button>
-            </h2>
-            <p className="samix-prose samix-teaser mt-3">{teaser(lead)}</p>
-            <Meta article={lead} />
+            <div className="samix-lead-text">
+              {lead.topic ? <span className="samix-kicker">{lead.topic}</span> : null}
+              <h2 className="samix-headline text-4xl leading-tight mt-1">
+                <button className="samix-headline-link" onClick={() => onOpen(lead.id)}>
+                  {lead.title}
+                </button>
+              </h2>
+              <p className="samix-prose samix-teaser mt-3">{teaser(lead)}</p>
+              <Meta article={lead} />
+            </div>
+            <ArticleImage api={api} article={lead} placement="lead" />
           </article>
 
           {rest.length > 0 ? (
             <div className="samix-columns">
               {rest.map((a) => (
                 <article key={a.id} className="samix-column-item">
+                  <ArticleImage api={api} article={a} placement="column" />
                   {a.topic ? <span className="samix-kicker">{a.topic}</span> : null}
                   <h3 className="samix-headline text-xl leading-snug mt-1">
                     <button className="samix-headline-link" onClick={() => onOpen(a.id)}>

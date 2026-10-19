@@ -83,9 +83,9 @@ export function Newspaper({ api }: NewspaperProps) {
       {articles == null ? (
         <p className="samix-hint">{t.paper.loading}</p>
       ) : open ? (
-        <ReaderView article={open} onBack={closeReader} />
+        <ReaderView api={api} article={open} onBack={closeReader} />
       ) : (
-        <FrontPage articles={articles} ressort={ressort} onRessort={setRessort} onOpen={setOpenId} />
+        <FrontPage api={api} articles={articles} ressort={ressort} onRessort={setRessort} onOpen={setOpenId} />
       )}
     </div>
   );

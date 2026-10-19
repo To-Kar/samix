@@ -40,6 +40,7 @@ const de = {
     back: '← Zur Ausgabe',
     source: 'Quelle',
     noSource: 'Für diesen Artikel ist keine Quelle gespeichert.',
+    imageCredit: (host: string) => `Bild: ${host}`,
   },
   status: {
     error: 'Fehler:',
@@ -196,6 +197,7 @@ const en: Messages = {
     back: '← Back to the edition',
     source: 'Source',
     noSource: 'No source is stored for this article.',
+    imageCredit: (host) => `Image: ${host}`,
   },
   status: {
     error: 'Error:',

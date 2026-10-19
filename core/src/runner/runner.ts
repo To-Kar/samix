@@ -14,6 +14,7 @@ import type {
 } from '../types.js';
 import { generateWithFallback, resolveAdapter } from '../adapters/index.js';
 import { resolveFetcher } from '../sources/index.js';
+import { attachImages, type CreatedArticle } from '../images/attach.js';
 import { JsonSchemaValidator } from '../output/validator.js';
 import { unwrapJsonFences } from '../output/unwrap.js';
 import { prisma } from '../db/prisma.js';
@@ -159,6 +160,13 @@ function specTypeOf(item: SourceItem, specs: SourceSpec[]): string {
   return specs.find((s) => s.type === 'rss')?.type ?? 'rss';
 }
 
+// Images are matched back by sourceUrl after the run; a top-level imageUrl
+// in the prompt would only invite the model to echo it into its output,
+// which the skill's schema (additionalProperties: false) would reject.
+function withoutImage({ imageUrl: _imageUrl, ...item }: SourceItem): Omit<SourceItem, 'imageUrl'> {
+  return item;
+}
+
 function resolveSchemaPath(skill: Skill): string | undefined {
   const p = skill.manifest.output.schemaPath;
   if (!p) return undefined;
@@ -174,9 +182,9 @@ interface ParsedArticle {
   topic?: string;
 }
 
-// Create Article rows from the validated parsed output. Returns the list
-// of new article IDs. Assumes the validator already enforced the shape.
-async function createArticles(runId: string, parsed: unknown): Promise<string[]> {
+// Create Article rows from the validated parsed output. Returns the new
+// rows (id + sourceUrl). Assumes the validator already enforced the shape.
+async function createArticles(runId: string, parsed: unknown): Promise<CreatedArticle[]> {
   if (!parsed || typeof parsed !== 'object') return [];
   const items = (parsed as { items?: ParsedArticle[] }).items;
   if (!Array.isArray(items) || items.length === 0) return [];
@@ -192,7 +200,7 @@ async function createArticles(runId: string, parsed: unknown): Promise<string[]>
   }));
 
   await prisma.article.createMany({ data: rows });
-  return rows.map((r) => r.id);
+  return rows;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
@@ -285,7 +293,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   const request: NormalizedRequest = {
     systemPrompt: skill.systemPrompt,
     messages: sourceItems.length
-      ? [{ role: 'user', content: JSON.stringify({ items: sourceItems }, null, 2) }]
+      ? [{ role: 'user', content: JSON.stringify({ items: sourceItems.map(withoutImage) }, null, 2) }]
       : [],
     maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
   };
@@ -425,8 +433,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       };
     }
 
-    // Valid output → create Article rows from parsed.items.
-    const articleIds = await createArticles(runId, validation.parsed);
+    // Valid output → create Article rows from parsed.items, then attach
+    // the images their source items declared.
+    const articles = await createArticles(runId, validation.parsed);
+    const articleIds = articles.map((a) => a.id);
+    await attachImages(articles, sourceItems, log);
 
     await prisma.agentRun.update({
       where: { id: runId },

@@ -145,6 +145,8 @@ fastify.get<{
     take: limit,
     include: {
       agentRun: { select: { agent: { select: { slug: true } } } },
+      // Origin only — the bytes are served by /articles/:id/image.
+      image: { select: { sourceUrl: true } },
     },
   });
 
@@ -158,7 +160,22 @@ fastify.get<{
     topic: r.topic,
     createdAt: r.createdAt,
     agentSlug: r.agentRun.agent.slug,
+    imageSourceUrl: r.image?.sourceUrl ?? null,
   }));
+});
+
+// The locally stored image of an article. Reading never contacts the image
+// host; the type was taken from the file signature when it was fetched.
+fastify.get<{ Params: { id: string } }>('/articles/:id/image', async (request, reply) => {
+  const image = await prisma.articleImage.findUnique({
+    where: { articleId: request.params.id },
+    select: { mimeType: true, bytes: true },
+  });
+  if (!image) return reply.code(404).send({ error: 'not_found' });
+  return reply
+    .type(image.mimeType)
+    .header('Cache-Control', 'private, max-age=31536000, immutable')
+    .send(Buffer.from(image.bytes));
 });
 
 fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
