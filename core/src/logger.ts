@@ -7,12 +7,14 @@ const level = process.env.SAMIX_LOG_LEVEL ?? 'info';
 const logFile = process.env.SAMIX_LOG_FILE;
 
 // Installed app: JSON lines into a file (nobody sees stdout), rotated at
-// startup. Dev: pretty output on the terminal. Tests (level 'silent'): neither.
+// startup. Written synchronously: the core exits right after logging a startup
+// failure, and an async destination would lose exactly that line. Dev: pretty
+// output on the terminal. Tests (level 'silent'): neither.
 function build() {
   if (logFile && level !== 'silent') {
     mkdirSync(dirname(logFile), { recursive: true });
     rotateLog(logFile);
-    return pino({ level }, destination({ dest: logFile, sync: false, mkdir: true }));
+    return pino({ level }, destination({ dest: logFile, sync: true, mkdir: true }));
   }
   return pino({
     level,

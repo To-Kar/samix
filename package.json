@@ -7,7 +7,7 @@
     "dev:core": "pnpm --filter samix-core dev",
     "dev:app": "pnpm --filter samix-app tauri dev",
     "build:core": "pnpm --filter samix-core build",
-    "build:app": "pnpm --filter samix-app tauri build",
+    "build:app": "pnpm --filter samix-app build:release",
     "db:migrate": "pnpm --filter samix-core prisma migrate dev",
     "db:studio": "pnpm --filter samix-core prisma studio"
   },

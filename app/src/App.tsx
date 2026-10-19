@@ -90,7 +90,7 @@ export default function App() {
             <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
               Einstellungen
             </h2>
-            <Settings />
+            <Settings api={api} />
           </section>
         ) : null}
 

@@ -16,7 +16,7 @@ export function ConnectionBanner({ api }: Props) {
   if (isError) {
     return (
       <div className="bg-red-600 text-white px-4 py-2 text-sm font-medium">
-        Samix Core disconnected. Is `pnpm dev:core` still running?
+        Samix Core nicht erreichbar. {import.meta.env.DEV ? 'Läuft `pnpm dev:core` noch?' : 'Beim Neustart des Cores kann das kurz auftreten.'}
       </div>
     );
   }

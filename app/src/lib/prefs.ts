@@ -21,3 +21,21 @@ export function setLeadParagraphs(n: number): void {
     /* ignore */
   }
 }
+
+const KEY_ONBOARDED = 'samix.onboarded';
+
+export function isOnboarded(): boolean {
+  try {
+    return localStorage.getItem(KEY_ONBOARDED) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setOnboarded(): void {
+  try {
+    localStorage.setItem(KEY_ONBOARDED, '1');
+  } catch {
+    /* ignore */
+  }
+}

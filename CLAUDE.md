@@ -14,6 +14,7 @@ The repo ships in named phases. Each phase has a spec + a Claude Code handoff do
 
 - **Phase 0 — merged.** Pipeline validation with a `static` adapter returning a literal string. Proved skill-loader → runner → DB → HTTP → UI works end-to-end. See `docs/SAMIX_PHASE_0_SPEC.md` and `docs/SAMIX_PHASE_0_REPORT.md`.
 - **Phase 1 — in progress.** First real proactive agent (`newsletter-ai`): real Claude Haiku calls, RSS + Arxiv sources (Perplexity adapter+fetcher are wired but dormant — manifest edit away), JSON-schema output validation that creates `Article` rows, OS-keychain secrets, live cron scheduler. Spec: `docs/SAMIX_PHASE_1_SPEC.md`. Playbook: `docs/SAMIX_PHASE_1_CLAUDE_CODE_HANDOFF.md`. **Pivot:** SMTP + Telegram delivery channels were dropped from Phase 1 — the in-app Newspaper UI is the delivery surface. The original spec/handoff still describe delivery channels; treat those sections as superseded.
+- **Phase 2b — in progress** (bundled desktop app for macOS Apple Silicon + Windows): core bundle + Node sidecar (ADR 007), tray, autostart, wake catch-up, onboarding, model choice. Verified on Linux only; see the roadmap status for what is unverified.
 - **Phase 1.5 / 2a — done** (see `docs/SAMIX_ROADMAP.md`, which supersedes the phase specs' out-of-scope lists where it differs): stabilisation, newspaper UI + reader, full-text extraction, website sources, DeepSeek adapter. Next: 2b (bundled desktop app, macOS Apple Silicon + Windows).
 - Do not pull later-phase features forward (tray icon, autostart, voting, orchestrator, coding agents, mobile, semantic filter) without checking the roadmap first.
 
@@ -23,7 +24,7 @@ Spec targets Windows-first for shipping. **Development happens on macOS**; no co
 
 ## Commands
 
-All orchestrated from the root via pnpm workspaces (no Turborepo). Node ≥ 20, pnpm ≥ 10, Rust toolchain for Tauri.
+All orchestrated from the root via pnpm workspaces (no Turborepo). Node ≥ 22.13 (`.node-version`; `node:sqlite`), pnpm ≥ 10, Rust toolchain for Tauri.
 
 ```bash
 pnpm install
@@ -33,7 +34,7 @@ pnpm db:migrate                                  # create new Prisma migration (
 pnpm db:studio                                   # inspect SQLite
 
 pnpm build:core                                  # tsc to core/dist
-pnpm build:app                                   # Tauri release bundle
+pnpm build:app                                   # installable app: pinned Node + core bundle + tauri build (build on the target platform)
 ```
 
 ### Running in dev
@@ -73,6 +74,10 @@ A new agent is two files: `SKILL.md` (Markdown + frontmatter — system prompt l
 
 Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `camelCase` (`dailyUsdMax`). Conversion happens in `normalizeManifest` in the loader — keep both sides in sync when adding fields.
 
+### Installed app (Phase 2b)
+
+The shell (`app/src-tauri/src/{lib,spawn,tray}.rs`) runs the **bundled** core with the **bundled** Node sidecar (`spawn.rs::release_command`); `tauri dev` still uses pnpm. `src-tauri/tauri.release.conf.json` adds the sidecar and resources, so dev builds and `cargo check` don't need them. The shell also owns the tray/menu-bar icon (closing the window hides it, quit is in the tray), the autostart plugin (`--hidden`), `restart_core` (re-reads the keychain; installed app only) and `get_app_paths`. `core/scripts/build-bundle.mjs` builds the core bundle, `core/scripts/verify-bundle.mjs` smoke-tests it, `app/scripts/fetch-node.mjs` fetches the checksum-verified Node. **No business logic in Rust** still holds: "Update now" from the tray is an event the UI handles.
+
 ### Non-obvious runtime invariants
 
 - **Loopback + token are the only auth.** No sessions, no users. CORS is permissive by design because the real gate is the bearer token. Do not remove the `crossOriginResourcePolicy: cross-origin` helmet setting — the WebView fetch would break.
@@ -95,6 +100,7 @@ Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `
 | `DATABASE_URL` | SQLite `file:` URL. Optional: defaults in code to `core/data/samix-dev.db` (absolute). Relative paths resolve against `core/prisma/`, so prefer absolute. |
 | `DEEPSEEK_API_KEY` | Keychain account / env var for the DeepSeek adapter. Price, model and URL are overridable via `SAMIX_DEEPSEEK_PRICE_IN/OUT`, `SAMIX_DEEPSEEK_MODEL`, `SAMIX_DEEPSEEK_URL`; defaults are marked unverified in `adapters/deepseek.ts`. |
 | `SAMIX_CONTENT_RETENTION_DAYS` / `SAMIX_MEDIA_DIR` | Cached full texts and images expire after this many days (default 90); media dir defaults to `media/` next to the database. |
+| `SAMIX_AGENTS_DIR` / `SAMIX_BUNDLED_AGENTS_DIR` / `SAMIX_MIGRATIONS_DIR` / `SAMIX_LOG_FILE` | Set by the shell in the installed app: editable agents folder, shipped defaults (copied once, never overwritten), bundled migrations, JSON log file (rotated at start, written synchronously). Dev uses the repo's `agents/` and `prisma/migrations`. |
 | `SAMIX_PARENT_PID` | Set by the Tauri shell. The core exits when this process is gone. |
 | `SAMIX_OLLAMA_URL` / `SAMIX_OLLAMA_MODEL` | Ollama endpoint and model tag. Defaults `http://127.0.0.1:11434` / `llama3`. |
 | `SAMIX_LOG_LEVEL` | Pino level (`debug` / `info` / `warn` / `error`). Default `info`. |

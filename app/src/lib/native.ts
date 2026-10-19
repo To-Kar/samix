@@ -1,0 +1,57 @@
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+
+// Everything that talks to the Tauri shell lives here. Each function also
+// works in a plain browser (`vite dev` without Tauri) by saying "unavailable"
+// instead of throwing, so the UI can be developed and checked there.
+
+export const inTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+/** An installed build, as opposed to `tauri dev` / a plain browser. */
+export const isInstalledApp = (): boolean => inTauri() && !import.meta.env.DEV;
+
+export type RestartResult = { restarted: true } | { restarted: false; reason: string };
+
+// Restarts the core so a changed API key takes effect (see restart_core in Rust).
+export async function restartCore(): Promise<RestartResult> {
+  if (!inTauri()) return { restarted: false, reason: 'not running inside the app' };
+  try {
+    await invoke('restart_core');
+    return { restarted: true };
+  } catch (e) {
+    return { restarted: false, reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function revealLogFile(): Promise<void> {
+  const paths = await invoke<{ log_file: string }>('get_app_paths');
+  await revealItemInDir(paths.log_file);
+}
+
+export const autostart = {
+  async isEnabled(): Promise<boolean> {
+    return isInstalledApp() ? isEnabled() : false;
+  },
+  async set(on: boolean): Promise<void> {
+    if (!isInstalledApp()) throw new Error('autostart is only available in the installed app');
+    await (on ? enable() : disable());
+  },
+};
+
+// The tray menu's "Jetzt aktualisieren" arrives as an event; the (possibly
+// hidden) window is what talks to the core.
+export function onTrayRunNow(handler: () => void): () => void {
+  if (!inTauri()) return () => undefined;
+  let stop: (() => void) | undefined;
+  let cancelled = false;
+  void listen('run-now', handler).then((un) => {
+    if (cancelled) un();
+    else stop = un;
+  });
+  return () => {
+    cancelled = true;
+    stop?.();
+  };
+}

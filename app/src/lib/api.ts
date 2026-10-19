@@ -123,6 +123,19 @@ export interface ArticleDetail extends Omit<EditionArticle, 'content' | 'excerpt
   }[];
 }
 
+export interface ModelInfo {
+  id: string;
+  /** Environment variable / keychain account holding its API key; null = local. */
+  keyEnv: string | null;
+  keyConfigured: boolean;
+}
+
+export interface ModelChoice {
+  primary: string;
+  fallback?: string;
+  timeoutSecs?: number;
+}
+
 export interface SourcePreview {
   method: string | null;
   feedUrl?: string;
@@ -240,6 +253,22 @@ export class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(spec),
+    });
+  }
+
+  listModels(): Promise<ModelInfo[]> {
+    return this.request<ModelInfo[]>('/models');
+  }
+
+  getAgentModel(slug: string): Promise<ModelChoice> {
+    return this.request<ModelChoice>(`/agents/${slug}/model`);
+  }
+
+  putAgentModel(slug: string, choice: { primary: string; fallback: string | null }): Promise<{ ok: boolean }> {
+    return this.request<{ ok: boolean }>(`/agents/${slug}/model`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(choice),
     });
   }
 

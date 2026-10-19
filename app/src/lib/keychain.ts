@@ -15,14 +15,20 @@ export const SECRET_ACCOUNTS = [
 
 export type SecretAccount = (typeof SECRET_ACCOUNTS)[number];
 
+// The keychain only exists inside the Tauri shell. In a plain browser
+// (`vite dev` without Tauri) reads say "not set" and writes fail with a clear
+// message instead of an obscure TypeError.
+const inTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const unavailable = () => Promise.reject(new Error('The keychain is only available inside the app'));
+
 export function setSecret(account: SecretAccount, value: string): Promise<void> {
-  return invoke('set_secret', { account, value });
+  return inTauri() ? invoke('set_secret', { account, value }) : unavailable();
 }
 
 export function hasSecret(account: SecretAccount): Promise<boolean> {
-  return invoke('has_secret', { account });
+  return inTauri() ? invoke('has_secret', { account }) : Promise.resolve(false);
 }
 
 export function deleteSecret(account: SecretAccount): Promise<void> {
-  return invoke('delete_secret', { account });
+  return inTauri() ? invoke('delete_secret', { account }) : unavailable();
 }

@@ -7,25 +7,39 @@ on:
 
 jobs:
   core:
-    name: core + app (${{ matrix.os }})
+    name: core + app + bundle (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            triple: aarch64-apple-darwin
+            exe: ''
+          - os: windows-latest
+            triple: x86_64-pc-windows-msvc
+            exe: '.exe'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
+      - name: Expect Apple Silicon
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = "arm64"
       # postinstall runs `prisma generate` for the core.
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter samix-core typecheck
       - run: pnpm --filter samix-core test
       - run: pnpm --filter samix-app test
       - run: pnpm --filter samix-app build
+      # The installable core: official Node + bundled server. Built and
+      # smoke-tested on the platform it will run on (the Prisma engine is native).
+      - run: node app/scripts/fetch-node.mjs
+      - run: pnpm --filter samix-core bundle
+      - run: node core/scripts/verify-bundle.mjs app/src-tauri/resources/core app/src-tauri/binaries/node-${{ matrix.triple }}${{ matrix.exe }}
 
   tauri:
     name: tauri cargo check (${{ matrix.os }})
@@ -40,7 +54,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -50,3 +64,4 @@ jobs:
       # tauri::generate_context! needs the built frontend (frontendDist).
       - run: pnpm --filter samix-app build
       - run: cargo check --manifest-path app/src-tauri/Cargo.toml
+      - run: cargo test --manifest-path app/src-tauri/Cargo.toml

@@ -34,7 +34,7 @@ No email or messenger delivery (dropped deliberately, see the Phase 1 report). N
 
 ## Prerequisites
 
-- **Node.js** ≥ 20 LTS
+- **Node.js** ≥ 22.13 (the version in `.node-version` is what CI and the shipped app use; `node:sqlite` needs ≥ 22.13)
 - **pnpm** ≥ 10 (`npm install -g pnpm`)
 - **Rust toolchain** (for Tauri) — install via [rustup.rs](https://rustup.rs)
 - **Git**
@@ -74,6 +74,22 @@ pnpm dev:app
 3. Hit **Run** on `newsletter-ai`. Articles appear in the newspaper view.
 
 **Configuring sources (optional):** the **Sources** page edits RSS URLs, arXiv categories and Perplexity queries. Saving rewrites `manifest.yaml` on disk and re-registers the scheduled job without a restart.
+
+---
+
+## Building the installable app
+
+```bash
+pnpm install
+pnpm build:app
+```
+
+This downloads the pinned official Node.js binary (checksum-verified), bundles the core into a single file with the Prisma engine for **this** platform, and runs `tauri build` with `src-tauri/tauri.release.conf.json`. Build on the platform you target (macOS Apple Silicon, Windows x64): the bundle contains a native library. `.github/workflows/release.yml` does this on GitHub runners.
+
+The result is unsigned. On macOS, open it the first time via right-click → Open. On Windows, SmartScreen will warn. Data lives in the OS app-data folder (`app.samix`); the log is `core.log` in the OS log folder (Settings → *Show log file*). See `docs/decisions/007-bundled-core-sidecar.md`.
+
+To check a core bundle without the app: `pnpm --filter samix-core bundle` then
+`node core/scripts/verify-bundle.mjs app/src-tauri/resources/core app/src-tauri/binaries/node-<triple>`.
 
 ---
 

@@ -1,5 +1,4 @@
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { logger } from './logger.js';
 import { prisma } from './db/prisma.js';
 import { loadSkills } from './skills/loader.js';
@@ -26,12 +25,10 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   process.exit(1);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 // Dev: the repo's agents/ (src/server.ts → ../../agents). Installed app: the
 // shell points SAMIX_AGENTS_DIR at a writable folder and SAMIX_BUNDLED_AGENTS_DIR
 // at the defaults inside the app bundle, which are copied over once.
-const agentsDir = process.env.SAMIX_AGENTS_DIR ?? resolve(__dirname, '../../agents');
+const agentsDir = process.env.SAMIX_AGENTS_DIR ?? resolve(import.meta.dirname, '../../agents');
 const bundledAgentsDir = process.env.SAMIX_BUNDLED_AGENTS_DIR;
 
 let skills: Skill[] = [];

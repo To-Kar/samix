@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ApiClient, Edition, EditionArticle } from '../lib/api';
 import { formatLongDate, formatShortDate, formatUsd, hostnameOf } from '../lib/format';
 import { layoutEdition, readingOrder } from '../lib/layout';
-import { getLeadParagraphs } from '../lib/prefs';
+import { getLeadParagraphs, isOnboarded } from '../lib/prefs';
+import { onTrayRunNow } from '../lib/native';
+import { Onboarding } from './Onboarding';
 import { AuthImage } from './AuthImage';
 import { Blocks } from './Blocks';
 
@@ -22,6 +24,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   const load = useCallback(
     async (id: string) => {
@@ -68,6 +71,24 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
     }
   };
 
+  // First start: no edition and no hosted model with a key → offer setup.
+  // (Ollama alone doesn't count: whether it is installed can't be known here.)
+  useEffect(() => {
+    if (!empty || isOnboarded()) {
+      setNeedsSetup(false);
+      return;
+    }
+    api
+      .listModels()
+      .then((models) => setNeedsSetup(!models.some((m) => m.keyEnv && m.keyConfigured)))
+      .catch(() => setNeedsSetup(false));
+  }, [api, empty]);
+
+  // "Jetzt aktualisieren" from the menu-bar / tray icon.
+  const runRef = useRef(runNewsletter);
+  runRef.current = runNewsletter;
+  useEffect(() => onTrayRunNow(() => void runRef.current()), []);
+
   const layout = useMemo(() => (edition ? layoutEdition(edition.articles) : null), [edition]);
   const order = useMemo(() => (layout ? readingOrder(layout) : []), [layout]);
   const open = (id: string) => onOpen(id, order);
@@ -93,7 +114,17 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
         </div>
       ) : null}
 
-      {empty && !running ? (
+      {empty && needsSetup ? (
+        <Onboarding
+          api={api}
+          onDone={({ run }) => {
+            setNeedsSetup(false);
+            if (run) void runNewsletter();
+          }}
+        />
+      ) : null}
+
+      {empty && !running && !needsSetup ? (
         <div className="py-16 text-center text-ink-soft dark:text-ink-soft-dark">
           <p className="font-serif text-2xl mb-2">Noch keine Ausgabe.</p>
           <p className="text-sm">

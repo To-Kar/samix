@@ -325,6 +325,34 @@ Knackpunkt bei allen Optionen: **native Bestandteile pro Plattform/Architektur**
 
 ---
 
+### Status 2b (2026-10-19)
+
+**Wichtigste Einschränkung: Es gibt in der Entwicklungsumgebung weder macOS noch Windows.** Alles unten ist auf **Linux** geprüft (echter Release-Build, `.deb` ausgepackt und unter einem virtuellen Display gestartet). Was auf Mac und Windows nur gleich *aussehen* sollte, ist es nicht bewiesen.
+
+Gebaut: gebündelter Core mit offiziellem Node als Sidecar (ADR 007, 008), Release-Konfiguration, Datenordner und Logdatei im App-Verzeichnis, Kopie der Standard-Agenten (Nutzerbearbeitungen bleiben), Neustart des Cores nach Schlüsseländerung, Tray/Menüleiste mit „Zeitung öffnen / Jetzt aktualisieren / Beenden“, Fenster schließen = ausblenden, Autostart (`--hidden`), Aufwach-Erkennung, Onboarding, Modellauswahl, Release-Workflow für macOS arm64 und Windows x64.
+
+| # | Kriterium | Stand |
+|---|---|---|
+| 1 | Mac ohne Node/pnpm: `.dmg` installieren, Doppelklick, Key, Zeitung, ohne Neustart | ❌ **nicht geprüft** (kein Mac). Auf Linux entsprechend: `.deb` ausgepackt, App gestartet, Core läuft, UI spricht mit dem Core (`/health`, `/editions/latest`, mit Token) |
+| 2 | dasselbe auf Windows | ❌ nicht geprüft |
+| 3 | App beenden → kein verwaister Core | ✅ Linux, auch bei `SIGKILL` (Core beendet sich nach ~5 s selbst). ⚠️ Windows/macOS: gleiche Logik (`process.kill(pid, 0)`), nicht ausprobiert |
+| 4 | Rechner schläft über 06:00 → nach dem Aufwachen läuft der verpasste Lauf | ⚠️ Logik mit künstlicher Uhr getestet; **nicht** mit echtem Ruhezustand |
+| 5 | Fenster zu → App läuft in Menüleiste/Tray weiter | ⚠️ geschrieben und kompiliert; Tray-Icon wird angelegt (kein Fehler), aber unter dem virtuellen Display nicht sichtbar. Ausblenden beim Schließen **nicht** ausprobiert |
+| 6 | Eine Woche täglicher Eigennutzung | ❌ offen |
+
+Zusätzlich geprüft: zweiter Start auf bestehenden Daten (keine erneute Migration, Bearbeitung an `manifest.yaml` bleibt), Bundle-Smoke-Test lehnt absichtlich kaputte Bundles ab (ohne Engine, ohne Migrationen), SHA-256-Prüfung des Node-Downloads schlägt bei falschem Hash fehl, Rust-Pfadlogik (inkl. Windows-Präfix) als Unit-Test.
+
+**Gefunden und behoben beim Bauen:** die Rust-Shell kompilierte seit Phase 1 nicht (fehlendes `use tauri::Manager`); der Autostart-Plugin hob Tauri auf 2.12.4, die npm-Pakete mussten angeglichen werden (sonst bricht `tauri build` ab); mit asynchroner Logdatei ging ein Startfehler verloren (jetzt synchron).
+
+**Nicht geprüft, auf dem Mac/Windows zuerst ansehen:**
+- `restart_core`, Autostart-Schalter, „Show log file“, Tray-Menü, Ausblenden/Wiederöffnen (Dock-Klick auf dem Mac)
+- Mac: lädt die ad-hoc signierte Prisma-Engine? Liegt der Sidecar wie angenommen neben der Executable (`Contents/MacOS/node`), die Ressourcen in `Contents/Resources/core`? Schlüsselbund-Abfragen bei jedem neuen Build?
+- Windows: kein aufblitzendes Konsolenfenster (`CREATE_NO_WINDOW`), Pfadlänge (MAX_PATH) im Installationsordner, NSIS- und MSI-Build, Defender/SmartScreen bei dem 120-MB-`node.exe`
+- Beide: Größe des Installers (Linux-`.deb`: 63 MB), CI-Workflows (`ci.yml`, `release.yml`) sind nie auf einem echten Runner gelaufen
+- Das Tray-Symbol ist das Standard-App-Icon (auf dem Mac ideal wäre ein einfarbiges Template-Bild)
+
+**Bewusst nicht gelöst:** Signieren/Notarisieren (Phase 5); Verbesserungen an mitgelieferten Agenten erreichen bestehende Installationen nicht (Nutzerdateien werden nie überschrieben).
+
 ## Phase 2c — Personalisierung & mehr Agenten (v1.1)
 
 - **Voting** pro Artikel (👍/👎, „mehr / weniger davon“), gespeichert lokal.
