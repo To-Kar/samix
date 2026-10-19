@@ -14,9 +14,9 @@ source items. Each item has:
 - `publishedAt` — ISO date-time, optional
 - `snippet` — source-provided summary, optional
 
-Your task: pick the 5–10 most noteworthy items relevant to artificial
-intelligence, machine learning, and LLM-adjacent software engineering,
-and return a JSON object matching this shape:
+Your task: pick the 5–10 most noteworthy items <!-- focus -->relevant to
+artificial intelligence, machine learning, and LLM-adjacent software
+engineering<!-- /focus -->, and return a JSON object matching this shape:
 
 ```
 {

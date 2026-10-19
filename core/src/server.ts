@@ -32,7 +32,15 @@ const agentsDir = process.env.SAMIX_AGENTS_DIR ?? resolve(import.meta.dirname, '
 const bundledAgentsDir = process.env.SAMIX_BUNDLED_AGENTS_DIR;
 
 let skills: Skill[] = [];
-const fastify = await buildApp({ token, logger, getSkills: () => skills });
+const fastify = await buildApp({
+  token,
+  logger,
+  getSkills: () => skills,
+  addSkill: (skill) => skills.push(skill),
+  agentsDir,
+  // Templates come from the shipped agents, which the user never edits.
+  templateDir: bundledAgentsDir ?? agentsDir,
+});
 
 async function start(): Promise<void> {
   applyMigrations({ logger });

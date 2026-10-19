@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
@@ -7,6 +8,9 @@ import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { reloadSkill } from './scheduler/index.js';
 import { buildReaderProfile } from './runner/profile.js';
+import { createAgent, listTemplates } from './skills/create.js';
+import { loadSkillDir } from './skills/loader.js';
+import { validateSchedule } from './skills/schedule.js';
 import { knownModelIds, MODEL_KEY_ENV } from './adapters/index.js';
 import { updateManifest } from './skills/manifestFile.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
@@ -24,6 +28,11 @@ export interface AppDeps {
   logger: Logger;
   // A getter, because the skills are loaded after the app object is built.
   getSkills: () => Skill[];
+  /** Registers a skill created at runtime (POST /agents). */
+  addSkill?: (skill: Skill) => void;
+  /** Where user agents live and where agent templates are read from. */
+  agentsDir?: string;
+  templateDir?: string;
 }
 
 // Builds the HTTP API without listening, so tests can drive it with
@@ -205,6 +214,43 @@ export async function buildApp(deps: AppDeps) {
       topic: r.topic,
       createdAt: r.createdAt,
       agentSlug: r.agentRun.agent.slug,
+    }));
+  });
+
+  // Run history for the "what happened and what did it cost" view.
+  const runsQuery = z.object({
+    agent: z.string().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  });
+  fastify.get('/runs', async (request, reply) => {
+    const q = runsQuery.safeParse(request.query);
+    if (!q.success) {
+      reply.code(400).send({ error: 'invalid_query', details: q.error.flatten() });
+      return reply;
+    }
+    const runs = await prisma.agentRun.findMany({
+      where: q.data.agent ? { agent: { slug: q.data.agent } } : {},
+      orderBy: { startedAt: 'desc' },
+      take: q.data.limit,
+      include: { agent: { select: { slug: true } }, _count: { select: { articles: true, snapshots: true } } },
+    });
+    return runs.map((r) => ({
+      id: r.id,
+      agentSlug: r.agent.slug,
+      status: r.status,
+      trigger: r.trigger,
+      model: r.model,
+      costUsd: r.costUsd,
+      tokensInput: r.tokensInput,
+      tokensOutput: r.tokensOutput,
+      error: r.error,
+      startedAt: r.startedAt,
+      completedAt: r.completedAt,
+      articleCount: r._count.articles,
+      sourceCount: r._count.snapshots,
+      // A run that found nothing new says so in its output; the raw model
+      // output of other runs is not part of this listing.
+      nothingNew: r.status === 'success' && (r.output?.startsWith('{"note":"no_new_items"') ?? false),
     }));
   });
 
@@ -396,6 +442,94 @@ export async function buildApp(deps: AppDeps) {
         newerId: newer?.id ?? null,
         articles: articles.map((a) => articleSummary(a, q.data.leadParagraphs)),
       };
+    }
+  );
+
+  // ---- Creating agents, schedules ----------------------------------------
+
+  fastify.get('/agent-templates', async () => (deps.templateDir ? listTemplates(deps.templateDir) : []));
+
+  const newAgentSchema = z.object({
+    title: z.string().trim().min(1).max(60),
+    focus: z.string().trim().min(1).max(400),
+    template: z.string().min(1).default('newsletter-ai'),
+    sources: sourcesBodySchema.shape.sources.min(1),
+    schedule: z.object({ cron: z.string().min(1), timezone: z.string().min(1) }).optional(),
+    model: z.object({ primary: z.enum(MODEL_IDS), fallback: z.enum(MODEL_IDS).optional() }).optional(),
+  });
+
+  fastify.post('/agents', async (request, reply) => {
+    if (!deps.agentsDir || !deps.templateDir || !deps.addSkill) {
+      reply.code(501).send({ error: 'not_supported' });
+      return reply;
+    }
+    const parsed = newAgentSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_agent', message: errorMessage(parsed.error) });
+      return reply;
+    }
+    const input = parsed.data;
+    const available = new Set<string>(knownModelIds().filter((id) => id !== 'static'));
+    try {
+      for (const spec of input.sources) validateSourceSpec(spec as SourceSpec);
+      if (input.schedule) validateSchedule(input.schedule);
+      for (const id of [input.model?.primary, input.model?.fallback]) {
+        if (id && !available.has(id)) throw new Error(`no adapter for "${id}"`);
+      }
+      const templates = await listTemplates(deps.templateDir);
+      if (!templates.some((t) => t.id === input.template)) throw new Error(`unknown template "${input.template}"`);
+
+      const { slug, dir } = await createAgent({
+        input: { ...input, sources: input.sources as SourceSpec[] },
+        agentsDir: deps.agentsDir,
+        templateDir: join(deps.templateDir, input.template),
+      });
+      const skill = await loadSkillDir(dir);
+      deps.addSkill(skill);
+      // Schedules the cron job. No immediate run: spending starts when the
+      // reader presses "run" or the schedule fires, not at creation.
+      reloadSkill(skill.id, skill, request.log as unknown as typeof logger);
+      reply.code(201);
+      return { slug, title: skill.title };
+    } catch (err) {
+      reply.code(400).send({ error: 'invalid_agent', message: errorMessage(err) });
+      return reply;
+    }
+  });
+
+  fastify.put<{ Params: { slug: string }; Body: unknown }>(
+    '/agents/:slug/schedule',
+    async (request, reply) => {
+      const skill = skillList().find((s) => s.id === request.params.slug);
+      if (!skill) {
+        reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+        return reply;
+      }
+      const parsed = z
+        .object({ schedule: z.object({ cron: z.string().min(1), timezone: z.string().min(1) }).nullable() })
+        .safeParse(request.body);
+      if (!parsed.success || skill.type !== 'proactive') {
+        reply.code(400).send({
+          error: 'invalid_schedule',
+          message: skill.type !== 'proactive' ? 'only proactive agents have a schedule' : errorMessage(parsed.error),
+        });
+        return reply;
+      }
+      const schedule = parsed.data.schedule;
+      try {
+        if (schedule) validateSchedule(schedule);
+      } catch (err) {
+        reply.code(400).send({ error: 'invalid_schedule', message: errorMessage(err) });
+        return reply;
+      }
+
+      await updateManifest(skill, (m) => {
+        if (schedule) m['schedule'] = { ...(m['schedule'] as object | undefined), ...schedule };
+        else delete m['schedule'];
+      });
+      skill.manifest.schedule = schedule ? { ...skill.manifest.schedule, ...schedule } : undefined;
+      reloadSkill(skill.id, skill, request.log as unknown as typeof logger);
+      return { ok: true, schedule: skill.manifest.schedule ?? null };
     }
   );
 

@@ -376,3 +376,32 @@ describe('agents: list, enable/disable, per-agent latest', () => {
     expect((await local.inject({ url: '/editions/latest?agent=nobody', headers: AUTH })).statusCode).toBe(404);
   });
 });
+
+describe('run history', () => {
+  it('lists recent runs, newest first, per agent, with article counts and no raw output', async () => {
+    const skill = makeSkill();
+    const agentId = await seedAgent(skill);
+    const other = makeSkill();
+    const otherId = await seedAgent(other);
+    const mk = (at: string, extra: object = {}) =>
+      prisma.agentRun.create({ data: { agentId, status: 'success', trigger: 'schedule', startedAt: new Date(at), ...extra } });
+    const old = await mk('2031-01-01T06:00:00Z', { costUsd: 0.01, model: 'deepseek-chat' });
+    const failed = await mk('2031-01-02T06:00:00Z', { status: 'failed', error: 'no_source_items' });
+    const idle = await mk('2031-01-03T06:00:00Z', { output: '{"note":"no_new_items","skipped":4}' });
+    await prisma.article.create({ data: { agentRunId: old.id, title: 'a', summary: 's' } });
+    await prisma.agentRun.create({ data: { agentId: otherId, status: 'success', trigger: 'manual' } });
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill, other] });
+
+    const res = await local.inject({ url: `/runs?agent=${skill.id}`, headers: AUTH });
+    const runs = res.json() as Record<string, unknown>[];
+
+    expect(runs.map((r) => r.id)).toEqual([idle.id, failed.id, old.id]);
+    expect(runs[0]).toMatchObject({ nothingNew: true, status: 'success' });
+    expect(runs[1]).toMatchObject({ status: 'failed', error: 'no_source_items', nothingNew: false });
+    expect(runs[2]).toMatchObject({ articleCount: 1, costUsd: 0.01, model: 'deepseek-chat', agentSlug: skill.id });
+    expect(runs.every((r) => !('output' in r))).toBe(true);
+
+    expect((await local.inject({ url: '/runs?limit=0', headers: AUTH })).statusCode).toBe(400);
+    expect((await local.inject({ url: '/runs' })).statusCode).toBe(401);
+  });
+});
