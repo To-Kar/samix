@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { bootLocale, I18nProvider } from './i18n/I18nProvider';
 import { bootTheme, ThemeProvider } from './theme/ThemeProvider';
+import './theme/fontFaces';
 import './index.css';
 
 const queryClient = new QueryClient({

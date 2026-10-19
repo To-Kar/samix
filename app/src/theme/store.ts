@@ -1,11 +1,17 @@
 // Appearance is a per-device preference (a phone client may want another
 // theme than the desktop), so it lives in the WebView's storage rather than
-// in the core DB. Shared theme *files* are a separate concern.
+// in the core DB. Own themes (imported or saved from settings) live here too;
+// moving them between devices is what theme files are for.
 
 import { normalizeHex } from './color';
-import { DEFAULT_SETTINGS, FONT_SCALES, type ThemeSettings } from './types';
+import { parseTheme } from './registry';
+import { DEFAULT_SETTINGS, FONT_SCALES, type SamixTheme, type ThemeSettings } from './types';
 
 const KEY = 'samix.appearance.v1';
+const THEMES_KEY = 'samix.themes.v1';
+
+/** Upper bound on stored own themes; each is a few KB. */
+export const MAX_USER_THEMES = 50;
 
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   allowed.includes(value as T) ? (value as T) : fallback;
@@ -47,5 +53,30 @@ export function saveSettings(settings: ThemeSettings): void {
     localStorage.setItem(KEY, JSON.stringify(settings));
   } catch {
     // Storage unavailable: the choice holds for this session only.
+  }
+}
+
+/** Own (imported or saved) themes. Entries that no longer validate are dropped. */
+export function loadUserThemes(): SamixTheme[] {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(THEMES_KEY) ?? '[]');
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(0, MAX_USER_THEMES).flatMap((t, i) => {
+      try {
+        return [parseTheme(t, `stored theme #${i}`)];
+      } catch {
+        return [];
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserThemes(themes: SamixTheme[]): void {
+  try {
+    localStorage.setItem(THEMES_KEY, JSON.stringify(themes));
+  } catch {
+    // Storage unavailable: own themes last for this session only.
   }
 }

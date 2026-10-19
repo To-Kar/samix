@@ -80,6 +80,63 @@ export function pickTheme(
 
 const minAgainst = (fg: string, grounds: string[]) => Math.min(...grounds.map((g) => contrast(fg, g)));
 
+export interface GateResult {
+  palette: Palette;
+  corrections: Correction[];
+  failures: Failure[];
+}
+
+/**
+ * The contrast gate. Every foreground that misses one of its rules is moved
+ * in OKLCH lightness until it passes on all its grounds; `on-accent` becomes
+ * black or white. `accentDrivesFocus` makes the focus ring follow the accent
+ * (used when the user picked the accent).
+ */
+export function gatePalette(theme: SamixTheme, mode: Mode, input: Palette, accentDrivesFocus = false): GateResult {
+  const palette: Palette = { ...input };
+  const corrections: Correction[] = [];
+  const rules = contrastRules(theme);
+  const textMin = rules.find((r) => r.fg === 'on-accent')!.min;
+
+  const fit = (fg: ColorToken, extra: (c: string) => boolean = () => true) => {
+    const own = rules.filter((r) => r.fg === fg);
+    const grounds = own.map((r) => palette[r.bg]);
+    const ok = (c: string) => own.every((r) => contrast(c, palette[r.bg]) >= r.min) && extra(c);
+    const from = palette[fg];
+    const to = fitLightness(from, grounds, ok);
+    if (to !== from) {
+      corrections.push({ token: fg, mode, from, to, before: minAgainst(from, grounds), after: minAgainst(to, grounds) });
+      palette[fg] = to;
+    }
+  };
+
+  for (const fg of ['ink', 'ink-soft', 'line', 'danger', 'warning'] as const) fit(fg);
+  // Accent must also carry readable text on itself (primary buttons).
+  fit('accent', (c) => contrast(bestOn(c), c) >= textMin);
+
+  if (contrast(palette['on-accent'], palette.accent) < textMin) {
+    const from = palette['on-accent'];
+    palette['on-accent'] = bestOn(palette.accent);
+    corrections.push({
+      token: 'on-accent',
+      mode,
+      from,
+      to: palette['on-accent'],
+      before: contrast(from, palette.accent),
+      after: contrast(palette['on-accent'], palette.accent),
+    });
+  }
+
+  if (accentDrivesFocus) palette.focus = palette.accent;
+  else fit('focus');
+
+  const failures = rules
+    .map((r) => ({ ...r, ratio: contrast(palette[r.fg], palette[r.bg]) }))
+    .filter((r) => r.ratio < r.min);
+
+  return { palette, corrections, failures };
+}
+
 export function resolveTheme(
   themes: SamixTheme[],
   settings: ThemeSettings,
@@ -89,44 +146,16 @@ export function resolveTheme(
   const base = theme.modes[mode];
   if (!base) throw new Error(`theme ${theme.id} has no ${mode} palette`);
   const palette: Palette = { ...base };
-  const corrections: Correction[] = [];
-  const rules = contrastRules(theme);
 
   if (settings.paperTone !== 0) {
     for (const token of ['paper', 'paper-raised', 'rule'] as const) {
       palette[token] = shiftTone(palette[token], settings.paperTone);
     }
   }
-
   if (settings.accent) {
     palette.accent = settings.accent;
-    palette.focus = settings.accent;
+    palette['on-accent'] = bestOn(settings.accent);
   }
 
-  // Foregrounds first (on-accent and focus follow accent), each fitted against
-  // every ground it must read on.
-  for (const fg of ['ink', 'ink-soft', 'accent', 'line', 'danger', 'warning'] as const) {
-    const own = rules.filter((r) => r.fg === fg);
-    const grounds = own.map((r) => palette[r.bg]);
-    const ok = (c: string) =>
-      own.every((r) => contrast(c, palette[r.bg]) >= r.min) &&
-      (fg !== 'accent' || contrast(bestOn(c), c) >= rules.find((r) => r.fg === 'on-accent')!.min);
-    const from = palette[fg];
-    const to = fitLightness(from, grounds, ok);
-    if (to !== from) {
-      corrections.push({ token: fg, mode, from, to, before: minAgainst(from, grounds), after: minAgainst(to, grounds) });
-      palette[fg] = to;
-    }
-  }
-
-  if (settings.accent || corrections.some((c) => c.token === 'accent')) {
-    palette['on-accent'] = bestOn(palette.accent);
-    palette.focus = palette.accent;
-  }
-
-  const failures = rules
-    .map((r) => ({ ...r, ratio: contrast(palette[r.fg], palette[r.bg]) }))
-    .filter((r) => r.ratio < r.min);
-
-  return { theme, selected, mode, palette, corrections, failures };
+  return { theme, selected, mode, ...gatePalette(theme, mode, palette, settings.accent !== null) };
 }

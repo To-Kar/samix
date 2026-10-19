@@ -5,10 +5,7 @@
 import { hexToTriplet } from './color';
 import { bodyFamily, FONT_STACKS } from './fonts';
 import type { ResolvedTheme } from './resolve';
-import { COLOR_TOKENS, FONT_SCALES, type ThemeSettings } from './types';
-
-const MEASURE_DELTA = { narrow: -8, medium: 0, wide: 8 } as const;
-const DENSITY = { compact: 0.8, normal: 1, airy: 1.35 } as const;
+import { COLOR_TOKENS, DENSITY_FACTOR, FONT_SCALES, MEASURE_DELTA, type ThemeSettings } from './types';
 
 export function applyTheme(root: HTMLElement, resolved: ResolvedTheme, settings: ThemeSettings): void {
   const { theme, mode, palette } = resolved;
@@ -32,7 +29,7 @@ export function applyTheme(root: HTMLElement, resolved: ResolvedTheme, settings:
   s.setProperty('--measure', `${measure}ch`);
   s.setProperty('--radius', `${theme.shape.radius ?? 0}px`);
   s.setProperty('--rule-width', `${theme.shape.ruleWidth ?? 1}px`);
-  s.setProperty('--density', String(DENSITY[theme.layout.density ?? 'normal'] * DENSITY[settings.density]));
+  s.setProperty('--density', String(DENSITY_FACTOR[theme.layout.density ?? 'normal'] * DENSITY_FACTOR[settings.density]));
   s.colorScheme = mode;
 
   const d = root.dataset;

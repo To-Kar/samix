@@ -1,19 +1,6 @@
-// Every family a theme may name is bundled locally (Fontsource, OFL-1.1); the
-// app never fetches fonts at runtime. Fallbacks are system faces present on
-// Windows and macOS.
+// CSS stacks for the families a theme may name (the faces themselves are
+// loaded by fontFaces.ts). Fallbacks are system faces on Windows and macOS.
 
-import '@fontsource-variable/newsreader/wght.css';
-import '@fontsource-variable/newsreader/wght-italic.css';
-import '@fontsource-variable/source-serif-4/wght.css';
-import '@fontsource-variable/source-serif-4/wght-italic.css';
-import '@fontsource-variable/source-sans-3/wght.css';
-import '@fontsource-variable/literata/wght.css';
-import '@fontsource-variable/literata/wght-italic.css';
-import '@fontsource-variable/eb-garamond/wght.css';
-import '@fontsource-variable/eb-garamond/wght-italic.css';
-import '@fontsource/atkinson-hyperlegible/400.css';
-import '@fontsource/atkinson-hyperlegible/400-italic.css';
-import '@fontsource/atkinson-hyperlegible/700.css';
 import type { FontFamily, SamixTheme, ThemeSettings } from './types';
 
 export const FONT_STACKS: Record<FontFamily, string> = {

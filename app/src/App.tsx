@@ -3,6 +3,7 @@ import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { Settings } from './components/Settings';
 import { Appearance } from './components/Appearance';
+import { ThemeShare } from './components/ThemeShare';
 import { Newspaper } from './components/Newspaper';
 import { Sources } from './components/Sources';
 import { Segmented } from './components/controls';
@@ -74,6 +75,10 @@ export default function App() {
             <section>
               <h2 className="samix-headline text-2xl mb-4">{t.app.appearance}</h2>
               <Appearance />
+            </section>
+            <section>
+              <h2 className="samix-headline text-2xl mb-4">{t.share.title}</h2>
+              <ThemeShare />
             </section>
             <section>
               <h2 className="samix-label mb-3">{t.app.secrets}</h2>

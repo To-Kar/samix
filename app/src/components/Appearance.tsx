@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { contrast, normalizeHex } from '../theme/color';
 import { themeText } from '../theme/registry';
@@ -13,7 +13,7 @@ const ACCENT_PRESETS = ['#8a2c1a', '#7a4a12', '#5d5a14', '#2f5d3a', '#1f5f6b', '
 const ratio = (r: number, locale: string) => r.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export function Appearance() {
-  const { themes, settings, update, reset, resolved } = useTheme();
+  const { themes, isOwn, settings, update, reset, resolved } = useTheme();
   const { t, locale } = useI18n();
   const a = t.appearance;
   const name = (theme: (typeof themes)[number]) => themeText(theme, locale).name;
@@ -42,6 +42,7 @@ export function Appearance() {
                   ))}
                 </span>
                 {name(th)}
+                {isOwn(th.id) ? <span className="samix-hint"> · {t.share.own}</span> : null}
               </button>
             );
           })}
@@ -165,6 +166,12 @@ function AccentField() {
   const a = t.appearance;
   const [draft, setDraft] = useState(settings.accent ?? '');
   const picked = settings.accent;
+
+  // Follow changes made elsewhere (reset, saving as own theme) unless the
+  // field already holds that colour or is mid-edit towards it.
+  useEffect(() => {
+    if (normalizeHex(draft) !== picked) setDraft(picked ?? '');
+  }, [picked]);
 
   const commit = (value: string) => {
     setDraft(value);

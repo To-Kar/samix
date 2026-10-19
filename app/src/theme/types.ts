@@ -108,6 +108,12 @@ export interface ThemeSettings {
 
 export const FONT_SCALES = [0.9, 1, 1.15, 1.25, 1.4] as const;
 
+/** Spacing multiplier per density step; theme and user steps multiply. */
+export const DENSITY_FACTOR: Record<Density, number> = { compact: 0.8, normal: 1, airy: 1.35 };
+
+/** Characters added to the theme's measure per user step (result kept in 45–75). */
+export const MEASURE_DELTA: Record<ThemeSettings['measure'], number> = { narrow: -8, medium: 0, wide: 8 };
+
 export const DEFAULT_SETTINGS: ThemeSettings = {
   themeId: 'zeitung',
   mode: 'system',
