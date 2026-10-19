@@ -15,8 +15,8 @@ Die Phasennummern aus `SAMIX_ABOUT.md` bleiben gültig (Phase 3 = reaktive Agent
 | Phase | Titel | Ergebnis | Meilenstein |
 |---|---|---|---|
 | **1.5** | Stabilisierung | Frischer Klon läuft auf macOS + Windows, Werte-Verstöße behoben, Tests + CI | — |
-| **2a** | Zeitung & Reader | Zeitungslayout mit Textblöcken, Volltext-Artikel, In-App-Reader | — |
-| **2b** | Desktop-App macOS + Windows | Doppelklick-App ohne Terminal, ohne installiertes Node | **v1.0 — täglich nutzbar für Tom** |
+| **2a** | Zeitung, Reader & Webseiten-Quellen | Zeitungslayout mit Textblöcken, Volltext-Artikel, In-App-Reader mit Bildern, beliebige Webseiten als Quelle (mit optionalem Filter) | — |
+| **2b** | Desktop-App macOS (Apple Silicon) + Windows | Doppelklick-App ohne Terminal, ohne installiertes Node | **v1.0 — täglich nutzbar für Tom** |
 | **2c** | Personalisierung & mehr Agenten | Voting, Interessenprofil, zweiter Agent, generischer Quellen-Editor | v1.1 |
 | **3** | Reaktive Agenten | On-Demand-Agenten (z. B. Coding-Assistent) | v2.0 |
 | **4** | Orchestrator & Memory | Hierarchisch delegierender Router, Cross-Agent-Memory | v3.0 |
@@ -26,7 +26,7 @@ Die Phasennummern aus `SAMIX_ABOUT.md` bleiben gültig (Phase 3 = reaktive Agent
 
 ### Änderungen gegenüber früheren Docs (bewusst)
 
-1. **macOS wird Ship-Target, nicht nur Dev-Plattform.** CLAUDE.md sagt „Windows-first for shipping“, Phase-0-Spec legt Cross-Platform-Builds auf Phase 4+. Neu: macOS und Windows sind ab Phase 2b gleichrangige Ziele. Signing/Notarisierung bleibt Phase 5 (nur für Weitergabe nötig).
+1. **macOS wird Ship-Target, nicht nur Dev-Plattform.** CLAUDE.md sagt „Windows-first for shipping“, Phase-0-Spec legt Cross-Platform-Builds auf Phase 4+. Neu: macOS (vorerst nur Apple Silicon / arm64) und Windows sind ab Phase 2b gleichrangige Ziele. Signing/Notarisierung bleibt Phase 5 (nur für Weitergabe nötig).
 2. **Mehrspaltiges Zeitungslayout.** Phase-1-Handoff (§5 Punkt 10) erklärt Single-Column als bewusst und Mehrspaltigkeit zur „Phase 2 design decision“. Diese Entscheidung wird hiermit für Phase 2a getroffen.
 3. **Phase 2 zerlegt** in 2a/2b/2c. Inhalte aus dem alten Phase-2-Backlog (Tray, Autostart, OpenAI, Voting, Retention, Sidecar) sind auf die Teilphasen verteilt.
 
@@ -78,9 +78,54 @@ CLAUDE.md und Phase-Specs müssen beim Start von 1.5 entsprechend angepasst werd
 
 ---
 
-## Phase 2a — Zeitung & Reader
+## Phase 2a — Zeitung, Reader & Webseiten-Quellen
 
-**Ziel:** Samix sieht aus und liest sich wie eine Zeitung. Man sieht Zusammenfassungen in Textblöcken, wichtige Artikel stehen komplett auf der Seite, und ein Klick öffnet den ganzen Artikel sauber in der App — nicht im Browser.
+**Ziel:** Samix sieht aus und liest sich wie eine Zeitung. Man sieht Zusammenfassungen in Textblöcken, wichtige Artikel stehen angeschnitten mit Originaltext auf der Seite, und ein Klick öffnet den ganzen Artikel samt Bildern sauber in der App — nicht im Browser. Quellen sind nicht mehr nur RSS-URLs und arXiv-Kategorien: Man gibt eine Webseite an, optional mit Filter.
+
+### 2a.0 Webseiten als Quellen
+
+**Was man angibt** (im Quellen-Editor, als neuer Quell-Typ `website`):
+
+| Beispiel | Bedeutung |
+|---|---|
+| `chip.de` | die neuesten Artikel von chip.de |
+| `chip.de` + Filter `KI` | die neuesten Artikel von chip.de, die von KI handeln |
+
+Im Manifest (Skills bleiben Daten — keine Zeile Code pro Webseite):
+
+```yaml
+sources:
+  - type: website
+    config:
+      url: https://www.chip.de
+      max_items: 10
+  - type: website
+    config:
+      url: https://www.chip.de
+      max_items: 10
+      filter:
+        topic: KI                       # was gesucht wird
+        keywords: [KI, "künstliche Intelligenz", ChatGPT, LLM]   # optional, lokal
+        mode: keywords | semantic       # Default: keywords
+```
+
+**Wie der Fetcher die neuesten Artikel findet** — generisch, ohne Wissen über die konkrete Seite, in dieser Reihenfolge:
+
+1. **Feed-Erkennung:** Startseite laden, `<link rel="alternate" type="application/rss+xml|atom+xml">` suchen, gängige Pfade probieren (`/feed`, `/rss`, …). Ist ein Feed da, wird der vorhandene RSS-Parser benutzt (sortiert nach Datum). Viele Nachrichtenseiten haben Feeds [Unverified für chip.de — der Sandbox-Proxy hat die Seite blockiert, im Spike prüfen].
+2. **Sitemap:** `robots.txt` → `sitemap.xml` bzw. News-Sitemap, Einträge nach `lastmod`/Publikationsdatum.
+3. **Startseite auswerten:** Artikel-Links auf der Seite sammeln, jede Artikelseite auf Datum (`<meta property="article:published_time">`, JSON-LD `datePublished`) prüfen. Teuerste und fragilste Stufe — nur wenn 1 und 2 nichts liefern.
+
+Das Ergebnis (welche Methode, welche Feed-URL) wird pro Quelle gecacht, damit nicht jeder Lauf neu sucht. Items **ohne erkennbares Datum werden verworfen** (Wert „Source-traceable“: URL + Datum).
+
+**Filter — zwei Stufen:**
+
+- **`keywords` (Default, kostenlos):** lokaler Abgleich auf Titel + Beschreibung, groß/klein egal. Schnell, aber `KI` findet nicht automatisch „Machine Learning“.
+- **`semantic` (kostet Tokens):** Die Kandidaten (nur Titel + Kurzbeschreibung) gehen an das Modell mit der Frage „passt zu Thema *KI*?“. Läuft durch dieselben Budget-Gates wie jeder andere Call. Gefiltert wird **vor** dem Zusammenfassen, damit das teure Zusammenfassen nur passende Artikel sieht.
+- Filter-Treffer und -Ablehnungen werden pro Lauf geloggt („12 gefunden, 4 passen zu KI“), damit nachvollziehbar ist, warum etwas fehlt.
+
+**Im Quellen-Editor:** Webseite eintippen, optional Filter, **„Vorschau“-Knopf** zeigt sofort, welche Artikel gefunden würden und welche Methode (Feed/Sitemap/Seite) gegriffen hat — bevor gespeichert wird. Fehlt eine Seite komplett (JavaScript-only, blockiert), sagt die Vorschau das ehrlich.
+
+**Architektur-Grenze:** Ein neuer Fetcher `website` im Core (wie `rss`, `arxiv`). Keine seitenspezifischen Sonderwege für chip.de oder andere — wenn eine Seite mit den drei Stufen nicht funktioniert, ist das ein Hinweis in der UI, kein neuer Code-Pfad. Höfliches Fetchen (User-Agent, `robots.txt` respektieren, Rate-Limit pro Domain) gilt wie beim Volltext-Extraktor.
 
 ### 2a.1 Das Layout
 
@@ -114,7 +159,8 @@ CLAUDE.md und Phase-Specs müssen beim Start von 1.5 entsprechend angepasst werd
 | **Artikel-Block** | mittlere Wichtigkeit | Titel, Zusammenfassung, Quelle, Datum |
 | **Kurz notiert** | niedrige Wichtigkeit | Titel + 1–2 Sätze in einer schmalen Spalte |
 
-- **Ausgaben statt Endlosliste:** Die Seite zeigt eine *Ausgabe* (= ein erfolgreicher Run bzw. ein Tag). Navigation „‹ gestern | morgen ›“ zu älteren Ausgaben.
+- **Ausgaben statt Endlosliste:** Die Seite zeigt eine *Ausgabe*. **Entschieden: eine Ausgabe = ein erfolgreicher Lauf.** Navigation „‹ vorige | nächste ›“ zu älteren Ausgaben.
+- **Aufmacher angeschnitten (entschieden):** Originaltext nach einigen Absätzen abgeschnitten, „Weiterlesen“ öffnet den Reader. Die Länge ist eine Einstellung, kein fester Wert, damit sie später leicht änderbar ist.
 - **Typografie:** Serifenschrift für Text, Kopfzeile im Zeitungsstil, Spaltensatz mit CSS `columns` / Grid. Schriften **lokal gebündelt** (Local-first; CSP erlaubt ohnehin nur `font-src 'self'`). Kandidaten mit Open-Font-Licence prüfen, z. B. Source Serif 4 [Unverified: Lizenz vor Einbindung prüfen].
 - **Hell + Dunkel** (Papier-Ton / dunkles Papier), Mindestfensterbreite 800 px → bei schmalem Fenster auf 2 bzw. 1 Spalte zurückfallen.
 
@@ -131,7 +177,7 @@ Neuer Baustein im Core: **Content-Extraktor**, analog zu Adaptern und Fetchern h
 - **Wann:** *Nach* der Validierung des LLM-Outputs, nur für Artikel, die angezeigt werden. Aufmacher werden sofort beim Run vorgeladen, alle anderen **beim ersten Klick** (lazy) und dann gecacht. → keine zusätzlichen LLM-Kosten.
 - **Wie:** Original-URL laden, Hauptinhalt extrahieren (Kandidat: `@mozilla/readability` + ein DOM wie `linkedom`/`jsdom` [Unverified: Eignung im Spike prüfen]).
 - **Ausgabeformat: strukturierte Blöcke, kein HTML.** Der Extraktor liefert `[{type:'heading'|'paragraph'|'quote'|'list'|'image'|'code', …}]`. Die UI rendert diese Blöcke als React-Elemente — **kein `dangerouslySetInnerHTML`**. Grund: fremdes HTML in einer WebView mit Tauri-IPC-Zugriff ist ein Sicherheitsrisiko; strukturierte Blöcke vermeiden das ganze Problem.
-- **Bilder:** Core lädt Bilder herunter und liefert sie über den Loopback-Server aus (lokal gecacht). So bleibt die CSP streng und Dritte sehen nicht, was gelesen wird (keine Tracking-Pixel). Größenlimit pro Bild/Artikel.
+- **Bilder (entschieden: ja, im Reader und beim Aufmacher):** Core lädt Bilder herunter und liefert sie über den Loopback-Server aus (lokal gecacht). So bleibt die CSP streng und Dritte sehen nicht, was gelesen wird (keine Tracking-Pixel). Größenlimit pro Bild/Artikel.
 - **Wenn es nicht geht** (Paywall, reine JavaScript-Seite, PDF, Fehler): Status `paywalled` / `unsupported` / `failed` speichern; der Reader zeigt dann Zusammenfassung + „Im Browser öffnen“. Ehrlich anzeigen, nicht verschweigen.
 - **Sonderfälle:** arXiv → Abstract-Seite statt PDF [Unverified: ob arXiv-HTML-Volltexte zuverlässig verfügbar sind, im Spike prüfen]. Hacker News → verlinkter Artikel, nicht die Kommentarseite.
 - **Höflich fetchen:** eigener User-Agent, Timeout, Größenlimit, Rate-Limit pro Domain.
@@ -175,6 +221,9 @@ Ausgaben wachsen unbegrenzt (Report-Empfehlung). Konfigurierbare Aufbewahrung (D
 4. Kein fremdes HTML wird als HTML gerendert (Code-Review + Test).
 5. Keine Netzwerkanfrage der WebView an fremde Domains (CSP unverändert streng).
 6. Layout funktioniert bei 800 px und bei Vollbild, hell und dunkel, auf macOS und Windows.
+7. Bilder erscheinen im Reader, geladen vom lokalen Core, nicht von der fremden Domain.
+8. Quelle `website` mit nur einer URL liefert die neuesten Artikel mit Datum; mit Filter nur passende. Getestet an mindestens drei verschiedenen Nachrichtenseiten (eine davon chip.de), ohne seitenspezifischen Code.
+9. Vorschau im Quellen-Editor zeigt Treffer und Methode vor dem Speichern.
 
 ### Rechtlicher Hinweis
 
@@ -184,7 +233,7 @@ Ausgaben wachsen unbegrenzt (Report-Empfehlung). Konfigurierbare Aufbewahrung (D
 
 ## Phase 2b — Desktop-App für macOS und Windows
 
-**Ziel:** Samix ist eine normale App: Doppelklick, läuft, kein Terminal, kein installiertes Node/pnpm nötig. Auf **macOS (Apple Silicon + Intel)** und **Windows** gleichwertig.
+**Ziel:** Samix ist eine normale App: Doppelklick, läuft, kein Terminal, kein installiertes Node/pnpm nötig. Auf **macOS (vorerst nur Apple Silicon)** und **Windows** gleichwertig. Intel-Macs sind bewusst ausgeklammert und können später als zweiter Build ergänzt werden.
 
 ### 2b.1 Core als gebündelter Sidecar (größter Brocken)
 
@@ -201,7 +250,7 @@ Heute startet die Rust-Shell `pnpm --filter samix-core dev` (`tsx watch`) [verif
 | B: Node Single-Executable-Application (SEA) | eine Datei | [Unverified] Reife, native Module (Prisma, better-sqlite3) schwierig |
 | C: Andere Runtime (z. B. Bun compile) | eine Datei | zweite Laufzeit neben Dev, Kompatibilität ungeklärt |
 
-Knackpunkt bei allen Optionen: **native Bestandteile pro Plattform/Architektur** (Prisma-Query-Engine, `better-sqlite3`). Für macOS Universal (arm64 + x86_64) müssen beide Architekturen enthalten sein oder zwei getrennte Builds erstellt werden. Der Spike klärt, ob Prisma dafür tragbar ist oder ob ein Wechsel der DB-Zugriffsschicht nötig wird (dann eigenes ADR, ADR-003 SQLite bleibt unberührt).
+Knackpunkt bei allen Optionen: **native Bestandteile pro Plattform/Architektur** (Prisma-Query-Engine, `better-sqlite3`). Weil macOS vorerst nur arm64 ist, reicht ein Build pro Plattform (macOS arm64, Windows x64) — kein Universal-Binary nötig. Der Spike klärt, ob Prisma dafür tragbar ist oder ob ein Wechsel der DB-Zugriffsschicht nötig wird (dann eigenes ADR, ADR-003 SQLite bleibt unberührt).
 
 ### 2b.2 Datenpfade & Konfiguration
 
@@ -224,7 +273,7 @@ Knackpunkt bei allen Optionen: **native Bestandteile pro Plattform/Architektur**
 
 ### 2b.4 Build & Verteilung (nur für Tom)
 
-- macOS: `.app` + `.dmg`, Universal-Build oder getrennte arm64/x86_64-Builds (Ergebnis aus dem Spike). **Ad-hoc-Signatur** reicht für eigene Nutzung; ohne Apple-Developer-Zertifikat muss die App beim ersten Start per Rechtsklick → „Öffnen“ freigegeben werden [Inference: Gatekeeper-Verhalten, auf aktueller macOS-Version prüfen].
+- macOS: `.app` + `.dmg` für Apple Silicon (`aarch64-apple-darwin`). **Ad-hoc-Signatur** reicht für eigene Nutzung; ohne Apple-Developer-Zertifikat muss die App beim ersten Start per Rechtsklick → „Öffnen“ freigegeben werden [Inference: Gatekeeper-Verhalten, auf aktueller macOS-Version prüfen].
 - Windows: `.msi` oder NSIS-Installer, unsigniert (SmartScreen-Warnung akzeptiert für Eigennutzung).
 - CI baut beide Installer bei jedem Tag als Artefakt.
 
@@ -283,13 +332,22 @@ Hierarchisch delegierender Router, gemeinsames Gedächtnis über Agenten hinweg.
 - 1.5 zuerst: Ohne Traceability-Prüfung und Tests würde 2a auf möglicherweise erfundenen URLs Volltexte laden.
 - Der Sidecar-Spike (2b.1) ist das größte technische Risiko und sollte früh starten, parallel zu 2a.
 
-## Offene Entscheidungen (vor Start der jeweiligen Phase)
+## Entscheidungen
+
+### Getroffen (2026-10-19)
+
+| # | Frage | Entscheidung |
+|---|---|---|
+| 1 | Aufmacher-Volltext komplett oder angeschnitten? | **angeschnitten** mit „Weiterlesen“, Länge als Einstellung (später änderbar) |
+| 2 | Bilder im Reader? | **ja**, lokal gecacht |
+| 3 | Eine Ausgabe = ein Lauf oder ein Tag? | **ein Lauf** |
+| 4 | macOS-Architektur | **nur Apple Silicon** vorerst |
+| 5 | Quellen | **Webseiten** angeben können: neueste Artikel, optional mit Themen-Filter (Abschnitt 2a.0) |
+
+### Offen (vor Start der jeweiligen Phase)
 
 | # | Frage | Phase | Vorschlag |
 |---|---|---|---|
-| 1 | Aufmacher-Volltext auf der Titelseite komplett oder angeschnitten mit „Weiterlesen“? | 2a | angeschnitten (Seite bleibt überschaubar) |
-| 2 | Bilder im Reader anzeigen? | 2a | ja, lokal gecacht |
-| 3 | Eine Ausgabe = ein Run oder ein Kalendertag? | 2a | ein Tag (mehrere Runs zusammengeführt) |
-| 4 | macOS: nur Apple Silicon oder auch Intel? | 2b | Ergebnis des Spikes abwarten |
-| 5 | Core-Bündelung (ADR-007) | 2b | Spike entscheidet |
-| 6 | Apple-Developer-Konto für Signatur? | 5 | erst bei Veröffentlichung nötig |
+| 6 | Webseiten-Filter Default `keywords` (kostenlos) oder `semantic` (genauer, kostet Tokens)? | 2a | `keywords`, `semantic` pro Quelle zuschaltbar |
+| 7 | Core-Bündelung (ADR-007) | 2b | Spike entscheidet |
+| 8 | Apple-Developer-Konto für Signatur? | 5 | erst bei Veröffentlichung nötig |
