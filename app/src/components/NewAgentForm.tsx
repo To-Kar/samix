@@ -81,7 +81,7 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
       </div>
 
       <p className="text-xs text-neutral-500">
-        Beim Anlegen wird nichts abgerufen und nichts bezahlt. Kosten entstehen erst, wenn du „Neue Ausgabe erstellen“
+        Beim Anlegen wird nichts abgerufen und nichts bezahlt. Kosten entstehen erst, wenn du „Neue Artikel holen“
         drückst oder der Zeitplan greift. Pro Ressort gilt ein eigenes Tageslimit.
       </p>
 

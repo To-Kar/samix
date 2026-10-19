@@ -247,7 +247,7 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
         if (!target || !row?.enabled) return await finish('failed', { error: 'unknown_ressort' });
         proposals = [{ kind: 'refresh', ressort: target.id, title: target.title }];
         return await finish('success', {
-          answer: `Ich kann „${target.title}“ jetzt aktualisieren. Das ruft die Quellen ab und verursacht Modellkosten. Bestätige mit dem Knopf unten.`,
+          answer: `Ich kann für „${target.title}“ jetzt neue Artikel holen. Das ruft die Quellen ab und kostet Modellaufrufe. Bestätige mit dem Knopf unten.`,
         });
       }
 

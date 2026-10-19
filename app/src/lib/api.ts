@@ -169,6 +169,20 @@ export interface ArticleDetail extends Omit<EditionArticle, 'content' | 'excerpt
   }[];
 }
 
+export interface AgentRef {
+  slug: string;
+  title: string;
+}
+
+export interface ModelTestResult {
+  ok: boolean;
+  /** `key_missing`, `global_budget_exceeded` or the provider's error text. */
+  error?: string;
+  costUsd: number;
+  ms: number;
+  booked: boolean;
+}
+
 export interface ModelInfo {
   id: string;
   /** Environment variable / keychain account holding its API key; null = local. */
@@ -489,9 +503,18 @@ export class ApiClient {
     return this.request<ModelInfo[]>('/models');
   }
 
-  /** Switches every agent whose model has no API key to `primary` (which has one). */
-  useModel(primary: string): Promise<{ changed: { slug: string; title: string }[] }> {
-    return this.json('POST', '/models/use', { primary });
+  /**
+   * Switches agents to `primary`. Without `all`, only agents whose model has no
+   * API key; with it, every agent that can use the model (tool agents are
+   * skipped for a model without tool calling).
+   */
+  useModel(primary: string, all = false): Promise<{ changed: AgentRef[]; skipped?: AgentRef[] }> {
+    return this.json('POST', '/models/use', { primary, all });
+  }
+
+  /** One tiny request through the model's adapter: does the key work? */
+  testModel(model: string): Promise<ModelTestResult> {
+    return this.json('POST', '/models/test', { model });
   }
 
   getAgentModel(slug: string): Promise<ModelChoice> {

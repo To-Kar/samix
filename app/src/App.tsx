@@ -98,16 +98,16 @@ export default function App() {
             className={topBtn}
             onClick={() => (view.kind === 'settings' ? goPaper() : setView({ kind: 'settings' }))}
           >
-            {view.kind === 'settings' ? 'Einstellungen schließen' : 'Einstellungen'}
+            {view.kind === 'settings' ? 'Einrichtung schließen' : 'Einrichtung'}
           </button>
         </div>
 
         {view.kind === 'settings' ? (
           <section className="max-w-3xl">
             <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
-              Einstellungen
+              Einrichtung
             </h2>
-            <Settings />
+            <Settings api={api} />
           </section>
         ) : null}
 
@@ -134,6 +134,7 @@ export default function App() {
         <div hidden={view.kind !== 'ask'}>
           <Ask
             api={api}
+            onOpenSetup={() => setView({ kind: 'settings' })}
             onOpenSource={(id, order) => {
               paperScroll.current = window.scrollY;
               setView({ kind: 'reader', id, order, from: 'ask' });
@@ -146,6 +147,7 @@ export default function App() {
         <div hidden={view.kind !== 'paper'}>
           <Newspaper
             api={api}
+            onOpenSetup={() => setView({ kind: 'settings' })}
             refreshToken={paperToken}
             onOpen={(id, order) => {
               paperScroll.current = window.scrollY;

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentSummary, ApiClient, Edition, EditionArticle } from '../lib/api';
 import { formatLongDate, formatShortDate, formatUsd, hostnameOf } from '../lib/format';
 import { layoutEdition, readingOrder } from '../lib/layout';
-import { explainFailure, explainPartial } from '../lib/explain';
+import { explainFailure, explainPartial, needsSetup as needsSetup_ } from '../lib/explain';
 import { getLeadParagraphs, getRessort, isOnboarded, setRessort } from '../lib/prefs';
 import { onTrayRunNow } from '../lib/native';
 import { Onboarding } from './Onboarding';
@@ -17,9 +17,11 @@ interface NewspaperProps {
   onOpen: (articleId: string, order: string[]) => void;
   /** Changes whenever the front page becomes visible again. */
   refreshToken: number;
+  /** Opens the Einrichtung page. */
+  onOpenSetup: () => void;
 }
 
-export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
+export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperProps) {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [slug, setSlug] = useState<string | null>(getRessort());
   const [editionId, setEditionId] = useState('latest');
@@ -29,6 +31,10 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
   const [running, setRunning] = useState(false);
   const [runMessage, setRunMessage] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
+  // The run message points at something the Einrichtung page can fix.
+  const [runSetupHint, setRunSetupHint] = useState(false);
+  // At least one hosted model has a working key (or nothing is known yet).
+  const [keyReady, setKeyReady] = useState(true);
 
   const load = useCallback(
     async (id: string) => {
@@ -83,6 +89,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
   const runNewsletter = async () => {
     setRunning(true);
     setRunMessage(null);
+    setRunSetupHint(false);
     try {
       const result = await api.runAgent(slug ?? NEWSLETTER_SLUG);
       if (result.status === 'success') {
@@ -92,6 +99,7 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
         setRunMessage(`Keine Ausgabe: ${explainPartial(result.error)}`);
       } else {
         setRunMessage(`Lauf fehlgeschlagen: ${explainFailure(result.error)}`);
+        setRunSetupHint(needsSetup_(result.error));
       }
       setEditionId('latest');
       await load('latest');
@@ -106,6 +114,14 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
   // offer setup. (An empty Ressort next to ones that have editions is not a
   // first start. Ollama alone doesn't count: whether it is installed can't be
   // known here.)
+  useEffect(() => {
+    if (!empty) return;
+    api
+      .listModels()
+      .then((models) => setKeyReady(models.some((m) => m.keyEnv && m.keyConfigured) || models.some((m) => !m.keyEnv)))
+      .catch(() => setKeyReady(true));
+  }, [api, empty, refreshToken]);
+
   useEffect(() => {
     if (!empty || isOnboarded()) {
       setNeedsSetup(false);
@@ -197,7 +213,14 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
       ) : null}
 
       {runMessage ? (
-        <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm">{runMessage}</div>
+        <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm flex flex-wrap items-center gap-3">
+          <span>{runMessage}</span>
+          {runSetupHint ? (
+            <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
+              Einrichtung öffnen
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {loadError ? (
@@ -217,12 +240,26 @@ export function Newspaper({ api, onOpen, refreshToken }: NewspaperProps) {
       ) : null}
 
       {empty && !running && !needsSetup ? (
-        <div className="py-16 text-center text-ink-soft dark:text-ink-soft-dark">
-          <p className="font-serif text-2xl mb-2">Noch keine Ausgabe{current ? ` in „${current.title}“` : ''}.</p>
-          <p className="text-sm">
-            „Neue Ausgabe erstellen“ holt die ersten Artikel. Dafür braucht Samix einen API-Schlüssel (Einstellungen)
-            oder ein lokales Modell.
-          </p>
+        <div className="py-16 text-center text-ink-soft dark:text-ink-soft-dark flex flex-col items-center gap-4">
+          <p className="font-serif text-2xl">Noch keine Ausgabe{current ? ` in „${current.title}“` : ''}.</p>
+          {keyReady ? (
+            <>
+              <p className="text-sm max-w-xl">
+                Samix holt jetzt die ersten Artikel aus den Quellen des Ressorts und lässt das Modell sie zusammenfassen. Das kostet
+                einige Cent; das Tageslimit des Ressorts begrenzt es.
+              </p>
+              <button className="border border-ink dark:border-ink-dark text-ink dark:text-ink-dark px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline disabled:opacity-40" onClick={() => void runNewsletter()} disabled={!current?.enabled}>
+                Erste Ausgabe holen
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm max-w-xl">Zuerst braucht Samix einen API-Schlüssel (oder ein lokales Modell).</p>
+              <button className="border border-ink dark:border-ink-dark text-ink dark:text-ink-dark px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline" onClick={onOpenSetup}>
+                Einrichtung öffnen
+              </button>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -302,11 +339,11 @@ function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer
           </button>
         </div>
         <div className="flex items-center">
-          <button className={btn} onClick={onRefresh} disabled={running}>
-            Aktualisieren
+          <button className={btn} onClick={onRefresh} disabled={running} title="Lädt die Seite neu, ruft nichts ab und kostet nichts">
+            Neu laden
           </button>
-          <button className={btn} onClick={onRun} disabled={running || !canRun} title={canRun ? undefined : 'Das Ressort ist ausgeschaltet'}>
-            {running ? 'Wird erstellt …' : 'Neue Ausgabe erstellen'}
+          <button className={btn} onClick={onRun} disabled={running || !canRun} title={canRun ? 'Ruft die Quellen ab und fragt das Modell; kostet einige Cent' : 'Das Ressort ist ausgeschaltet'}>
+            {running ? 'Wird geholt …' : 'Neue Artikel holen'}
           </button>
         </div>
       </nav>

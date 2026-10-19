@@ -477,6 +477,17 @@ Mutationsproben erfasst: `..`-Prüfung, `realpath`-Prüfung (inkl. Präfix ohne 
 - Bestehende Installationen: `seedAgents` überschreibt nie. Ein schon kopierter `orchestrator` kennt `projekt-assistent` nicht, bis `delegates:` in seiner `manifest.yaml` ergänzt wird; `projekt-assistent` selbst wird neu kopiert und ist direkt über `agent: projekt-assistent` ansprechbar.
 - Zitate nur auf Dateiebene; keine Schreib-/Ausführ-Tools (**3c** bleibt offen und braucht ein eigenes Spec mit Freigabe je Aktion).
 
+### Status UX-Überarbeitung (2026-10-19)
+
+Auslöser: Die Oberfläche war beim ersten Einrichten verwirrend (Modell und Schlüssel an drei Stellen, Verwaltung unter dem Fragefeld, rohe Fehlertexte). Umgesetzt in der Reihenfolge A+E → B+D → C; Core: 318 Tests, App: 14; in Chromium mit echtem Core und Fake-Modell geprüft.
+
+- **Einrichtung** (statt „Einstellungen“, eine Seite): 1 Anbieter und Schlüssel mit Status (Kein Schlüssel / Gespeichert / Aktiv) und **„Testen“** (`POST /models/test`, eine winzige Anfrage über den Adapter; Kosten werden einem Agenten dieses Modells gebucht, globales Limit gilt); 2 **Modell für alle Agenten** (`POST /models/use` mit `all`; Tool-Agenten werden nie auf ein Modell ohne Tool-Aufrufe gestellt; Einzelwahl unter „Erweitert“); 3 Daten (Projektordner, Notizen); App/Zeitung.
+- **Fragen** nur noch zum Fragen: Verlauf, Antwort, Eingabe; eine Zeile nennt Quellen und Modell und verlinkt in die Einrichtung. Route-Zeile: „Antwort aus deinen Artikeln“ / „… deinem Projekt“.
+- **Wörter:** „Neu laden“ (kostet nichts) und „Neue Artikel holen“ (kostet Modellaufrufe, mit Hinweis).
+- **Fehler mit Ausweg:** Auth-Fehler werden erklärt; „Einrichtung öffnen“ erscheint bei Zeitung und Fragen. Leerer Zustand: „Erste Ausgabe holen“ oder „Einrichtung öffnen“.
+- **Erster Start:** Anbieter → Schlüssel → Test → Modell für alle Agenten → erste Ausgabe (statt nur das Modell des Newsletters zu setzen).
+- **Nicht verifiziert:** wie sich das im Tauri-Fenster und auf dem Mac anfühlt; der Testknopf gegen echte Anbieter; der Neustart des Cores nach dem Speichern im Onboarding (nur in der installierten App möglich, dort nie gelaufen). Keine Komponententests.
+
 ## Phase 5 — Öffentliche Veröffentlichung
 
 - **macOS:** Apple-Developer-Programm, Developer-ID-Signatur, Notarisierung [Unverified: aktuelle Kosten und Ablauf bei Apple prüfen].

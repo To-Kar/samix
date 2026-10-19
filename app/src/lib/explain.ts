@@ -6,6 +6,11 @@ const AUTH_ERROR = /authentication|api[ _-]?key|unauthorized|\b401\b/i;
 const AUTH_TEXT =
   'Für das eingestellte Modell fehlt der API-Schlüssel oder er wurde abgelehnt. Trage ihn unter „Einstellungen“ ein (in der Entwicklungs-App danach neu starten) und prüfe, ob das Modell zum Schlüssel passt (Ressorts → Modell).';
 
+/** Errors that the Einrichtung page can fix (missing/rejected key, model without tools). */
+export function needsSetup(error: string | null | undefined): boolean {
+  return Boolean(error) && (AUTH_ERROR.test(error as string) || error === 'model_without_tools' || error === 'key_missing');
+}
+
 export function explainFailure(error: string | null | undefined): string {
   if (error && AUTH_ERROR.test(error)) return AUTH_TEXT;
   switch (error) {

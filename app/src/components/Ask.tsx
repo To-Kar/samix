@@ -9,11 +9,14 @@ import type {
   TraceStep,
 } from '../lib/api';
 import { splitAnswer } from '../lib/answer';
-import { explainAsk, explainFailure } from '../lib/explain';
+import { explainAsk, explainFailure, needsSetup } from '../lib/explain';
 import { formatShortDate, formatUsd, hostnameOf } from '../lib/format';
-import { AgentModel } from './AgentModel';
-import { Notes } from './Notes';
-import { Projects } from './Projects';
+
+// What the reader sees instead of the agent's name.
+const ROUTE_LABEL: Record<string, string> = {
+  'frag-die-zeitung': 'Antwort aus deinen Artikeln',
+  'projekt-assistent': 'Antwort aus deinem Projekt',
+};
 
 // Questions go to the orchestrator; the Q&A agent answers behind it.
 export const ORCHESTRATOR = 'orchestrator';
@@ -23,11 +26,13 @@ interface AskProps {
   api: ApiClient;
   /** Opens the Reader on a cited article; `order` = the cited articles. */
   onOpenSource: (id: string, order: string[]) => void;
+  /** Opens the Einrichtung page (keys, models, projects, notes). */
+  onOpenSetup: () => void;
 }
 
 const smallBtn = 'text-xs uppercase tracking-wider hover:underline disabled:opacity-30 disabled:no-underline';
 
-export function Ask({ api, onOpenSource }: AskProps) {
+export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
   const [agents, setAgents] = useState<AgentSummary[] | undefined>(undefined);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -35,7 +40,7 @@ export function Ask({ api, onOpenSource }: AskProps) {
   const [question, setQuestion] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [modelVersion, setModelVersion] = useState(0);
+  const [setupError, setSetupError] = useState(false);
   const [released, setReleased] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +49,9 @@ export function Ask({ api, onOpenSource }: AskProps) {
   }, [api]);
 
   const loadAgent = useCallback(async () => {
-    setAgents(await api.listAgents());
+    const [list, projects] = await Promise.all([api.listAgents(), api.listProjects().catch(() => [])]);
+    setAgents(list);
+    setReleased(projects.filter((p) => p.allowModelAccess).length);
   }, [api]);
 
   useEffect(() => {
@@ -100,10 +107,12 @@ export function Ask({ api, onOpenSource }: AskProps) {
         // Refused before a conversation existed (busy, disabled, wrong model).
         setQuestion(q);
         setError(explainAsk(r.error));
+        setSetupError(needsSetup(r.error));
       }
     } catch (e) {
       setQuestion(q);
       setError(e instanceof Error ? e.message : String(e));
+      setSetupError(false);
     } finally {
       setPending(null);
     }
@@ -152,11 +161,15 @@ export function Ask({ api, onOpenSource }: AskProps) {
         <header>
           <h2 className="font-serif font-bold text-3xl leading-tight">Fragen</h2>
           <p className="text-sm text-ink-soft dark:text-ink-soft-dark mt-1">
-            Antworten stammen ausschließlich aus deinen gesammelten Artikeln und den freigegebenen Projektordnern und nennen ihre Quellen.
+            Antworten kommen nur aus deinen Artikeln{released > 0 ? ` und ${released} freigegebenen Projekt${released === 1 ? '' : 'en'}` : ''} und nennen ihre Quellen.
+          </p>
+          <p className="text-xs text-ink-soft dark:text-ink-soft-dark mt-1">
             {models.length
-              ? ` Deine Frage und gefundene Artikelauszüge werden an ${models.length > 1 ? 'die Modelle' : 'das Modell'} ${models.map((m) => `„${m}“`).join(' und ')} gesendet.`
+              ? `Deine Frage und gefundene Auszüge gehen an ${models.map((m) => `„${m}“`).join(' und ')}. `
               : ''}
-            {released > 0 ? ' Aus freigegebenen Projekten gelesene Dateiausschnitte gehen ebenfalls an das Modell.' : ''}
+            <button className="underline hover:no-underline" onClick={onOpenSetup}>
+              Modell, Projekte und Notizen in der Einrichtung ändern
+            </button>
           </p>
         </header>
 
@@ -168,7 +181,7 @@ export function Ask({ api, onOpenSource }: AskProps) {
 
         <div className="flex flex-col gap-6" aria-live="polite">
           {messages.map((m) => (m.role === 'user' ? <Question key={m.id} text={m.content} /> : (
-            <Answer key={m.id} message={m} onOpenSource={onOpenSource} titleOf={titleOf} api={api} />
+            <Answer key={m.id} message={m} onOpenSource={onOpenSource} titleOf={titleOf} api={api} onOpenSetup={onOpenSetup} />
           )))}
           {pending ? (
             <>
@@ -181,8 +194,13 @@ export function Ask({ api, onOpenSource }: AskProps) {
         </div>
 
         {error ? (
-          <div className="border border-red-400 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-800 dark:text-red-200" role="alert">
-            {error}
+          <div className="border border-red-400 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-800 dark:text-red-200 flex flex-wrap items-center gap-3" role="alert">
+            <span>{error}</span>
+            {setupError ? (
+              <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
+                Einrichtung öffnen
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -216,29 +234,6 @@ export function Ask({ api, onOpenSource }: AskProps) {
           </div>
         </form>
 
-        <details className="text-xs" onToggle={() => setModelVersion((v) => v + 1)}>
-          <summary className="cursor-pointer uppercase tracking-wider">Modelle</summary>
-          <div className="mt-2 flex flex-col gap-4">
-            {(agents ?? []).filter((a) => a.type === 'reactive').map((a) => (
-              <div key={a.slug} className="flex flex-col gap-1">
-                <p className="font-semibold">{a.title}</p>
-                <AgentModel api={api} slug={a.slug} version={modelVersion} onSaved={() => void loadAgent()} />
-              </div>
-            ))}
-          </div>
-        </details>
-        <details className="text-xs">
-          <summary className="cursor-pointer uppercase tracking-wider">Projekte</summary>
-          <div className="mt-2">
-            <Projects api={api} onChanged={setReleased} />
-          </div>
-        </details>
-        <details className="text-xs">
-          <summary className="cursor-pointer uppercase tracking-wider">Notizen</summary>
-          <div className="mt-2">
-            <Notes api={api} />
-          </div>
-        </details>
         <div ref={endRef} />
       </section>
     </div>
@@ -258,11 +253,13 @@ function Answer({
   onOpenSource,
   titleOf,
   api,
+  onOpenSetup,
 }: {
   message: ConversationMessage;
   onOpenSource: AskProps['onOpenSource'];
   titleOf: (slug?: string) => string;
   api: ApiClient;
+  onOpenSetup: () => void;
 }) {
   const refs = new Set(message.citations.map((c) => c.number));
   // Only articles open in the reader; project files are shown by path.
@@ -272,7 +269,12 @@ function Answer({
   if (message.status !== 'ok') {
     return (
       <div className="border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" role="status">
-        {explainAsk(message.error)}
+        <p>{explainAsk(message.error)}</p>
+        {needsSetup(message.error) ? (
+          <button className="mt-2 uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
+            Einrichtung öffnen
+          </button>
+        ) : null}
         <Trace message={message} />
       </div>
     );
@@ -282,7 +284,7 @@ function Answer({
     <article className="flex flex-col gap-3">
       {message.route?.kind === 'delegate' ? (
         <p className="text-xs uppercase tracking-wider text-ink-soft dark:text-ink-soft-dark">
-          Weitergeleitet an: {titleOf(message.route.agent)}
+          {ROUTE_LABEL[message.route.agent ?? ''] ?? `Weitergeleitet an: ${titleOf(message.route.agent)}`}
         </p>
       ) : null}
       <p className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
@@ -394,7 +396,7 @@ function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient 
         disabled={state.kind !== 'idle'}
         onClick={() => void run()}
       >
-        {state.kind === 'running' ? 'Läuft …' : `„${proposal.title}“ jetzt aktualisieren`}
+        {state.kind === 'running' ? 'Läuft …' : `Neue Artikel für „${proposal.title}“ holen`}
       </button>
       {state.kind === 'done' ? <span role="status">{state.text}</span> : null}
     </div>

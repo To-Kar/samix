@@ -3,6 +3,7 @@ import type { ApiClient, ModelInfo } from '../lib/api';
 import { setSecret, type SecretAccount } from '../lib/keychain';
 import { restartCore } from '../lib/native';
 import { setOnboarded } from '../lib/prefs';
+import { explainFailure } from '../lib/explain';
 
 const NEWSLETTER_SLUG = 'newsletter-ai';
 const LOCAL_MODEL = 'ollama-llama3';
@@ -26,6 +27,7 @@ export function Onboarding({ api, onDone }: Props) {
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [step, setStep] = useState<string | null>(null);
 
   useEffect(() => {
     api.listModels().then(setModels, (e: unknown) => setMessage(e instanceof Error ? e.message : String(e)));
@@ -45,13 +47,31 @@ export function Onboarding({ api, onDone }: Props) {
           setMessage('Bitte den API-Schlüssel eintragen.');
           return;
         }
+        setStep('Schlüssel wird gespeichert …');
         await setSecret(info.keyEnv as SecretAccount, key.trim());
+        setStep('Samix wird neu gestartet …');
         const result = await restartCore();
         if (!result.restarted) {
-          setMessage(`Der Schlüssel ist gespeichert, aber der Core wurde nicht neu gestartet: ${result.reason}`);
+          setMessage(`Der Schlüssel ist gespeichert, aber der Core wurde nicht neu gestartet: ${result.reason}. Beende die App und starte sie neu; dann geht es hier weiter.`);
+          return;
+        }
+        // Prove the key works before anything is paid for or configured.
+        setStep('Schlüssel wird getestet …');
+        let test = null;
+        for (let i = 0; i < 8 && !test; i++) {
+          try {
+            test = await api.testModel(choice);
+          } catch {
+            await new Promise((r) => setTimeout(r, 600)); // the core is still coming back
+          }
+        }
+        if (!test || !test.ok) {
+          setMessage(`Der Schlüssel funktioniert nicht: ${test ? explainFailure(test.error) : 'Der Core antwortet nicht.'}`);
           return;
         }
       }
+      setStep('Modell wird für alle Agenten eingestellt …');
+      await api.useModel(choice, true);
       await api.putAgentModel(NEWSLETTER_SLUG, {
         primary: choice,
         // A local model as safety net when a hosted one is chosen.
@@ -63,6 +83,7 @@ export function Onboarding({ api, onDone }: Props) {
       setMessage(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+      setStep(null);
     }
   };
 
@@ -71,7 +92,7 @@ export function Onboarding({ api, onDone }: Props) {
       <h2 className="font-serif font-bold text-3xl mb-2">Willkommen bei Samix</h2>
       <p className="text-ink-soft dark:text-ink-soft-dark mb-6">
         Samix sammelt Artikel aus deinen Quellen und fasst sie mit einem Sprachmodell zusammen. Welches soll es benutzen?
-        Das lässt sich später in den Einstellungen ändern.
+        Das lässt sich später unter „Einrichtung“ ändern.
       </p>
 
       <div className="flex flex-col gap-3 mb-6">
@@ -104,6 +125,13 @@ export function Onboarding({ api, onDone }: Props) {
         </label>
       ) : null}
 
+      <ol className="mb-4 text-xs text-ink-soft dark:text-ink-soft-dark flex gap-4">
+        <li>1 Anbieter wählen</li>
+        <li>2 Schlüssel einfügen</li>
+        <li>3 Test</li>
+        <li>4 Erste Ausgabe</li>
+      </ol>
+      {step ? <p className="mb-4 text-sm" role="status">{step}</p> : null}
       {message ? <p className="mb-4 text-sm text-red-700 dark:text-red-400">{message}</p> : null}
 
       <button

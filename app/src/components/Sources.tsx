@@ -133,7 +133,7 @@ export function Sources({ api, slug }: SourcesProps) {
       <fieldset className="flex flex-col gap-2">
         <legend className={legend}>Perplexity-Suche</legend>
         <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder="AI agent architectures 2026" />
-        <p className="text-xs text-neutral-400">Eine Suchanfrage pro Zeile. Braucht einen Perplexity-Schlüssel (Einstellungen) und kostet pro Lauf extra.</p>
+        <p className="text-xs text-neutral-400">Eine Suchanfrage pro Zeile. Braucht einen Perplexity-Schlüssel (Einrichtung) und kostet pro Lauf extra.</p>
       </fieldset>
 
       {saveMessage ? (

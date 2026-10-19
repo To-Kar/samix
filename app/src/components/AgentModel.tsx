@@ -69,7 +69,7 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
       </label>
       {selected && !selected.keyConfigured ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          Für {selected.id} fehlt der Schlüssel ({selected.keyEnv}). Bitte zuerst in den Einstellungen eintragen.
+          Für {selected.id} fehlt der Schlüssel ({selected.keyEnv}). Bitte zuerst unter „Einrichtung“ eintragen.
         </p>
       ) : null}
       <div className="flex items-center gap-3">
