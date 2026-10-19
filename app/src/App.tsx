@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
 import { Settings } from './components/Settings';
+import { Appearance } from './components/Appearance';
 import { Newspaper } from './components/Newspaper';
 import { Sources } from './components/Sources';
 
@@ -21,12 +22,12 @@ export default function App() {
 
   if (initError) {
     return (
-      <main className="min-h-full bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 p-8">
-        <h1 className="text-2xl font-semibold mb-2">Samix</h1>
-        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 p-4 text-red-800 dark:text-red-200 text-sm">
+      <main className="min-h-full p-8">
+        <h1 className="samix-headline text-3xl mb-2">Samix</h1>
+        <div className="samix-error">
           <div className="font-medium mb-1">Core config unavailable</div>
-          <div className="font-mono text-xs">{initError}</div>
-          <div className="mt-2 text-xs">
+          <div className="font-mono">{initError}</div>
+          <div className="mt-2">
             Make sure <code>pnpm dev:core</code> is running and that{' '}
             <code>SAMIX_PORT</code> + <code>SAMIX_TOKEN</code> were passed to the
             Tauri process.
@@ -38,20 +39,20 @@ export default function App() {
 
   if (!api) {
     return (
-      <main className="min-h-full flex items-center justify-center text-sm text-neutral-500">
+      <main className="min-h-full flex items-center justify-center samix-hint">
         Connecting…
       </main>
     );
   }
 
   return (
-    <main className="min-h-full bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col">
+    <main className="min-h-full flex flex-col">
       <ConnectionBanner api={api} />
       <div className="max-w-3xl w-full mx-auto px-6 py-8 flex flex-col gap-6">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Samix</h1>
-            <p className="text-sm text-neutral-500">Today's news, curated locally.</p>
+            <h1 className="samix-headline text-3xl">Samix</h1>
+            <p className="samix-hint">Today's news, curated locally.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -59,7 +60,7 @@ export default function App() {
                 setShowSources((v) => !v);
                 setShowSettings(false);
               }}
-              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              className="samix-button"
             >
               {showSources ? 'Close sources' : 'Sources'}
             </button>
@@ -68,22 +69,26 @@ export default function App() {
                 setShowSettings((v) => !v);
                 setShowSources(false);
               }}
-              className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              className="samix-button"
             >
               {showSettings ? 'Close settings' : 'Settings'}
             </button>
           </div>
         </header>
         {showSettings ? (
-          <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
-              Secrets
-            </h2>
-            <Settings />
-          </section>
+          <div className="flex flex-col gap-10">
+            <section>
+              <h2 className="samix-headline text-2xl mb-4">Aussehen</h2>
+              <Appearance />
+            </section>
+            <section>
+              <h2 className="samix-label mb-3">Secrets</h2>
+              <Settings />
+            </section>
+          </div>
         ) : showSources ? (
           <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500 mb-3">
+            <h2 className="samix-label mb-3">
               Sources
             </h2>
             <Sources api={api} />

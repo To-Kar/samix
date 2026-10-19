@@ -51,7 +51,7 @@ export function Newspaper({ api }: NewspaperProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-neutral-500">
+        <div className="samix-hint">
           {articles == null
             ? 'Loading…'
             : articles.length === 0
@@ -62,14 +62,14 @@ export function Newspaper({ api }: NewspaperProps) {
           <button
             onClick={() => void refresh()}
             disabled={running}
-            className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+            className="samix-button"
           >
             Refresh
           </button>
           <button
             onClick={() => void runNewsletter()}
             disabled={running}
-            className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+            className="samix-button"
           >
             {running ? 'Running…' : 'Run newsletter-ai'}
           </button>
@@ -77,13 +77,13 @@ export function Newspaper({ api }: NewspaperProps) {
       </div>
 
       {runMessage ? (
-        <div className="rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-300">
+        <div className="samix-note">
           {runMessage}
         </div>
       ) : null}
 
       {loadError ? (
-        <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-xs text-red-800 dark:text-red-200 font-mono">
+        <div className="samix-error font-mono">
           {loadError}
         </div>
       ) : null}
@@ -91,7 +91,7 @@ export function Newspaper({ api }: NewspaperProps) {
       {articles && articles.length > 0
         ? groupByDay(articles).map(([day, items]) => (
             <section key={day} className="flex flex-col gap-3">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 border-b border-neutral-200 dark:border-neutral-800 pb-1">
+              <h3 className="samix-label border-b border-rule pb-1">
                 {day}
               </h3>
               <div className="flex flex-col gap-3">
@@ -111,26 +111,26 @@ function ArticleCard({ article }: { article: Article }) {
     if (article.sourceUrl) void openUrl(article.sourceUrl);
   };
   return (
-    <article className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/50 p-4 flex flex-col gap-2">
-      <h2 className="text-base font-semibold leading-tight">{article.title}</h2>
-      <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-snug">
+    <article className="border-b border-rule pb-4 flex flex-col gap-2">
+      <h2 className="samix-headline text-xl leading-tight">{article.title}</h2>
+      <p className="samix-prose">
         {article.summary}
       </p>
-      <div className="flex items-center gap-2 mt-1 text-xs">
+      <div className="flex items-center gap-2 mt-1 text-sm">
         {article.topic ? (
-          <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-neutral-600 dark:text-neutral-400">
+          <span className="samix-kicker">
             {article.topic}
           </span>
         ) : null}
         {article.sourceUrl ? (
-          <span className="text-neutral-400 truncate max-w-[14rem]">
+          <span className="text-ink-soft truncate max-w-[14rem]">
             {hostnameOf(article.sourceUrl)}
           </span>
         ) : null}
         <button
           onClick={handleOpen}
           disabled={!article.sourceUrl}
-          className="ml-auto rounded border border-neutral-300 dark:border-neutral-700 px-2 py-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+          className="ml-auto samix-button"
         >
           Open ↗
         </button>

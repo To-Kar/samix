@@ -120,81 +120,81 @@ export function Sources({ api }: SourcesProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-xs text-red-800 dark:text-red-200 font-mono">
+      <div className="samix-error font-mono">
         {loadError}
       </div>
     );
   }
 
   if (!sources) {
-    return <div className="text-sm text-neutral-500">Loading sources…</div>;
+    return <div className="samix-hint">Loading sources…</div>;
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-xs text-neutral-500">
+      <p className="samix-hint">
         Edit the sources for <code>newsletter-ai</code>. Saves write directly to{' '}
         <code>manifest.yaml</code> — one entry per line.
       </p>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">
+        <legend className="samix-label mb-1">
           RSS Feeds
         </legend>
         <textarea
           value={rssUrls}
           onChange={(e) => setRssUrls(e.target.value)}
           rows={4}
-          className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-400"
+          className="samix-input font-mono"
           placeholder="https://hnrss.org/frontpage&#10;https://feeds.example.com/rss"
         />
-        <p className="text-xs text-neutral-400">One URL per line</p>
+        <p className="samix-hint">One URL per line</p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">
+        <legend className="samix-label mb-1">
           Arxiv
         </legend>
-        <label className="text-xs text-neutral-600 dark:text-neutral-400">
+        <label className="text-sm text-ink-soft">
           Categories (one per line)
         </label>
         <textarea
           value={arxivCategories}
           onChange={(e) => setArxivCategories(e.target.value)}
           rows={3}
-          className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-400"
+          className="samix-input font-mono"
           placeholder="cs.AI&#10;cs.LG"
         />
-        <label className="text-xs text-neutral-600 dark:text-neutral-400">
+        <label className="text-sm text-ink-soft">
           Optional keyword filter
         </label>
         <input
           type="text"
           value={arxivQuery}
           onChange={(e) => setArxivQuery(e.target.value)}
-          className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-400"
+          className="samix-input font-mono"
           placeholder="large language models"
         />
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">
+        <legend className="samix-label mb-1">
           Perplexity Search
         </legend>
         <textarea
           value={perplexityQueries}
           onChange={(e) => setPerplexityQueries(e.target.value)}
           rows={3}
-          className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-400"
+          className="samix-input font-mono"
           placeholder="AI agent architectures 2026&#10;open source LLMs"
         />
-        <p className="text-xs text-neutral-400">
+        <p className="samix-hint">
           One search query per line. Requires a Perplexity API key in Settings.
         </p>
       </fieldset>
 
       {saveMessage ? (
-        <div className="rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-300">
+        <div className="samix-note">
           {saveMessage}
         </div>
       ) : null}
@@ -202,7 +202,7 @@ export function Sources({ api }: SourcesProps) {
       <button
         onClick={() => void save()}
         disabled={saving}
-        className="self-start rounded border border-neutral-300 dark:border-neutral-700 px-4 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+        className="self-start samix-button-primary"
       >
         {saving ? 'Saving…' : 'Save sources'}
       </button>

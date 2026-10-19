@@ -1,0 +1,69 @@
+{
+  "format": "samix-theme/1",
+  "id": "nacht",
+  "name": "Nacht",
+  "version": 1,
+  "author": "Samix",
+  "stance": "Echtes Schwarz, gedämpfte Schrift, warmer Akzent: für dunkle Räume und OLED-Displays.",
+  "darkOnly": true,
+  "lightPartner": "zeitung",
+  "modes": {
+    "dark": {
+      "paper": "#000000",
+      "paper-raised": "#0d0d0c",
+      "ink": "#c9c3b7",
+      "ink-soft": "#8f897e",
+      "rule": "#262422",
+      "line": "#6a655d",
+      "accent": "#d9a862",
+      "on-accent": "#000000",
+      "mark": "#3a2e14",
+      "focus": "#d9a862",
+      "danger": "#ea998c",
+      "danger-paper": "#2a0f0b",
+      "warning": "#d9b25e",
+      "warning-paper": "#261d09"
+    }
+  },
+  "type": {
+    "headline": {
+      "family": "Source Serif 4",
+      "weight": 600,
+      "style": "normal"
+    },
+    "body": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "ui": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "serif": {
+      "family": "Source Serif 4"
+    },
+    "size": 18,
+    "leading": 1.65,
+    "measure": 64,
+    "headlineCase": "normal",
+    "kicker": "uppercase"
+  },
+  "shape": {
+    "radius": 4,
+    "rule": "hairline",
+    "ruleWidth": 1,
+    "columnRules": true,
+    "mastheadRule": "single"
+  },
+  "layout": {
+    "density": "normal",
+    "columns": 3,
+    "paragraph": "space",
+    "justify": false,
+    "hyphens": true
+  },
+  "images": {
+    "show": "always",
+    "treatment": "dimmed"
+  }
+}

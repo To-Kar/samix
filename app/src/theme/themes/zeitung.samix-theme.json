@@ -1,0 +1,83 @@
+{
+  "format": "samix-theme/1",
+  "id": "zeitung",
+  "name": "Zeitungspapier",
+  "version": 1,
+  "author": "Samix",
+  "stance": "Die Tageszeitung auf dem Küchentisch: warmes Papier, Spalten, Haarlinien — Ordnung, die man nicht bemerkt.",
+  "modes": {
+    "light": {
+      "paper": "#f6f1e6",
+      "paper-raised": "#fbf8f0",
+      "ink": "#1c1a16",
+      "ink-soft": "#5c5547",
+      "rule": "#c9bfa8",
+      "line": "#8a7f68",
+      "accent": "#8a2c1a",
+      "on-accent": "#fbf8f0",
+      "mark": "#ecdca8",
+      "focus": "#8a2c1a",
+      "danger": "#9b1c1c",
+      "danger-paper": "#f6dfd6",
+      "warning": "#6e4700",
+      "warning-paper": "#f3e5c2"
+    },
+    "dark": {
+      "paper": "#15130f",
+      "paper-raised": "#1e1b16",
+      "ink": "#e8e2d4",
+      "ink-soft": "#a89f8c",
+      "rule": "#3a352c",
+      "line": "#7a7160",
+      "accent": "#e39a7f",
+      "on-accent": "#15130f",
+      "mark": "#4a3f22",
+      "focus": "#e39a7f",
+      "danger": "#f2a08f",
+      "danger-paper": "#3a1712",
+      "warning": "#e6b866",
+      "warning-paper": "#33270f"
+    }
+  },
+  "type": {
+    "headline": {
+      "family": "Newsreader",
+      "weight": 700,
+      "style": "normal"
+    },
+    "body": {
+      "family": "Newsreader",
+      "weight": 400
+    },
+    "ui": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "sans": {
+      "family": "Source Sans 3"
+    },
+    "size": 18,
+    "leading": 1.5,
+    "measure": 62,
+    "headlineCase": "normal",
+    "kicker": "uppercase"
+  },
+  "shape": {
+    "radius": 0,
+    "rule": "hairline",
+    "ruleWidth": 1,
+    "columnRules": true,
+    "mastheadRule": "double"
+  },
+  "layout": {
+    "density": "normal",
+    "columns": 3,
+    "paragraph": "space",
+    "justify": false,
+    "hyphens": true
+  },
+  "images": {
+    "show": "always",
+    "treatment": "grayscale"
+  }
+}

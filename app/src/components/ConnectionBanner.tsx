@@ -15,7 +15,7 @@ export function ConnectionBanner({ api }: Props) {
 
   if (isError) {
     return (
-      <div className="bg-red-600 text-white px-4 py-2 text-sm font-medium">
+      <div className="border-b border-danger bg-danger-paper text-danger px-4 py-2 text-sm font-medium" role="alert">
         Samix Core disconnected. Is `pnpm dev:core` still running?
       </div>
     );
@@ -23,14 +23,14 @@ export function ConnectionBanner({ api }: Props) {
 
   if (isSuccess && data) {
     return (
-      <div className="bg-emerald-600/10 text-emerald-900 dark:text-emerald-200 px-4 py-1.5 text-xs">
+      <div className="border-b border-rule text-ink-soft px-4 py-1.5 text-sm">
         Core connected · v{data.version} · uptime {Math.floor(data.uptime)}s
       </div>
     );
   }
 
   return (
-    <div className="bg-neutral-200 dark:bg-neutral-800 px-4 py-1.5 text-xs">
+    <div className="border-b border-rule text-ink-soft px-4 py-1.5 text-sm">
       Connecting to core…
     </div>
   );

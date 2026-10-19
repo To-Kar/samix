@@ -1,0 +1,83 @@
+{
+  "format": "samix-theme/1",
+  "id": "essay",
+  "name": "Essay",
+  "version": 1,
+  "author": "Samix",
+  "stance": "Eine Spalte, breite Ränder, eine Gedankenfolge: lesen wie ein Buch mit Bleistift in der Hand.",
+  "modes": {
+    "light": {
+      "paper": "#f2f1ec",
+      "paper-raised": "#f8f7f3",
+      "ink": "#23262b",
+      "ink-soft": "#585d64",
+      "rule": "#cfccc2",
+      "line": "#86837a",
+      "accent": "#2f4f6f",
+      "on-accent": "#f8f7f3",
+      "mark": "#d9e2ea",
+      "focus": "#2f4f6f",
+      "danger": "#9e2a22",
+      "danger-paper": "#f3dfda",
+      "warning": "#6b4f00",
+      "warning-paper": "#efe6cc"
+    },
+    "dark": {
+      "paper": "#1a1c20",
+      "paper-raised": "#22252a",
+      "ink": "#dcdad3",
+      "ink-soft": "#9f9d96",
+      "rule": "#34373d",
+      "line": "#71747b",
+      "accent": "#a3bcd4",
+      "on-accent": "#1a1c20",
+      "mark": "#2f3d4c",
+      "focus": "#a3bcd4",
+      "danger": "#eba196",
+      "danger-paper": "#3a1d1a",
+      "warning": "#e0c070",
+      "warning-paper": "#322a12"
+    }
+  },
+  "type": {
+    "headline": {
+      "family": "EB Garamond",
+      "weight": 500,
+      "style": "normal"
+    },
+    "body": {
+      "family": "EB Garamond",
+      "weight": 400
+    },
+    "ui": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "sans": {
+      "family": "Source Sans 3"
+    },
+    "size": 21,
+    "leading": 1.6,
+    "measure": 58,
+    "headlineCase": "normal",
+    "kicker": "small-caps"
+  },
+  "shape": {
+    "radius": 0,
+    "rule": "ornament",
+    "ruleWidth": 1,
+    "columnRules": false,
+    "mastheadRule": "short"
+  },
+  "layout": {
+    "density": "airy",
+    "columns": 1,
+    "paragraph": "indent",
+    "justify": false,
+    "hyphens": true
+  },
+  "images": {
+    "show": "lead-only",
+    "treatment": "muted"
+  }
+}

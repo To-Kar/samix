@@ -42,14 +42,14 @@ export function Settings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+      <div className="samix-note">
         Stored in the OS keychain under service <code>samix</code>. Values never leave
         Rust — the UI only sees whether a key is configured. Restart the app to load
         new keys into the core (auto-spawn lands with Phase 1 step 11).
       </div>
       {GROUPS.map((group) => (
         <section key={group.title} className="flex flex-col gap-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          <h3 className="samix-label">
             {group.title}
           </h3>
           <div className="flex flex-col gap-2">
@@ -117,20 +117,18 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-xs">
-        <span className="font-medium text-neutral-700 dark:text-neutral-300 w-40 shrink-0">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="font-medium w-40 shrink-0">
           {field.label}
         </span>
         <span
           className={
-            configured
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-neutral-400'
+            configured ? 'text-ink' : 'text-ink-soft'
           }
         >
           {configured ? (flash ? 'saved ✓' : 'configured') : 'not set'}
         </span>
-        <span className="font-mono text-[10px] text-neutral-400 ml-auto">
+        <span className="font-mono text-sm text-ink-soft ml-auto">
           {field.account}
         </span>
       </div>
@@ -141,7 +139,7 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
           onChange={(e) => setValue(e.target.value)}
           placeholder={configured ? '••• (enter new to replace)' : 'value'}
           disabled={busy}
-          className="flex-1 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-50"
+          className="flex-1 samix-input font-mono"
           onKeyDown={(e) => {
             if (e.key === 'Enter') void handleSave();
           }}
@@ -149,7 +147,7 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
         <button
           onClick={() => void handleSave()}
           disabled={busy || !value}
-          className="rounded border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+          className="samix-button"
         >
           Save
         </button>
@@ -157,14 +155,14 @@ function SecretRow({ field, configured, flash, onSaved, onDeleted }: SecretRowPr
           <button
             onClick={() => void handleDelete()}
             disabled={busy}
-            className="rounded border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40"
+            className="samix-button text-danger"
           >
             Remove
           </button>
         ) : null}
       </div>
       {error ? (
-        <div className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</div>
+        <div className="text-sm text-danger font-mono">{error}</div>
       ) : null}
     </div>
   );
