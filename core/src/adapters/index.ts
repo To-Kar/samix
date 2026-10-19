@@ -21,6 +21,12 @@ registry.set('claude-sonnet-4-6', () => new ClaudeAdapter('claude-sonnet-4-6'));
 registry.set('perplexity-sonar', () => new PerplexityAdapter());
 registry.set('ollama-llama3', () => new OllamaAdapter());
 
+// Overrides the adapter for a model id. Used by tests to avoid real provider
+// calls; the runner and fallback chain only ever see the ModelAdapter interface.
+export function registerAdapter(modelId: ModelId, factory: AdapterFactory): void {
+  registry.set(modelId, factory);
+}
+
 export function resolveAdapter(modelId: ModelId): ModelAdapter {
   const factory = registry.get(modelId);
   if (!factory) {

@@ -1,4 +1,4 @@
-import type { SourceFetcher, SourceSpec } from '../types.js';
+import type { FetcherType, SourceFetcher, SourceSpec } from '../types.js';
 import { RssFetcher } from './rss.js';
 import { PerplexitySearchFetcher } from './perplexity.js';
 import { ArxivFetcher } from './arxiv.js';
@@ -6,19 +6,23 @@ import { ArxivFetcher } from './arxiv.js';
 export { RssFetcher, PerplexitySearchFetcher, ArxivFetcher };
 export { parseAndNormalize } from './base.js';
 
-type FetcherType = SourceSpec['type'];
 type FetcherFactory = () => SourceFetcher;
 
-const registry = new Map<FetcherType, FetcherFactory>();
+const registry = new Map<SourceSpec['type'], FetcherFactory>();
 registry.set('rss', () => new RssFetcher());
 registry.set('perplexity_search', () => new PerplexitySearchFetcher());
 registry.set('arxiv', () => new ArxivFetcher());
 
-export function resolveFetcher(type: FetcherType): SourceFetcher | undefined {
+// Overrides the fetcher for a type. Used by tests to avoid real network I/O.
+export function registerFetcher(type: FetcherType, factory: FetcherFactory): void {
+  registry.set(type, factory);
+}
+
+export function resolveFetcher(type: SourceSpec['type']): SourceFetcher | undefined {
   const factory = registry.get(type);
   return factory ? factory() : undefined;
 }
 
-export function knownFetcherTypes(): FetcherType[] {
+export function knownFetcherTypes(): SourceSpec['type'][] {
   return Array.from(registry.keys());
 }

@@ -134,3 +134,14 @@ Bei einer Code-Gegenprüfung dieses Reports ist aufgefallen, dass die Fallback-C
 **Noch offen:** Kriterium 8 muss gegen einen echten ungültigen Anthropic-Key mit laufendem Ollama nachgetestet werden. Bis dahin steht es auf ⚠️. Der Fix ist syntaktisch geprüft, aber weder typgeprüft noch ausgeführt.
 
 **Lehre für Phase 2:** Eine implementierte Funktion ohne Aufrufer sieht in einem Review wie ein Feature aus. Ein Akzeptanzkriterium, das über die UI nicht sichtbar wird, braucht einen automatisierten Test, sonst wandert es ungeprüft als ✅ in den Report.
+
+---
+
+## Nachtrag (2026-10-19): Phase 1.5
+
+Code-Gegenprüfung und Stabilisierung, siehe `SAMIX_ROADMAP.md`. Änderungen am Stand dieses Reports:
+
+- **Kriterium 8** ist jetzt automatisiert getestet (`core/test/runner.test.ts`, Fake-Adapter: Primär wirft, Fallback bedient, Kosten gegen den Fallback gerechnet; Mutationstest: Test schlägt fehl, wenn die Fallback-Kette entfernt wird). **Weiterhin nicht** manuell gegen einen echten ungültigen Anthropic-Key mit laufendem Ollama geprüft.
+- **Kriterium 3/11** gelten jetzt zusätzlich unter Traceability: Artikel werden nur gespeichert, wenn ihre URL in den `SourceSnapshot`s desselben Runs steht (vorher nur im Prompt gefordert, im Code nicht geprüft).
+- Der Aufruf des Modells **ohne Quellen** ist entfernt (`no_source_items`).
+- Der Hinweis „Prisma-Client in CI“ ist erledigt (`postinstall: prisma generate`); Migrationen laufen beim Core-Start.

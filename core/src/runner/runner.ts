@@ -16,6 +16,11 @@ import { generateWithFallback, resolveAdapter } from '../adapters/index.js';
 import { resolveFetcher } from '../sources/index.js';
 import { JsonSchemaValidator } from '../output/validator.js';
 import { unwrapJsonFences } from '../output/unwrap.js';
+import {
+  enforceTraceability,
+  type ArticleCandidate,
+  type TraceableArticle,
+} from '../output/traceability.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 
@@ -135,7 +140,7 @@ async function fetchSources(
   await prisma.sourceSnapshot.createMany({
     data: all.map((item) => ({
       agentRunId: runId,
-      sourceType: specTypeOf(item, specs),
+      sourceType: item.sourceType,
       sourceName: item.sourceName,
       url: item.url,
       title: item.title,
@@ -147,18 +152,6 @@ async function fetchSources(
   return all;
 }
 
-// Map an item back to its originating spec type. SourceItem doesn't carry
-// the spec type directly; we infer from sourceName conventions. Imperfect
-// but good enough for audit: RSS feed titles and arxiv: prefixes are
-// distinguishable; "perplexity" is a fixed sentinel.
-function specTypeOf(item: SourceItem, specs: SourceSpec[]): string {
-  if (item.sourceName === 'perplexity') return 'perplexity_search';
-  if (item.sourceName.startsWith('arxiv')) return 'arxiv';
-  // Fallback: first RSS spec in the manifest wins. Works because we only
-  // have one RSS spec per manifest in Phase 1.
-  return specs.find((s) => s.type === 'rss')?.type ?? 'rss';
-}
-
 function resolveSchemaPath(skill: Skill): string | undefined {
   const p = skill.manifest.output.schemaPath;
   if (!p) return undefined;
@@ -166,36 +159,83 @@ function resolveSchemaPath(skill: Skill): string | undefined {
   return resolvePath(dirname(skill.skillMdPath), p);
 }
 
-interface ParsedArticle {
-  title: string;
-  summary: string;
-  sourceUrl?: string;
-  publishedAt?: string;
-  topic?: string;
-}
+// Create Article rows from traceability-checked articles. Returns the new
+// article IDs.
+async function createArticles(
+  runId: string,
+  articles: TraceableArticle[]
+): Promise<string[]> {
+  if (articles.length === 0) return [];
 
-// Create Article rows from the validated parsed output. Returns the list
-// of new article IDs. Assumes the validator already enforced the shape.
-async function createArticles(runId: string, parsed: unknown): Promise<string[]> {
-  if (!parsed || typeof parsed !== 'object') return [];
-  const items = (parsed as { items?: ParsedArticle[] }).items;
-  if (!Array.isArray(items) || items.length === 0) return [];
-
-  const rows = items.map((item) => ({
+  const rows = articles.map((a) => ({
     id: randomUUID(),
     agentRunId: runId,
-    title: item.title,
-    summary: item.summary,
-    sourceUrl: item.sourceUrl,
-    publishedAt: item.publishedAt ? new Date(item.publishedAt) : null,
-    topic: item.topic,
+    title: a.title,
+    summary: a.summary,
+    sourceUrl: a.sourceUrl,
+    sourceName: a.sourceName,
+    publishedAt: a.publishedAt,
+    topic: a.topic,
   }));
 
   await prisma.article.createMany({ data: rows });
   return rows.map((r) => r.id);
 }
 
+// Pull the candidate list out of validated output. The schema already
+// guarantees the shape; this only narrows the type.
+function candidatesOf(parsed: unknown): ArticleCandidate[] {
+  if (!parsed || typeof parsed !== 'object') return [];
+  const items = (parsed as { items?: unknown }).items;
+  return Array.isArray(items) ? (items as ArticleCandidate[]) : [];
+}
+
+// One run per agent at a time. A manual run racing the cron job (or a
+// catch-up) would otherwise double the spend and read a stale budget ledger.
+const activeAgents = new Set<string>();
+
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
+  const slug = opts.skill.id;
+  if (activeAgents.has(slug)) return rejectConcurrentRun(opts);
+  activeAgents.add(slug);
+  try {
+    return await executeRun(opts);
+  } finally {
+    activeAgents.delete(slug);
+  }
+}
+
+async function rejectConcurrentRun(opts: RunAgentOptions): Promise<RunResult> {
+  const { skill, trigger } = opts;
+  const runId = randomUUID();
+  const log = (opts.logger ?? rootLogger).child({ runId, agentSlug: skill.id, trigger });
+  const startedAt = new Date();
+  const agentRow = await prisma.agent.findUnique({ where: { slug: skill.id } });
+  if (!agentRow) {
+    throw new Error(`Agent row missing for slug "${skill.id}" — was SkillLoader run?`);
+  }
+  log.warn('already_running; refusing to start a second run');
+  await prisma.agentRun.create({
+    data: {
+      id: runId,
+      agentId: agentRow.id,
+      status: 'failed',
+      trigger,
+      error: 'already_running',
+      startedAt,
+      completedAt: startedAt,
+    },
+  });
+  return buildFailureResult({
+    runId,
+    agentSlug: skill.id,
+    error: 'already_running',
+    startedAt,
+    completedAt: startedAt,
+  });
+}
+
+async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
   const { skill, trigger, input } = opts;
   const runId = randomUUID();
   const log = (opts.logger ?? rootLogger).child({
@@ -282,12 +322,31 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
     sourceItems = await fetchSources(skill.manifest.sources, runId, log);
   }
 
+  // A skill that declares sources must have something to summarise. Calling
+  // the model with nothing to ground it on costs money and invites invented
+  // articles, so the run stops here, before any provider call.
+  if (skill.manifest.sources?.length && sourceItems.length === 0) {
+    log.warn({ sources: skill.manifest.sources.length }, 'no_source_items; refusing to call model');
+    const completedAt = new Date();
+    await markFailed(runId, 'no_source_items', completedAt);
+    return buildFailureResult({
+      runId,
+      agentSlug: skill.id,
+      error: 'no_source_items',
+      startedAt,
+      completedAt,
+    });
+  }
+
   const request: NormalizedRequest = {
     systemPrompt: skill.systemPrompt,
     messages: sourceItems.length
       ? [{ role: 'user', content: JSON.stringify({ items: sourceItems }, null, 2) }]
       : [],
     maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,
+    timeoutMs: skill.manifest.model.timeoutSecs
+      ? skill.manifest.model.timeoutSecs * 1000
+      : undefined,
   };
 
   log.info(
@@ -388,21 +447,16 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
       schemaPath
     );
 
-    // Invalid output → status=partial, raw persisted for diagnosis, no
-    // Article rows, no delivery. The run is a "we spent money but got
-    // nothing usable" outcome — distinct from both success and failure.
-    if (!validation.valid) {
-      const errorSummary = (validation.errors ?? []).join('; ').slice(0, 2000);
-      log.warn(
-        { errors: validation.errors, model: servingAdapter.name },
-        'output_validation_failed'
-      );
+    // Unusable output → status=partial, raw persisted for diagnosis, no
+    // Article rows. A "we spent money but got nothing usable" outcome —
+    // distinct from both success and failure.
+    const finishPartial = async (error: string): Promise<RunResult> => {
       await prisma.agentRun.update({
         where: { id: runId },
         data: {
           status: 'partial',
           output: rawOutput,
-          error: `schema_violation: ${errorSummary}`,
+          error,
           tokensInput: response.usage.inputTokens,
           tokensOutput: response.usage.outputTokens,
           costUsd,
@@ -417,16 +471,44 @@ export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
         tokensInput: response.usage.inputTokens,
         tokensOutput: response.usage.outputTokens,
         costUsd,
-        error: `schema_violation: ${errorSummary}`,
+        error,
         citations: response.citations,
         articleIds: [],
         startedAt,
         completedAt,
       };
+    };
+
+    if (!validation.valid) {
+      const errorSummary = (validation.errors ?? []).join('; ').slice(0, 2000);
+      log.warn(
+        { errors: validation.errors, model: servingAdapter.name },
+        'output_validation_failed'
+      );
+      return finishPartial(`schema_violation: ${errorSummary}`);
     }
 
-    // Valid output → create Article rows from parsed.items.
-    const articleIds = await createArticles(runId, validation.parsed);
+    // Schema-valid is not the same as traceable: every article must point at
+    // an item this run actually fetched, and carry a publication date.
+    const candidates = candidatesOf(validation.parsed);
+    const { accepted, rejected } = enforceTraceability(candidates, sourceItems);
+    if (rejected.length > 0) {
+      log.warn(
+        { rejected, accepted: accepted.length, model: servingAdapter.name },
+        'articles_rejected_untraceable'
+      );
+    }
+    const minItems = skill.manifest.output.minItems ?? 1;
+    if (accepted.length < minItems) {
+      return finishPartial(
+        `traceability: ${accepted.length} of ${candidates.length} articles traceable, need ${minItems}` +
+          (rejected.length
+            ? ` (rejected: ${rejected.map((r) => r.reason).join(', ')})`.slice(0, 500)
+            : '')
+      );
+    }
+
+    const articleIds = await createArticles(runId, accepted);
 
     await prisma.agentRun.update({
       where: { id: runId },

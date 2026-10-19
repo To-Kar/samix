@@ -28,6 +28,8 @@ pub fn spawn_core(port: u16, token: &str) -> Result<Child, std::io::Error> {
     cmd.args(["--filter", "samix-core", "dev"])
         .env("SAMIX_PORT", port.to_string())
         .env("SAMIX_TOKEN", token)
+        // The core exits when this process is gone, so it never outlives the app.
+        .env("SAMIX_PARENT_PID", std::process::id().to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());

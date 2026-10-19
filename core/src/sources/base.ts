@@ -7,7 +7,7 @@ import type { SourceItem } from '../types.js';
 // Node handles it fine but we need the tsx-watch dev loop.
 export type { SourceFetcher, SourceItem, FetchContext } from '../types.js';
 
-export type ParsedItem = Omit<SourceItem, 'sourceName'>;
+export type ParsedItem = Omit<SourceItem, 'sourceName' | 'sourceType'>;
 
 export interface ParsedFeed {
   feedTitle?: string;

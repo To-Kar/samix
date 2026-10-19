@@ -34,6 +34,8 @@ export interface ModelPreference {
   primary: ModelId;
   fallback?: ModelId;
   routing?: Record<string, ModelId>;
+  // Per-call timeout applied to whichever adapter serves the request.
+  timeoutSecs?: number;
 }
 
 export interface BudgetSpec {
@@ -105,6 +107,7 @@ export interface NormalizedRequest {
   maxTokens?: number;
   temperature?: number;
   tools?: unknown[];
+  timeoutMs?: number;
 }
 
 export interface NormalizedResponse {
@@ -129,12 +132,16 @@ export interface ModelAdapter {
   generate(req: NormalizedRequest): Promise<NormalizedResponse>;
 }
 
+export type FetcherType = 'rss' | 'perplexity_search' | 'arxiv';
+
 export interface SourceItem {
   url: string;
   title: string;
   snippet?: string;
   publishedAt?: Date;
   sourceName: string;
+  // The fetcher that produced this item; persisted on SourceSnapshot.
+  sourceType: FetcherType;
   raw?: Record<string, unknown>;
 }
 
@@ -145,7 +152,7 @@ export interface FetchContext {
 }
 
 export interface SourceFetcher<C = unknown> {
-  readonly type: 'rss' | 'perplexity_search' | 'arxiv';
+  readonly type: FetcherType;
   fetch(config: C, ctx: FetchContext): Promise<SourceItem[]>;
 }
 

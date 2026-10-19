@@ -68,6 +68,7 @@ export class PerplexitySearchFetcher implements SourceFetcher<PerplexitySearchCo
               title: r.title ?? query,
               publishedAt: parseDate(r.date),
               sourceName: 'perplexity',
+              sourceType: this.type,
               raw: { query, accessedAt: accessedAt.toISOString(), ...r },
             });
           }
@@ -77,6 +78,7 @@ export class PerplexitySearchFetcher implements SourceFetcher<PerplexitySearchCo
               url,
               title: query,
               sourceName: 'perplexity',
+              sourceType: this.type,
               raw: { query, accessedAt: accessedAt.toISOString() },
             });
           }

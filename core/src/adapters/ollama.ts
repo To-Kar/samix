@@ -13,6 +13,8 @@ export class OllamaUnreachable extends Error {
   }
 }
 
+const DEFAULT_TIMEOUT_MS = 300_000;
+
 interface OllamaChatResponse {
   message?: { role: string; content: string };
   done_reason?: string;
@@ -27,13 +29,16 @@ export class OllamaAdapter implements ModelAdapter {
   readonly pricing = { inputPerMillionTokens: 0, outputPerMillionTokens: 0 };
 
   private readonly base: string;
-  // VERIFY: different installs may have different model tags (llama3.2,
-  // llama3.1:8b, etc.). Phase 1 hardcodes `llama3`; a future ModelId scheme
-  // should parameterize the tag.
-  private readonly model = 'llama3';
+  // Installs differ in which tag they pulled (llama3.2, llama3.1:8b, …), so
+  // the tag is configurable. The ModelId stays `ollama-llama3`.
+  private readonly model: string;
 
-  constructor(base = 'http://127.0.0.1:11434') {
+  constructor(
+    base = process.env.SAMIX_OLLAMA_URL ?? 'http://127.0.0.1:11434',
+    model = process.env.SAMIX_OLLAMA_MODEL ?? 'llama3'
+  ) {
     this.base = base;
+    this.model = model;
   }
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
@@ -42,10 +47,15 @@ export class OllamaAdapter implements ModelAdapter {
       ...req.messages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
+    // Cold-starting a local model can take minutes; without a bound a stuck
+    // Ollama would hold the run (and the per-agent lock) forever.
+    const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
     let res: Response;
     try {
       res = await fetch(`${this.base}/api/chat`, {
         method: 'POST',
+        signal: AbortSignal.timeout(timeoutMs),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: this.model,
@@ -58,6 +68,9 @@ export class OllamaAdapter implements ModelAdapter {
         }),
       });
     } catch (err) {
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        throw new Error(`Ollama timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
       throw new OllamaUnreachable(this.base, err);
     }
 

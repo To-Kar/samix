@@ -78,7 +78,12 @@ function normalizeManifest(m: ManifestYaml): Manifest {
     id: m.id,
     type: m.type,
     version: m.version,
-    model: m.model,
+    model: {
+      primary: m.model.primary,
+      fallback: m.model.fallback,
+      routing: m.model.routing,
+      timeoutSecs: m.model.timeout_secs,
+    },
     budget: {
       dailyUsdMax: m.budget.daily_usd_max,
       tokensPerRunMax: m.budget.tokens_per_run_max,

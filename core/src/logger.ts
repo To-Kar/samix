@@ -5,7 +5,7 @@ const level = process.env.SAMIX_LOG_LEVEL ?? 'info';
 export const logger = pino({
   level,
   transport:
-    process.env.NODE_ENV === 'production'
+    process.env.NODE_ENV === 'production' || level === 'silent'
       ? undefined
       : {
           target: 'pino-pretty',

@@ -6,17 +6,14 @@ import type {
   NormalizedResponse,
 } from '../types.js';
 
-// Phase 0: stub. Interface wired, but runtime is not exercised —
-// hello-world uses StaticAdapter. Kept here so Phase 1 can enable
-// it by changing the skill manifest only.
-
 interface ClaudePricing {
   inputPerMillionTokens: number;
   outputPerMillionTokens: number;
 }
 
-// VERIFY: Pricing numbers should be re-checked against the current
-// Anthropic pricing page before any real call is enabled in Phase 1.
+// USD per million tokens. Checked against
+// https://platform.claude.com/docs/en/about-claude/pricing on 2026-10-19.
+// Re-check when adding a model: BudgetLedger trusts these numbers.
 const PRICING: Record<string, ClaudePricing> = {
   'claude-haiku-4-5': { inputPerMillionTokens: 1.0, outputPerMillionTokens: 5.0 },
   'claude-sonnet-4-6': { inputPerMillionTokens: 3.0, outputPerMillionTokens: 15.0 },
@@ -51,18 +48,21 @@ export class ClaudeAdapter implements ModelAdapter {
   }
 
   async generate(req: NormalizedRequest): Promise<NormalizedResponse> {
-    const response = await this.client.messages.create({
-      model: this.sdkModelId,
-      max_tokens: req.maxTokens ?? 1024,
-      temperature: req.temperature,
-      system: req.systemPrompt,
-      messages: req.messages
-        .filter((m) => m.role !== 'system')
-        .map((m) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-    });
+    const response = await this.client.messages.create(
+      {
+        model: this.sdkModelId,
+        max_tokens: req.maxTokens ?? 1024,
+        temperature: req.temperature,
+        system: req.systemPrompt,
+        messages: req.messages
+          .filter((m) => m.role !== 'system')
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          })),
+      },
+      req.timeoutMs ? { timeout: req.timeoutMs } : undefined
+    );
 
     const textBlock = response.content.find((b) => b.type === 'text');
     const content = textBlock && textBlock.type === 'text' ? textBlock.text : '';

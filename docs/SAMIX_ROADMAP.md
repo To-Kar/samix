@@ -49,7 +49,7 @@ CLAUDE.md und Phase-Specs müssen beim Start von 1.5 entsprechend angepasst werd
 
 - **Source-Traceability erzwingen** [verifiziert: Kommentar in `runner.ts:105` verweist auf nicht existierende Prüfung]. Jede `sourceUrl` im LLM-Output muss (nach URL-Normalisierung) in den `SourceSnapshot`s dieses Runs vorkommen. Treffer ohne Snapshot → Item verwerfen und loggen; fallen dadurch zu viele Items weg → Run `partial`.
 - **Kein Model-Call ohne Quellen** [verifiziert: Runner ruft bei 0 Items trotzdem das Modell]. Ein Agent mit deklarierten Quellen und 0 gefetchten Items endet als `failed` mit `reason: no_source_items` — keine Kosten, keine erfundenen Artikel.
-- **`publishedAt` Pflicht** im `newsletter-ai`-Schema (Spec Z. 40 und Wert „Source-traceable“ verlangen URL + Datum). Fehlt das Datum im LLM-Output, aus dem passenden `SourceSnapshot` übernehmen statt das Item zu verwerfen.
+- **Datum Pflicht, aber im Runner erzwungen statt im Schema** (Spec Z. 40 und Wert „Source-traceable“ verlangen URL + Datum). Das Datum der Quelle gilt, das des Modells nur als Rückfall; ohne Datum wird der Artikel verworfen. Bewusste Abweichung von „Pflicht im Schema“: ein Pflichtfeld im Schema würde ein Item verwerfen, dessen Datum wir aus der Quelle kennen.
 - **`Article.sourceName`** aus dem `SourceSnapshot` befüllen [verifiziert: wird nie gesetzt].
 - **`specTypeOf`-Heuristik ersetzen**: `SourceItem` trägt seinen Spec-Typ direkt.
 
@@ -57,7 +57,7 @@ CLAUDE.md und Phase-Specs müssen beim Start von 1.5 entsprechend angepasst werd
 
 - `GET /articles?since=<ungültig>` → 400 statt 500 [verifiziert: 500].
 - **Hängende Runs**: beim Core-Start alle `AgentRun.status='running'` auf `failed` mit `reason: interrupted` setzen.
-- **SQLite Foreign Keys**: `PRAGMA foreign_keys=ON` prüfen/erzwingen (Ursache des Bugs aus Commit `3d09183`).
+- ~~**SQLite Foreign Keys**~~ **[verifiziert: kein Handlungsbedarf]** Prisma setzt `foreign_keys=ON` selbst und blockiert das Löschen (getestet). Der Waisen-Bug aus Commit `3d09183` entstand durch manuelles Löschen mit einem externen SQLite-Tool.
 - **Parallele Runs**: Lock pro Agent (manueller Run + Cron gleichzeitig → doppelte Kosten, Budget-Race).
 - **Ollama**: `timeout_secs` im `ModelPreference`, Modell-Tag konfigurierbar statt hartcodiert `llama3`.
 - **Claude-Preise** gegen offizielle Preisliste prüfen (`// VERIFY` in `claude.ts`) — sonst stimmt das `BudgetLedger` nicht. Anthropic-SDK-Version (`^0.32`) prüfen/aktualisieren.
@@ -68,6 +68,17 @@ CLAUDE.md und Phase-Specs müssen beim Start von 1.5 entsprechend angepasst werd
 - **Vitest** im Core. Pflicht-Tests mindestens für: Budget-Gates (per-Agent + global), Fallback-Chain (Kriterium 8 automatisiert, mit Fake-Adaptern), Schema-Validierung → `partial`, Traceability-Filter, „0 Quellen → kein Call“, Catchup-Logik.
 - **GitHub Actions** auf `macos-latest` und `windows-latest`: `pnpm install`, `prisma generate`, `tsc --noEmit` (core + app), Core-Tests. Rust: `cargo check` auf beiden Runnern.
 - **Kriterium 8** einmal manuell mit echtem ungültigem Key + laufendem Ollama nachtesten, dann Report-Status aktualisieren.
+
+### Status 1.5 (2026-10-19)
+
+Umgesetzt und getestet: alles aus 1.5.1–1.5.4 außer den unten genannten Punkten. Zusätzlich neu: Eltern-Watchdog (`SAMIX_PARENT_PID`) statt `child.kill()`-Annahme, eigener Migrator (Prisma-kompatibel, gegen `prisma migrate status/diff` geprüft), Claude-Preise gegen die offizielle Preisseite geprüft (korrekt).
+
+**Offen / nicht verifiziert:**
+- CI (`.github/workflows/ci.yml`) ist geschrieben, aber noch auf **keinem** echten macOS-/Windows-Runner gelaufen.
+- Rust-Änderung (`SAMIX_PARENT_PID` in `spawn.rs`) ist nicht kompiliert (Sandbox hat keine GTK-Bibliotheken); der Watchdog im Core ist getestet, das Setzen der Variable durch die Shell nicht.
+- Kriterium 8 nicht manuell mit echtem Key + Ollama geprüft; `delete_credential()` (Keychain) ungetestet; Windows-Pfade ungetestet.
+- Die Test-Dateien werden nicht von `tsc` typgeprüft (nur von vitest ausgeführt).
+- Hinweis: Auf der Preisseite stehen inzwischen neuere Modelle (z. B. Haiku 5.5 mit $0.10/$0.50 pro MTok statt $1/$5 bei Haiku 4.5). Ein Modellwechsel ist eine Manifest-/Registry-Entscheidung für später, nicht Teil von 1.5.
 
 ### Exit-Kriterien 1.5
 

@@ -24,7 +24,7 @@ Architecture decisions are recorded as ADRs in [`docs/decisions/`](docs/decision
 
 ## Not built yet
 
-No automated tests, no CI. No email or messenger delivery (dropped deliberately, see the Phase 1 report). No release installer or tray icon. Windows auto-spawn is written but untested. Verification so far is manual, against the acceptance criteria in the Phase 1 report.
+No email or messenger delivery (dropped deliberately, see the Phase 1 report). No release installer or tray icon. Windows auto-spawn is written but untested, and CI has not run yet on a real runner. Core logic has automated tests (`pnpm --filter samix-core test`); UI and the Tauri shell are verified manually. See `docs/SAMIX_ROADMAP.md` for the plan.
 
 ---
 
@@ -44,10 +44,14 @@ Developed on macOS. Windows is the shipping target; no code is Mac-specific, but
 
 ```bash
 pnpm install
-pnpm --filter samix-core prisma migrate deploy
 ```
 
-The SQLite dev DB is created at `core/data/samix-dev.db`.
+That is all. `postinstall` generates the Prisma client, and the core creates `core/data/samix-dev.db` and applies the migrations itself on start. `core/.env` is optional (see `core/.env.example`).
+
+```bash
+pnpm --filter samix-core test        # unit + integration tests (temp SQLite DB per file)
+pnpm --filter samix-core typecheck
+```
 
 ---
 

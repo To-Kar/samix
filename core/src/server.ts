@@ -10,6 +10,9 @@ import { logger } from './logger.js';
 import { prisma } from './db/prisma.js';
 import { loadSkills } from './skills/loader.js';
 import { runAgent } from './runner/runner.js';
+import { recoverInterruptedRuns } from './runner/recovery.js';
+import { applyMigrations } from './db/migrate.js';
+import { watchParent } from './watchdog.js';
 import { startScheduler, reloadSkill } from './scheduler/index.js';
 import type { Skill, SourceSpec } from './types.js';
 
@@ -114,35 +117,44 @@ fastify.post<{ Params: { slug: string } }>(
   }
 );
 
-fastify.get<{
-  Querystring: { since?: string; topic?: string; agent?: string; limit?: string };
-}>('/articles', async (request) => {
-  const q = request.query;
+const DEFAULT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+const articlesQuerySchema = z.object({
+  since: z
+    .string()
+    .refine((v) => Number.isFinite(Date.parse(v)), 'must be a parseable date')
+    .optional(),
+  topic: z.string().min(1).optional(),
+  agent: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+fastify.get('/articles', async (request, reply) => {
+  const parsedQuery = articlesQuerySchema.safeParse(request.query);
+  if (!parsedQuery.success) {
+    reply.code(400).send({ error: 'invalid_query', details: parsedQuery.error.flatten() });
+    return reply;
+  }
+  const q = parsedQuery.data;
+
+  // Filter by Article.createdAt (when we persisted it), not publishedAt
+  // (the source's date). The newspaper is "what samix produced when".
+  // Default window: last 7 days.
+  const since = new Date(q.since ? Date.parse(q.since) : Date.now() - DEFAULT_WINDOW_MS);
   const where: {
-    publishedAt?: { gte: Date };
     topic?: string;
     agentRun?: { agent: { slug: string } };
   } = {};
-
-  // Default window: last 7 days, by createdAt — gives the newspaper a
-  // sensible page-1 without forcing the client to compute a date.
-  const sinceMs = q.since ? Date.parse(q.since) : Date.now() - 7 * 24 * 60 * 60 * 1000;
-  if (Number.isFinite(sinceMs)) {
-    // Filter by Article.createdAt (when we persisted it), not publishedAt
-    // (the source's date). The newspaper is "what samix produced when".
-  }
   if (q.topic) where.topic = q.topic;
   if (q.agent) where.agentRun = { agent: { slug: q.agent } };
-
-  const limit = Math.min(Number(q.limit ?? 100), 500);
 
   const rows = await prisma.article.findMany({
     where: {
       ...where,
-      createdAt: { gte: new Date(sinceMs) },
+      createdAt: { gte: since },
     },
     orderBy: { createdAt: 'desc' },
-    take: limit,
+    take: q.limit,
     include: {
       agentRun: { select: { agent: { select: { slug: true } } } },
     },
@@ -243,7 +255,9 @@ fastify.put<{ Params: { slug: string }; Body: unknown }>(
 );
 
 async function start(): Promise<void> {
+  applyMigrations({ logger });
   await prisma.$connect();
+  await recoverInterruptedRuns(logger);
   skills = await loadSkills({ agentsDir });
   startScheduler(skills, logger);
 
@@ -262,6 +276,14 @@ async function shutdown(signal: string): Promise<void> {
     logger.error({ err }, 'shutdown error');
     process.exit(1);
   }
+}
+
+const parentPid = Number(process.env.SAMIX_PARENT_PID);
+if (Number.isInteger(parentPid) && parentPid > 0) {
+  watchParent(parentPid, () => {
+    logger.warn({ parentPid }, 'parent_process_gone');
+    void shutdown('parent_gone');
+  });
 }
 
 process.on('SIGINT', () => void shutdown('SIGINT'));

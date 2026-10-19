@@ -26,7 +26,8 @@ All orchestrated from the root via pnpm workspaces (no Turborepo). Node ≥ 20, 
 
 ```bash
 pnpm install
-pnpm --filter samix-core prisma migrate deploy   # first-time DB setup
+pnpm --filter samix-core test                     # vitest (core)
+pnpm --filter samix-core typecheck
 pnpm db:migrate                                  # create new Prisma migration (dev)
 pnpm db:studio                                   # inspect SQLite
 
@@ -34,23 +35,17 @@ pnpm build:core                                  # tsc to core/dist
 pnpm build:app                                   # Tauri release bundle
 ```
 
-### Running in dev (two terminals, Phase 0)
-
-The Rust shell does **not** auto-spawn the core yet. Start each process manually with matching env vars.
+### Running in dev
 
 ```bash
-# Terminal 1 — core
-SAMIX_TOKEN=testtok SAMIX_PORT=4000 pnpm dev:core
-
-# Terminal 2 — app (Rust shell reads the same env vars and hands them to the WebView via `get_core_config`)
-SAMIX_TOKEN=testtok SAMIX_PORT=4000 pnpm dev:app
+pnpm dev:app
 ```
 
-Auto-spawn is a Phase 0.5 / Phase 1 polish item; see `app/src-tauri/src/lib.rs` for the current shim. The core binds only to `127.0.0.1`; the bearer token is the access control.
+The Tauri shell spawns the core itself (`app/src-tauri/src/spawn.rs`) with a free port, a generated token, `SAMIX_PARENT_PID`, and the API keys from the OS keychain. The core applies DB migrations on start, so no manual DB step is needed. To run the core alone: `SAMIX_TOKEN=testtok SAMIX_PORT=4000 pnpm dev:core`. The core binds only to `127.0.0.1`; the bearer token is the access control.
 
 ### Testing
 
-There is no test runner wired up yet. Phase 0 acceptance is manual — see `README.md` §"Phase 0 acceptance check" (5 steps ending with a disconnect banner).
+`pnpm --filter samix-core test` (vitest). Each test file gets its own migrated temp SQLite DB (`core/test/setup.ts`); providers and fetchers are replaced with fakes via `registerAdapter` / `registerFetcher`. Covered: budget gates, fallback chain, traceability, no-source gate, schema → `partial`, per-agent lock, interrupted-run recovery, catch-up, migrator. Not covered: HTTP routes, the Tauri shell, the UI. Anything claimed as a passing acceptance criterion should have a test or a documented manual check.
 
 ## Architecture
 
@@ -67,7 +62,7 @@ Two deployable units plus declarative skill data.
 
 ### `app/` — Tauri v2 desktop shell (`samix-app`)
 
-- **`src-tauri/src/lib.rs`** — Deliberately minimal. Exposes one `get_core_config` Tauri command that reads `SAMIX_PORT` + `SAMIX_TOKEN` from its own environment and returns them to the WebView. **No business logic in Rust** — mobile-ready-by-design means the core speaks HTTP to any client.
+- **`src-tauri/src/lib.rs`** + `spawn.rs` — Deliberately minimal. Spawns the core, keeps its port/token in `AppState`, and exposes `get_core_config` plus the keychain commands to the WebView. **No business logic in Rust** — mobile-ready-by-design means the core speaks HTTP to any client.
 - **`src/lib/api.ts`** — `ApiClient` wrapping `fetch`. `initApi()` calls the Tauri command once and caches the client as a module-level promise.
 - **`src/App.tsx`** + `components/` — React 19 + Vite + Tailwind + shadcn-style utilities. `ConnectionBanner` polls `/health` every ~10 s; loss of reachability surfaces a red banner, not a crash.
 
@@ -82,6 +77,9 @@ Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `
 - **Loopback + token are the only auth.** No sessions, no users. CORS is permissive by design because the real gate is the bearer token. Do not remove the `crossOriginResourcePolicy: cross-origin` helmet setting — the WebView fetch would break.
 - **Skill IDs must match directory names** (the loader keys off `manifest.id`, but `upsertAgent` uses `skill.id` as `slug` — inconsistency will create orphan `Agent` rows).
 - **Cost is computed locally from token counts + adapter pricing table**, not trusted from the provider response. If you add an adapter, set `pricing` accurately or the `BudgetLedger` will lie.
+- **Articles must be traceable (`src/output/traceability.ts`).** A schema-valid article is only stored if its URL matches an item fetched in *this* run; URL, source name and date are taken from that item, never from the model. Too few survivors (< `output.min_items`) → run is `partial`. Do not move this check into the prompt.
+- **No sources, no model call.** A skill that declares `sources` but fetched zero items fails with `no_source_items` before any adapter call.
+- **One run per agent at a time** (in-process lock in `runner.ts`); a second trigger is recorded as `failed: already_running`. Runs left `running` by a dead process are marked `failed: interrupted` at startup.
 - **The budget gate is pre-call.** In Phase 1 it becomes the only thing between a buggy skill and a real bill — the check must stay *before* `adapter.generate`.
 
 ## Environment variables
@@ -90,7 +88,9 @@ Manifest YAML uses `snake_case` (`daily_usd_max`); the runtime `Manifest` uses `
 |---|---|
 | `SAMIX_TOKEN` | Shared secret between Rust shell and core. **Required** on both processes. |
 | `SAMIX_PORT` | Loopback port. `0` = let OS pick; in dev we use a fixed port so the Tauri shell can reuse it. |
-| `DATABASE_URL` | Prisma connection string. Defaults to `file:./data/samix-dev.db` via `.env` in `core/`. |
+| `DATABASE_URL` | SQLite `file:` URL. Optional: defaults in code to `core/data/samix-dev.db` (absolute). Relative paths resolve against `core/prisma/`, so prefer absolute. |
+| `SAMIX_PARENT_PID` | Set by the Tauri shell. The core exits when this process is gone. |
+| `SAMIX_OLLAMA_URL` / `SAMIX_OLLAMA_MODEL` | Ollama endpoint and model tag. Defaults `http://127.0.0.1:11434` / `llama3`. |
 | `SAMIX_LOG_LEVEL` | Pino level (`debug` / `info` / `warn` / `error`). Default `info`. |
 | `SAMIX_GLOBAL_DAILY_USD_MAX` | Phase 1+ global kill-switch across all agents. Not yet enforced in Phase 0. |
 | `ANTHROPIC_API_KEY` / `PERPLEXITY_API_KEY` | Phase 1+ only. Populated by the Rust shell from the OS keychain, never stored in `.env` in prod. |

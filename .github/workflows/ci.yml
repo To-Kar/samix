@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    name: core + app (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # postinstall runs `prisma generate` for the core.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter samix-core typecheck
+      - run: pnpm --filter samix-core test
+      - run: pnpm --filter samix-app build
+
+  tauri:
+    name: tauri cargo check (${{ matrix.os }})
+    needs: core
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: pnpm install --frozen-lockfile
+      # tauri::generate_context! needs the built frontend (frontendDist).
+      - run: pnpm --filter samix-app build
+      - run: cargo check --manifest-path app/src-tauri/Cargo.toml

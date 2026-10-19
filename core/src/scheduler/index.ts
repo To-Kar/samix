@@ -37,7 +37,7 @@ function registerJob(skill: Skill, logger: Logger): void {
   logger.info({ skill: skill.id, cron: schedule.cron, timezone: schedule.timezone }, 'cron_registered');
 }
 
-async function checkCatchup(skill: Skill, log: Logger): Promise<void> {
+export async function checkCatchup(skill: Skill, log: Logger): Promise<void> {
   const schedule = skill.manifest.schedule!;
 
   try {

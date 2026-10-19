@@ -13,6 +13,7 @@ const modelPreferenceSchema = z.object({
   primary: modelIdSchema,
   fallback: modelIdSchema.optional(),
   routing: z.record(z.string(), modelIdSchema).optional(),
+  timeout_secs: z.number().positive().optional(),
 });
 
 const budgetSchema = z.object({

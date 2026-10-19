@@ -34,7 +34,7 @@ export class ArxivFetcher implements SourceFetcher<ArxivConfig> {
       ? `arxiv:${config.categories[0]}`
       : 'arxiv';
 
-    return items.map((i) => ({ ...i, sourceName }));
+    return items.map((i) => ({ ...i, sourceName, sourceType: this.type }));
   }
 }
 

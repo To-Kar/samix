@@ -27,7 +27,7 @@ export class RssFetcher implements SourceFetcher<RssConfig> {
         const { feedTitle, items } = parseAndNormalize(xml);
         const sourceName = feedTitle ?? safeHost(url);
         for (const item of items.slice(0, maxPerFeed)) {
-          out.push({ ...item, sourceName });
+          out.push({ ...item, sourceName, sourceType: this.type });
         }
       } catch (err) {
         ctx.logger.warn(
