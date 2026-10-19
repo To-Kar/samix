@@ -5,12 +5,15 @@ import { Settings } from './components/Settings';
 import { Newspaper } from './components/Newspaper';
 import { Agents } from './components/Agents';
 import { Reader } from './components/Reader';
+import { Ask } from './components/Ask';
 
 type View =
   | { kind: 'paper' }
   | { kind: 'settings' }
   | { kind: 'agents' }
-  | { kind: 'reader'; id: string; order: string[] };
+  | { kind: 'ask' }
+  // `from`: where the reader returns to (the newspaper unless opened from a cited answer).
+  | { kind: 'reader'; id: string; order: string[]; from?: 'ask' };
 
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
@@ -25,11 +28,17 @@ export default function App() {
   const paperScroll = useRef(0);
 
   const fromReader = view.kind === 'reader';
+  const fromAsk = view.kind === 'reader' && view.from === 'ask';
   const goPaper = useCallback(() => {
     setView({ kind: 'paper' });
     setPaperToken((t) => t + 1);
     if (fromReader) requestAnimationFrame(() => window.scrollTo({ top: paperScroll.current }));
   }, [fromReader]);
+  const closeReader = useCallback(() => {
+    if (!fromAsk) return goPaper();
+    setView({ kind: 'ask' });
+    requestAnimationFrame(() => window.scrollTo({ top: paperScroll.current }));
+  }, [fromAsk, goPaper]);
 
   useEffect(() => {
     initApi()
@@ -73,6 +82,12 @@ export default function App() {
         <div className="flex justify-end gap-1">
           <button
             className={topBtn}
+            onClick={() => (view.kind === 'ask' ? goPaper() : setView({ kind: 'ask' }))}
+          >
+            {view.kind === 'ask' ? 'Fragen schließen' : 'Fragen'}
+          </button>
+          <button
+            className={topBtn}
             onClick={() => (view.kind === 'agents' ? goPaper() : setView({ kind: 'agents' }))}
           >
             {view.kind === 'agents' ? 'Ressorts schließen' : 'Ressorts'}
@@ -108,10 +123,21 @@ export default function App() {
             api={api}
             articleId={view.id}
             order={view.order}
-            onClose={goPaper}
-            onNavigate={(id) => setView({ kind: 'reader', id, order: view.order })}
+            onClose={closeReader}
+            onNavigate={(id) => setView({ ...view, id })}
           />
         ) : null}
+
+        {/* Stays mounted too, so a conversation survives a visit to a cited article. */}
+        <div hidden={view.kind !== 'ask'}>
+          <Ask
+            api={api}
+            onOpenSource={(id, order) => {
+              paperScroll.current = window.scrollY;
+              setView({ kind: 'reader', id, order, from: 'ask' });
+            }}
+          />
+        </div>
 
         {/* Stays mounted while another view is open, so the loaded edition
             survives a visit to the reader. */}

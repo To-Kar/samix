@@ -199,6 +199,63 @@ export interface ListArticlesQuery {
   limit?: number;
 }
 
+export interface AnswerCitation {
+  number: number;
+  articleId: string;
+  title: string;
+  sourceName: string | null;
+  publishedAt: string | null;
+  url: string | null;
+}
+
+export interface TraceStep {
+  tool: string;
+  input: unknown;
+  resultCount: number;
+  ms: number;
+  isError?: boolean;
+}
+
+export interface AskResult {
+  conversationId: string | null;
+  runId: string;
+  status: 'success' | 'partial' | 'failed';
+  error?: string;
+  answer?: string;
+  citations: AnswerCitation[];
+  trace: TraceStep[];
+  costUsd: number;
+  model: string | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  agent: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  /** ok | partial | failed (assistant only). */
+  status: string | null;
+  citations: AnswerCitation[];
+  createdAt: string;
+  // Assistant messages: how the answer came about.
+  runId?: string;
+  error?: string | null;
+  model?: string | null;
+  costUsd?: number;
+  trace?: TraceStep[];
+}
+
+export interface ConversationDetail extends ConversationSummary {
+  messages: ConversationMessage[];
+}
+
 export class ApiClient {
   constructor(
     private readonly port: number,
@@ -228,6 +285,7 @@ export class ApiClient {
       }
       throw new Error(`HTTP ${res.status} ${path}: ${detail}`);
     }
+    if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   }
 
@@ -335,6 +393,22 @@ export class ApiClient {
 
   clearVotes(slug: string): Promise<{ deleted: number }> {
     return this.request(`/votes?agent=${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  }
+
+  ask(question: string, conversationId?: string): Promise<AskResult> {
+    return this.json<AskResult>('POST', '/ask', { question, conversationId });
+  }
+
+  listConversations(): Promise<ConversationSummary[]> {
+    return this.request<ConversationSummary[]>('/conversations');
+  }
+
+  getConversation(id: string): Promise<ConversationDetail> {
+    return this.request<ConversationDetail>(`/conversations/${encodeURIComponent(id)}`);
+  }
+
+  deleteConversation(id: string): Promise<void> {
+    return this.request<void>(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
   listRuns(slug: string, limit = 20): Promise<RunSummary[]> {

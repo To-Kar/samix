@@ -33,3 +33,30 @@ export const RUN_STATUS: Record<string, { label: string; cls: string }> = {
   failed: { label: 'fehlgeschlagen', cls: 'text-red-700 dark:text-red-400' },
   running: { label: 'läuft', cls: 'text-neutral-500' },
 };
+
+// How a question to "Fragen" ended, when there is no answer to show.
+export function explainAsk(error: string | null | undefined): string {
+  switch (error) {
+    case 'model_without_tools':
+      return 'Das eingestellte Modell kann keine Werkzeuge nutzen und würde aus dem Gedächtnis antworten. Wähle unter „Modell“ Claude oder DeepSeek.';
+    case 'budget_exceeded':
+    case 'global_budget_exceeded':
+      return 'Tagesbudget erreicht. Die Frage wurde nicht (weiter) bearbeitet.';
+    case 'ungrounded':
+      return 'Das Modell hat nicht in den gesammelten Artikeln gesucht. Eine Antwort aus Allgemeinwissen wird nicht angezeigt.';
+    case 'no_valid_citations':
+      return 'Das Modell fand Artikel, konnte seine Antwort aber nicht mit ihnen belegen. Eine unbelegte Antwort wird nicht angezeigt.';
+    case 'invalid_output':
+      return 'Die Modellantwort war nicht im erwarteten Format. Versuche es noch einmal.';
+    case 'step_limit':
+      return 'Die Frage war zu aufwendig (Schrittlimit erreicht). Stelle sie enger oder in Teilen.';
+    case 'already_running':
+      return 'Es wird bereits eine Frage bearbeitet.';
+    case 'agent_disabled':
+      return 'Die Auskunft ist ausgeschaltet.';
+    case 'invalid_question':
+      return 'Die Frage ist leer oder zu lang (höchstens 2000 Zeichen).';
+    default:
+      return error ? `Die Anfrage an das Modell ist fehlgeschlagen: ${error}` : 'unbekannt';
+  }
+}

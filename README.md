@@ -4,7 +4,7 @@ Local-first desktop application hosting a hierarchical multi-agent system for kn
 
 Named after Sami Frashëri (1850–1904), Albanian encyclopedist. Pronounced *sa-mix*.
 
-> This repository is at **Phase 1**. Real model calls (Claude, Perplexity, local Ollama), RSS/arXiv/Perplexity sources, cron scheduling, budget caps and JSON-schema output validation are implemented and running. Results are delivered through the in-app newspaper view; no email or messenger delivery is built.
+> Built so far: the newspaper (proactive agents with RSS/arXiv/website sources, full-text reader, votes, Ressorts), a bundled desktop app for macOS and Windows, and **Phase 3a "Frag deine Zeitung"** (questions answered only from the collected articles, with checked citations). Real-model behaviour and the macOS/Windows builds are not verified from the development environment; see `docs/SAMIX_ROADMAP.md` for the honest status of each phase.
 
 For the full project values and non-negotiables, see [`docs/SAMIX_ABOUT.md`](docs/SAMIX_ABOUT.md).
 For the current architecture, see [`docs/SAMIX_PHASE_1_SPEC.md`](docs/SAMIX_PHASE_1_SPEC.md) and the honest status in [`docs/SAMIX_PHASE_1_REPORT.md`](docs/SAMIX_PHASE_1_REPORT.md).
@@ -29,7 +29,7 @@ Architecture decisions are recorded as ADRs in [`docs/decisions/`](docs/decision
 
 ## Not built yet
 
-No email or messenger delivery (dropped deliberately, see the Phase 1 report). No release installer or tray icon. Windows auto-spawn is written but untested, and CI has not run yet on a real runner. The website source and full-text extraction are tested against fixtures only, not yet against live sites; the UI is verified in Chromium, not yet in the Tauri WebViews. The `semantic` keyword filter is not implemented. Core logic has automated tests (`pnpm --filter samix-core test`); UI and the Tauri shell are verified manually. See `docs/SAMIX_ROADMAP.md` for the plan.
+No email or messenger delivery (dropped deliberately, see the Phase 1 report). Everything the roadmap marks as unverified is untested on real macOS/Windows machines, real runners and live sites: the Tauri shell and installers, CI workflows, website sources, and real-model behaviour (including tool use in "Fragen"). The UI is verified in Chromium, not in the Tauri WebViews. The `semantic` keyword filter is not implemented. Core logic has automated tests (`pnpm --filter samix-core test`); UI and the Tauri shell are verified manually. Phase 3b (read-only project assistant) and 3c (coding agent) are specified, not built. See `docs/SAMIX_ROADMAP.md` for the plan.
 
 ---
 

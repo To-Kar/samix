@@ -399,7 +399,32 @@ Gebaut, mit Tests (Core: 213, App: 11) und im Browser mit dem echten Core angese
 
 ## Phase 3 — Reaktive Agenten (v2.0)
 
-Wie in `SAMIX_ABOUT.md` vorgesehen: Agenten, die auf Anfrage arbeiten (z. B. Coding-Assistent mit Projektkontext). Gleiche Skill-Abstraktion, Adapter, Budget-Gates. Tool-Use im Adapter-Interface. Primär-Interface bleibt der Informationsraum, kein Chat-Fenster als Hauptansicht. Eigenes Spec vor Start.
+Wie in `SAMIX_ABOUT.md` vorgesehen: Agenten, die auf Anfrage arbeiten. Gleiche Skill-Abstraktion, Adapter, Budget-Gates; Tool-Use im Adapter-Interface. Der Zuschnitt steht in `docs/SAMIX_PHASE_3_SPEC.md`: **3a „Frag deine Zeitung“** (Fragen und Antworten über die gesammelten Artikel, mit Quellen) ist gebaut; **3b Projekt-Assistent (nur lesen)** und **3c Coding-Agent (mit Freigabe je Aktion)** sind dort nur beschrieben, nicht gebaut.
+
+### Status 3a (2026-10-19)
+
+Gebaut (Core: 264 Tests, App: 14), die Oberfläche im Browser mit dem echten Core und einem Fake-Modell angesehen:
+
+| Plan (Spec) | Umsetzung |
+|---|---|
+| Adapter-Tool-Calling (§4) | `ToolSpec`/`ToolCall`/Tool-Nachrichten im `ModelAdapter`; Claude und DeepSeek übersetzen in die Anbieterform; Ollama/Perplexity/Static lehnen Tools ab |
+| Vier Lese-Tools (§5) | `list_ressorts`, `search_articles` (Ganzwort, Unicode, Ressort-/Datumsfilter), `get_article` (ohne Netz), `fetch_full_text` (nur per `articleId`, höchstens 3 je Frage); Fehler kommen als Ergebnis zurück, nie als Absturz |
+| Gesprächsschleife (§6) | `runner/converse.ts`: ≤ 6 Modellaufrufe, Budget-Gate (Agent + global) vor **jedem** Aufruf, Kosten jedes Aufrufs gebucht, „erst suchen“, höchstens 4 Tool-Aufrufe je Schritt, eine Frage je Agent gleichzeitig, letzte 6 Züge als Verlauf |
+| Quellenpflicht im Code | nur Artikel, die ein Tool in **dieser** Frage geliefert hat, dürfen zitiert werden; Erfundenes fällt weg, `[n]` wird neu nummeriert; bleibt nichts Belegbares → `partial` ohne Antwort; wurde gar nichts gefunden, zeigt der Core einen festen Text statt der Modellantwort |
+| Datenmodell/API (§8) | `Conversation`, `ConversationMessage` (Migration), `POST /ask`, `GET /conversations`, `GET`/`DELETE /conversations/:id`; Manifest-Feld `tools:` (unbekannte Namen werden abgelehnt) |
+| Agent | `agents/frag-die-zeitung` (reaktiv, Haiku, 0,50 $/Tag); erscheint nicht unter „Ressorts“ |
+| UI „Fragen“ | Gesprächsliste (löschbar), Antwort mit nummerierten Quellen → Reader → zurück zur Antwort, „Wie kam das zustande?“ (Schritte, Modell, Kosten), Hinweis zum Datenfluss, Modellwahl, verständliche Texte je Fehlerstatus |
+
+Abnahme gegen die Spec-Kriterien (§10): 1–8 erfüllt (Tests; Mutationsproben für Budget-Gate vor jedem Aufruf, Zitierprüfung, Fallback ohne Tools, Suche-zuerst, Aufruf- und Verlaufslimits, „nichts gefunden“, Buchung der Kosten). Die Probe „Modell ohne Tools wird vorab abgelehnt“ war zunächst wirkungslos, weil die Prüfung im Fallback-Pfad dasselbe abfängt; ein Test prüft jetzt zusätzlich, dass kein Gespräch angelegt wird.
+
+**Nicht verifiziert / offen:**
+- **Kriterium 9 und 10:** Antwortqualität, echte Tool-Nutzung und Prompt-Injection-Verhalten realer Modelle sind **nicht geprüft** (kein Schlüssel, kein Netz). Das Tool-Format von Claude und DeepSeek ist nur gegen Fakes getestet; dass die DeepSeek-API Function Calling wie angenommen unterstützt, kann ich nicht verifizieren.
+- **Suche nur mit ganzen Wörtern:** „Chip“ findet „Chips“ nicht. Der Prompt weist das Modell darauf hin, Wortformen mitzusuchen; ob es das tut, ist ungeprüft. Eine Wortstamm-/Volltextsuche wäre ein Folgeschritt.
+- Die Verlaufszüge werden als Klartext wiedergegeben; ob ein Modell dadurch vom JSON-Endformat abkommt, ist ungeprüft (es gibt eine Korrekturaufforderung, danach `partial: invalid_output`).
+- Ein Modell kann durch Fremdtext in Artikeln eine irreführende, aber **belegte** Antwort geben (Restrisiko, Spec §7).
+- „Nichts gefunden“ und die Fehlertexte sind deutsch fest eingebaut, unabhängig von der Sprache der Frage.
+- Oberfläche nur in Chromium; keine Komponententests (nur die Aufteilung der Antwort in Text und Quellenmarker ist getestet).
+- 3b und 3c: nicht begonnen.
 
 ## Phase 4 — Orchestrator & Cross-Agent-Memory (v3.0)
 

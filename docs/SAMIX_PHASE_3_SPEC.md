@@ -1,7 +1,7 @@
 # Samix — Phase 3 Spec: Reaktive Agenten, erster Agent „Frag deine Zeitung“
 
 **Stand:** 2026-10-19 · **Bezug:** `SAMIX_ABOUT.md` (Werte), `SAMIX_ROADMAP.md` (Phase 3), ADR 002/007
-**Status:** Entwurf, Zuschnitt vom Auftraggeber bestätigt (siehe §1)
+**Status:** 3a umgesetzt, Abnahme in `SAMIX_ROADMAP.md` („Status 3a“); 3b/3c nicht begonnen. Zuschnitt vom Auftraggeber bestätigt (siehe §1)
 
 > Kennzeichnung wie im Rest des Projekts: Aussagen, die ich nicht prüfen konnte, stehen als **[Unverified]** / **[Inference]** da.
 
