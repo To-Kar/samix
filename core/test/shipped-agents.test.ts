@@ -19,7 +19,7 @@ describe('agents shipped in the repo', () => {
     });
     expect(by['frag-die-zeitung']).toMatchObject({
       type: 'reactive',
-      manifest: { tools: ['list_ressorts', 'search_articles', 'get_article', 'fetch_full_text'] },
+      manifest: { tools: ['list_ressorts', 'search_articles', 'get_article', 'fetch_full_text', 'read_notes'] },
     });
     // Every shipped agent that declares a schema must point at a file that exists.
     for (const s of skills) expect(s.manifest.model.primary).toBeTruthy();

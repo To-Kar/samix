@@ -157,8 +157,18 @@ model ConversationMessage {
   citations      String?
   // ok | partial | failed — how the question ended (assistant messages only).
   status         String?
+  // JSON: how it was routed and what the reader may confirm (assistant only).
+  extra          String?
   agentRunId     String?
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// Things the reader wants every agent that may read them to know ("I follow
+// Rust"). Written only by the reader, shown in full in the UI, deletable.
+model MemoryNote {
+  id        String   @id @default(uuid())
+  text      String
+  createdAt DateTime @default(now())
 }

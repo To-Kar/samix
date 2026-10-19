@@ -18,6 +18,8 @@ tools:
   - search_articles
   - get_article
   - fetch_full_text
+  # The reader's own notes; only to focus a search, never as a source.
+  - read_notes
 
 output:
   format: answer

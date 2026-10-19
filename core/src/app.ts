@@ -7,6 +7,7 @@ import type { Logger } from 'pino';
 import { prisma } from './db/prisma.js';
 import { runAgent } from './runner/runner.js';
 import { MAX_QUESTION_CHARS, askAgent } from './runner/converse.js';
+import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { reloadSkill } from './scheduler/index.js';
 import { buildReaderProfile } from './runner/profile.js';
 import { createAgent, listTemplates } from './skills/create.js';
@@ -162,6 +163,33 @@ export async function buildApp(deps: AppDeps) {
       return result;
     }
   );
+
+  // ---- Notes: the reader's visible memory
+
+  fastify.get('/notes', async () => {
+    const notes = await listNotes();
+    return notes.map((n) => ({ id: n.id, text: n.text, createdAt: n.createdAt }));
+  });
+
+  fastify.post('/notes', async (request, reply) => {
+    const text = (request.body as { text?: unknown } | null)?.text;
+    const r = typeof text === 'string' ? await addNote(text) : ({ ok: false, error: 'invalid_text' } as const);
+    if (!r.ok) {
+      reply.code(r.error === 'too_many_notes' ? 409 : 400).send({ error: r.error });
+      return reply;
+    }
+    reply.code(201);
+    return { id: r.note.id, text: r.note.text, createdAt: r.note.createdAt };
+  });
+
+  fastify.delete<{ Params: { id: string } }>('/notes/:id', async (request, reply) => {
+    if (!(await deleteNote(request.params.id))) {
+      reply.code(404).send({ error: 'note_not_found' });
+      return reply;
+    }
+    reply.code(204).send();
+    return reply;
+  });
 
   // ---- Fragen: conversations with a reactive agent over the collected articles
 
