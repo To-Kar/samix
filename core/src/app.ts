@@ -5,7 +5,7 @@ import cors from '@fastify/cors';
 import { z } from 'zod';
 import type { Logger } from 'pino';
 import { prisma } from './db/prisma.js';
-import { runAgent } from './runner/runner.js';
+import { isAgentRunning, runAgent } from './runner/runner.js';
 import { askAgent } from './runner/converse.js';
 import { routeQuestion } from './runner/orchestrate.js';
 import { checkBudget, computeCostUsd, estimateRunCostUsd, readGlobalCap, recordSpend, utcDayStart } from './runner/budget.js';
@@ -14,13 +14,14 @@ import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { validateProjectRoot } from './projects/safePath.js';
 import { focusOf } from './skills/focus.js';
-import { reloadSkill } from './scheduler/index.js';
+import { reloadSkill, stopSkill } from './scheduler/index.js';
 import { buildReaderProfile } from './runner/profile.js';
 import { createAgent, listTemplates } from './skills/create.js';
 import { loadSkillDir } from './skills/loader.js';
 import { validateSchedule } from './skills/schedule.js';
 import { knownModelIds, MODEL_KEY_ENV, resolveAdapter } from './adapters/index.js';
-import { updateManifest, updateSkillTitle } from './skills/manifestFile.js';
+import { updateManifest, updateSkillTitle, updateTopic } from './skills/manifestFile.js';
+import { removeAgentFolder } from './skills/remove.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
 import { normalizeUrl } from './output/traceability.js';
 import { ensureArticleContent } from './content/articleContent.js';
@@ -38,6 +39,8 @@ export interface AppDeps {
   getSkills: () => Skill[];
   /** Registers a skill created at runtime (POST /agents). */
   addSkill?: (skill: Skill) => void;
+  /** Forgets a skill removed at runtime (DELETE /agents/:slug). */
+  removeSkill?: (slug: string) => void;
   /** Where user agents live and where agent templates are read from. */
   agentsDir?: string;
   templateDir?: string;
@@ -99,7 +102,8 @@ export async function buildApp(deps: AppDeps) {
   }));
 
   fastify.get('/agents', async () => {
-    const rows = await prisma.agent.findMany({ orderBy: { slug: 'asc' } });
+    // Removed agents keep their database rows (history) but are not listed.
+    const rows = (await prisma.agent.findMany({ orderBy: { slug: 'asc' } })).filter((a) => skillList().some((s) => s.id === a.slug));
     const lastRuns = await Promise.all(
       rows.map((a) =>
         prisma.agentRun.findFirst({
@@ -905,6 +909,57 @@ export async function buildApp(deps: AppDeps) {
       return { ok: true, schedule: skill.manifest.schedule ?? null };
     }
   );
+
+  // ---- Editing and removing a Ressort ---------------------------------------
+
+  fastify.put<{ Params: { slug: string } }>('/agents/:slug/topic', async (request, reply) => {
+    const skill = skillList().find((s) => s.id === request.params.slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    const parsed = z.object({ topic: z.string().trim().min(1).max(400) }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: 'topic must be 1–400 characters' });
+      return reply;
+    }
+    if (!(await updateTopic(skill, parsed.data.topic))) {
+      reply.code(409).send({ error: 'no_topic', message: 'this agent has no topic sentence in its prompt' });
+      return reply;
+    }
+    return { topic: skill.manifest.topic ?? null };
+  });
+
+  // Removes a Ressort: the folder moves to .removed (nothing is deleted), the
+  // schedule stops, the agent disappears from the lists. Its runs and articles
+  // stay in the database.
+  fastify.delete<{ Params: { slug: string } }>('/agents/:slug', async (request, reply) => {
+    const slug = request.params.slug;
+    const skill = skillList().find((s) => s.id === slug);
+    if (!skill) {
+      reply.code(404).send({ error: 'agent_not_found', slug });
+      return reply;
+    }
+    if (skill.type !== 'proactive') {
+      reply.code(409).send({ error: 'not_a_ressort', message: 'only Ressorts can be removed' });
+      return reply;
+    }
+    if (!deps.agentsDir || !deps.removeSkill) {
+      reply.code(501).send({ error: 'not_supported' });
+      return reply;
+    }
+    if (isAgentRunning(slug)) {
+      reply.code(409).send({ error: 'running', message: 'a run is in progress; try again when it is finished' });
+      return reply;
+    }
+    stopSkill(slug);
+    await removeAgentFolder(deps.agentsDir, slug);
+    await prisma.agent.updateMany({ where: { slug }, data: { enabled: false } });
+    deps.removeSkill(slug);
+    request.log.info({ slug }, 'agent_removed');
+    reply.code(204).send();
+    return reply;
+  });
 
   // ---- Model choice ------------------------------------------------------
 

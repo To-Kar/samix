@@ -1,5 +1,6 @@
 import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { isRemoved } from './remove.js';
 import matter from 'gray-matter';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { ScheduleSpec, SourceSpec, ModelId } from '../types.js';
@@ -56,7 +57,8 @@ async function exists(path: string): Promise<boolean> {
 
 export async function uniqueSlug(agentsDir: string, base: string): Promise<string> {
   let slug = base;
-  for (let n = 2; await exists(join(agentsDir, slug)); n++) slug = `${base}-${n}`;
+  // A removed Ressort's slug stays taken: its history is still in the database under it.
+  for (let n = 2; (await exists(join(agentsDir, slug))) || isRemoved(agentsDir, slug); n++) slug = `${base}-${n}`;
   return slug;
 }
 

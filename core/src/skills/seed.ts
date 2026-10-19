@@ -1,4 +1,5 @@
 import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { isRemoved } from './remove.js';
 import { join } from 'node:path';
 import type { Logger } from 'pino';
 
@@ -17,6 +18,8 @@ export function seedAgents(bundledDir: string, userDir: string, log?: Logger): s
     if (!entry.isDirectory() || entry.name.startsWith('_') || entry.name.startsWith('.')) continue;
     const target = join(userDir, entry.name);
     if (existsSync(target)) continue;
+    // The reader removed it on purpose; a shipped default must not come back.
+    if (isRemoved(userDir, entry.name)) continue;
     cpSync(join(bundledDir, entry.name), target, { recursive: true });
     copied.push(entry.name);
     log?.info({ agent: entry.name }, 'agent_seeded');

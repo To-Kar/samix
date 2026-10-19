@@ -100,6 +100,14 @@ export function reloadSkill(slug: string, skill: Skill, logger: Logger): void {
   }
 }
 
+export const isScheduled = (slug: string): boolean => tasks.has(slug);
+
+// Stops the cron job of an agent that is being removed.
+export function stopSkill(slug: string): void {
+  tasks.get(slug)?.stop();
+  tasks.delete(slug);
+}
+
 export interface WakeDetectorOptions {
   intervalMs?: number;
   /** A gap between two ticks larger than this means the machine was asleep. */

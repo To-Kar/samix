@@ -136,6 +136,9 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
   const [message, setMessage] = useState<string | null>(null);
   const [title, setTitle] = useState(agent.title);
   const [titleMessage, setTitleMessage] = useState<string | null>(null);
+  const [topic, setTopic] = useState(agent.topic ?? '');
+  const [topicMessage, setTopicMessage] = useState<string | null>(null);
+  const [removeMessage, setRemoveMessage] = useState<string | null>(null);
 
   const saveTitle = async () => {
     setTitleMessage(null);
@@ -145,6 +148,34 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
       onChanged();
     } catch (e) {
       setTitleMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const saveTopic = async () => {
+    setTopicMessage(null);
+    try {
+      await api.setAgentTopic(agent.slug, topic);
+      setTopicMessage('Gespeichert – gilt ab dem nächsten Lauf (und für die Websuche).');
+      onChanged();
+    } catch (e) {
+      setTopicMessage(`Speichern fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const remove = async () => {
+    if (
+      !window.confirm(
+        `Ressort „${agent.title}“ entfernen?\n\nEs verschwindet aus der Zeitung und läuft nicht mehr. Die Dateien werden nur zur Seite gelegt (Ordner „.removed“ im Agenten-Ordner), bereits geholte Artikel und der Verlauf bleiben in der Datenbank.`
+      )
+    ) {
+      return;
+    }
+    setRemoveMessage(null);
+    try {
+      await api.removeAgent(agent.slug);
+      onChanged();
+    } catch (e) {
+      setRemoveMessage(`Entfernen fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -176,6 +207,27 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
           {titleMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{titleMessage}</span> : null}
         </div>
       </Section>
+      {agent.topic !== null ? (
+        <Section title="Thema">
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-sm w-full max-w-xl"
+              rows={2}
+              maxLength={400}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              aria-label="Thema des Ressorts"
+            />
+            <div className="flex items-center gap-3">
+              <button className={btn} onClick={() => void saveTopic()} disabled={!topic.trim() || topic.trim() === agent.topic}>
+                Thema speichern
+              </button>
+              {topicMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{topicMessage}</span> : null}
+            </div>
+            <p className="text-xs text-neutral-400">Das Modell wählt aus den abgerufenen Beiträgen die zu diesem Thema passenden aus; die Websuche sucht danach.</p>
+          </div>
+        </Section>
+      ) : null}
       <Section title="Zeitplan">
         <ScheduleEditor value={schedule} onChange={setSchedule} />
         <div className="flex items-center gap-3">
@@ -199,6 +251,17 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
       </Section>
       <Section title="Läufe">
         <RunHistory api={api} slug={agent.slug} version={version} />
+      </Section>
+      <Section title="Entfernen">
+        <div className="flex items-center gap-3">
+          <button className={`${btn} text-red-700 dark:text-red-400`} onClick={() => void remove()}>
+            Ressort entfernen
+          </button>
+          {removeMessage ? <span className="text-xs text-red-600 dark:text-red-400">{removeMessage}</span> : null}
+        </div>
+        <p className="text-xs text-neutral-400">
+          Nichts wird gelöscht: die Dateien kommen in den Ordner „.removed“, Artikel und Verlauf bleiben in der Datenbank.
+        </p>
       </Section>
     </div>
   );

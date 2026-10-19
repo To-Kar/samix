@@ -39,6 +39,11 @@ const fastify = await buildApp({
   logger,
   getSkills: () => skills,
   addSkill: (skill) => skills.push(skill),
+  // Splice in place: the scheduler and the wake detector hold this same array.
+  removeSkill: (slug) => {
+    const i = skills.findIndex((s) => s.id === slug);
+    if (i >= 0) skills.splice(i, 1);
+  },
   agentsDir,
   // Templates come from the shipped agents, which the user never edits.
   templateDir: bundledAgentsDir ?? agentsDir,

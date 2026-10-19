@@ -186,6 +186,8 @@ function candidatesOf(parsed: unknown): ArticleCandidate[] {
 // catch-up) would otherwise double the spend and read a stale budget ledger.
 const activeAgents = new Set<string>();
 
+export const isAgentRunning = (slug: string): boolean => activeAgents.has(slug);
+
 export async function runAgent(opts: RunAgentOptions): Promise<RunResult> {
   const slug = opts.skill.id;
   if (activeAgents.has(slug)) return rejectConcurrentRun(opts);

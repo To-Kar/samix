@@ -456,6 +456,15 @@ export class ApiClient {
     return this.json('PUT', `/agents/${slug}/enabled`, { enabled });
   }
 
+  setAgentTopic(slug: string, topic: string): Promise<{ topic: string | null }> {
+    return this.json('PUT', `/agents/${encodeURIComponent(slug)}/topic`, { topic });
+  }
+
+  /** Removes a Ressort: its folder is moved aside, runs and articles stay in the database. */
+  removeAgent(slug: string): Promise<void> {
+    return this.request<void>(`/agents/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+  }
+
   renameAgent(slug: string, title: string): Promise<{ ok: boolean; title: string }> {
     return this.json('PUT', `/agents/${slug}/title`, { title });
   }
