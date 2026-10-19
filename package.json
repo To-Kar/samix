@@ -9,7 +9,9 @@
     "build:core": "pnpm --filter samix-core build",
     "build:app": "pnpm --filter samix-app build:release",
     "db:migrate": "pnpm --filter samix-core prisma migrate dev",
-    "db:studio": "pnpm --filter samix-core prisma studio"
+    "db:studio": "pnpm --filter samix-core prisma studio",
+    "version:check": "node scripts/version.mjs --check",
+    "version:set": "node scripts/version.mjs"
   },
   "packageManager": "pnpm@10.33.0",
   "pnpm": {

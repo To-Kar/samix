@@ -514,6 +514,8 @@ Core: 354 Tests, App: 18; Oberfläche in Chromium geprüft.
 
 ## Phase 5 — Öffentliche Veröffentlichung
 
+**Vorbereitet, nicht ausgeführt** (Details und Entscheidungen für den Auftraggeber: `docs/SAMIX_RELEASE.md`): `scripts/version.mjs` (eine Version für alle Dateien, geprüft in CI und im Test), `release.yml` signiert/notarisiert auf macOS nur wenn die Apple-Secrets gesetzt sind und legt bei einem Tag einen Entwurf-Release an, Anleitung zum Veröffentlichen und eine Prüfliste für echte Rechner. **Nicht gebaut:** Auto-Update, Windows-Signierung. **Offen, braucht dich:** Apple-Developer-Konto, Lizenzwahl (es gibt keine `LICENSE`), Datenschutztext, Namensprüfung. Nichts davon wurde auf echten Rechnern oder Runnern ausprobiert.
+
 - **macOS:** Apple-Developer-Programm, Developer-ID-Signatur, Notarisierung [Unverified: aktuelle Kosten und Ablauf bei Apple prüfen].
 - **Windows:** Code-Signing-Zertifikat.
 - **Auto-Update** (Tauri-Updater, signierte Updates).

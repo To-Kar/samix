@@ -31,6 +31,7 @@ jobs:
         run: test "$(uname -m)" = "arm64"
       # postinstall runs `prisma generate` for the core.
       - run: pnpm install --frozen-lockfile
+      - run: node scripts/version.mjs --check
       - run: pnpm --filter samix-core typecheck
       - run: pnpm --filter samix-core test
       - run: pnpm --filter samix-app test

@@ -123,6 +123,10 @@ A "Ressort" is a proactive agent. `POST /agents` (`skills/create.ts`) writes a n
 - **One run per agent at a time** (in-process lock in `runner.ts`); a second trigger is recorded as `failed: already_running`. Runs left `running` by a dead process are marked `failed: interrupted` at startup.
 - **The budget gate is pre-call.** In Phase 1 it becomes the only thing between a buggy skill and a real bill — the check must stay *before* `adapter.generate`.
 
+### Releases
+
+One version for the whole repo: `node scripts/version.mjs <x.y.z>` sets it in every file that carries it, `--check` verifies (CI and `core/test/version.test.ts`). A tag `vX.Y.Z` triggers `release.yml`, which checks the tag against the version, builds macOS (Apple Silicon) and Windows, signs/notarises macOS only if the Apple secrets exist, and files a **draft** GitHub release. None of it has run on a real runner; see `docs/SAMIX_RELEASE.md`.
+
 ## Environment variables
 
 | Var | Purpose |
