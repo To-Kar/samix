@@ -122,6 +122,7 @@ export async function buildApp(deps: AppDeps) {
         model: skill?.manifest.model.primary ?? null,
         personalize: skill?.manifest.personalize ?? false,
         topic: skill ? (skill.manifest.topic ?? focusOf(skill.systemPrompt) ?? null) : null,
+        version: skill?.version ?? null,
         lastRun: lastRuns[i] ?? null,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,

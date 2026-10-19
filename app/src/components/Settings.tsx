@@ -308,6 +308,7 @@ function DefaultModel({
             <li key={a.slug} className="flex gap-2">
               <span className="w-48">{a.title}</span>
               <span className="font-mono text-ink-soft dark:text-ink-soft-dark">{a.model ?? '–'}</span>
+              {a.version ? <span className="text-ink-soft dark:text-ink-soft-dark">Prompt v{a.version}</span> : null}
             </li>
           ))}
       </ul>

@@ -503,6 +503,15 @@ Wunsch: Ein Ressort soll ohne eigene Quelle etwas finden, optional nur auf besti
 - **Bewusst nicht gebaut:** ein Abgleich, ob die Quellen „dasselbe aussagen“. Das Modell wird angewiesen, keine „Bestätigung“ zu behaupten. Ein solcher Abgleich wäre ein Modellurteil, das Übereinstimmung vortäuschen kann.
 - **Nicht verifiziert / offen:** Wie zuverlässig echte Modelle den Schlüssel vergeben (falsch zusammengelegt oder gar nicht); Gruppierung gilt nur innerhalb einer Ausgabe. **Bestehende Ressorts** behalten ihr altes `SKILL.md`/`schema.json` (Seeding überschreibt nie) und gruppieren deshalb nicht, bis diese Dateien aktualisiert sind; neu angelegte Ressorts bekommen die neuen.
 
+### Status Kosten, Preise, Agenten-Updates (2026-10-19)
+
+Core: 354 Tests, App: 18; Oberfläche in Chromium geprüft.
+
+- **Kosten und Limits in der App** (Einrichtung, Karte 3): Ausgaben heute (global und je Agent, mit dem Anteil der Websuche), die letzten 7 Tage, das **globale Tageslimit** (App-Einstellung vor Umgebungsvariable, 0 = aus) und das **Tageslimit je Agent** (schreibt `manifest.yaml`). `GET /costs`, `PUT/DELETE /budget/global`, `PUT /agents/:slug/budget`. Neu: Tabelle `AppSetting`, Spalte `AgentRun.sourceCostUsd`.
+- **Preise einstellbar:** `PUT/DELETE /prices/:model`; `budget.ts` rechnet mit dem Preis des Nutzers, sonst mit der eingebauten Tabelle der Adapter. Die eingebauten Preise sind **weiter ungeprüft** (ich kann die Preisseiten von hier nicht lesen); die Oberfläche sagt das und lässt dich die Werte der Anbieter eintragen. Der Perplexity-Suchpreis bleibt ein Pauschalwert (0,01 $ je Suche).
+- **Agenten bleiben aktuell** (`skills/sync.ts`, nur installierte App): Ist die `version` des mitgelieferten Agenten höher als die der Kopie, werden Prompt, Schema und Fähigkeits-Schlüssel (`tools`, `routes`, `delegates`, `empty_answer`, `output`) ersetzt; Titel, Quellen, Zeitplan, Modell, Limits, `personalize` und Thema bleiben. Die alten Dateien liegen danach in `.backup-v<alte Version>/` im Agentenordner. Ressorts aus einer Vorlage bekommen den neuen Prompt mit ihrem eigenen Thema (`template:` im Manifest; ältere werden am Prompt erkannt). Versionen angehoben: `newsletter-ai`, `orchestrator`, `frag-die-zeitung` → 1.1. **Folge:** Beim nächsten Start der installierten App bekommen bestehende Ressorts das Gruppieren, und der Eingang kennt den Projekt-Assistenten.
+- **Nicht verifiziert:** Der Update-Pfad ist nur gegen Temp-Ordner getestet, nicht in einer echten Installation auf macOS/Windows. Änderungen, die du selbst an `SKILL.md`-Text oder `schema.json` eines mitgelieferten Agenten gemacht hast, werden dabei überschrieben (gesichert im Backup-Ordner). Die Kostenanzeige kennt keine Wochenlimits.
+
 ## Phase 5 — Öffentliche Veröffentlichung
 
 - **macOS:** Apple-Developer-Programm, Developer-ID-Signatur, Notarisierung [Unverified: aktuelle Kosten und Ablauf bei Apple prüfen].

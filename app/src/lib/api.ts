@@ -20,6 +20,8 @@ export interface AgentSummary {
   personalize: boolean;
   /** What the Ressort is about; null if unknown. */
   topic: string | null;
+  /** Version of the agent's prompt and capabilities (kept current from the shipped agent). */
+  version: string | null;
   lastRun: { startedAt: string; status: string; error: string | null; costUsd: number } | null;
   createdAt: string;
   updatedAt: string;
