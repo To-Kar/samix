@@ -17,6 +17,11 @@ export type ModelId = (typeof MODEL_IDS)[number];
 
 export interface Skill {
   id: string;
+  /** Display name (Ressort title): SKILL.md frontmatter `title`, else `name`. */
+  title: string;
+  description: string;
+  /** Runtime state, kept in the database so it survives edits to the files. */
+  enabled: boolean;
   type: AgentType;
   version: string;
   skillMdPath: string;
@@ -33,6 +38,10 @@ export interface Manifest {
   schedule?: ScheduleSpec;
   sources?: SourceSpec[];
   output: OutputSpec;
+  /** Skip source items already published by this agent within N days (default 14, 0 = off). */
+  dedupeDays?: number;
+  /** Tell the model what the reader liked/disliked (see runner/profile.ts). */
+  personalize?: boolean;
 }
 
 export interface ModelPreference {

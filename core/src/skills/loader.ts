@@ -15,6 +15,12 @@ export interface LoadOptions {
   agentsDir: string;
 }
 
+export async function loadSkillDir(dir: string): Promise<Skill> {
+  const skill = await loadOneSkill(dir);
+  await upsertAgent(skill);
+  return skill;
+}
+
 export async function loadSkills(opts: LoadOptions): Promise<Skill[]> {
   const agentsDir = resolve(opts.agentsDir);
   const log = logger.child({ component: 'skill-loader', agentsDir });
@@ -59,12 +65,16 @@ async function loadOneSkill(dir: string): Promise<Skill> {
 
   const parsed = manifestYamlSchema.parse(parseYaml(manifestRaw));
   const fm = matter(skillMdRaw);
-  skillFrontmatterSchema.parse(fm.data);
+  const frontmatter = skillFrontmatterSchema.parse(fm.data);
 
   const manifest = normalizeManifest(parsed);
 
   return {
     id: manifest.id,
+    title: frontmatter.title ?? frontmatter.name,
+    description: frontmatter.description,
+    enabled: true, // replaced by the database value in upsertAgent
+
     type: manifest.type,
     version: manifest.version,
     skillMdPath,
@@ -104,11 +114,13 @@ function normalizeManifest(m: ManifestYaml): Manifest {
       minItems: m.output.min_items,
       maxItems: m.output.max_items,
     },
+    dedupeDays: m.dedupe_days,
+    personalize: m.personalize,
   };
 }
 
 async function upsertAgent(skill: Skill): Promise<void> {
-  await prisma.agent.upsert({
+  const row = await prisma.agent.upsert({
     where: { slug: skill.id },
     create: {
       slug: skill.id,
@@ -123,4 +135,6 @@ async function upsertAgent(skill: Skill): Promise<void> {
       config: JSON.stringify(skill.manifest),
     },
   });
+  // `enabled` is user state: the files never override it.
+  skill.enabled = row.enabled;
 }

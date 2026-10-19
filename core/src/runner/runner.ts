@@ -24,6 +24,7 @@ import {
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 import { notifyRunSuccess } from './hooks.js';
+import { DEFAULT_DEDUPE_DAYS, dropAlreadyPublished } from './dedupe.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -254,6 +255,30 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     throw new Error(`Agent row missing for slug "${skill.id}" — was SkillLoader run?`);
   }
 
+  // Re-read from the database: the user may have switched the agent off.
+  if (!agentRow.enabled) {
+    log.warn('agent_disabled; refusing to run');
+    const completedAt = new Date();
+    await prisma.agentRun.create({
+      data: {
+        id: runId,
+        agentId: agentRow.id,
+        status: 'failed',
+        trigger,
+        error: 'agent_disabled',
+        startedAt,
+        completedAt,
+      },
+    });
+    return buildFailureResult({
+      runId,
+      agentSlug: skill.id,
+      error: 'agent_disabled',
+      startedAt,
+      completedAt,
+    });
+  }
+
   // Pre-create the AgentRun so SourceSnapshot rows have a valid FK target.
   // Updated in place at every terminal branch below.
   await prisma.agentRun.create({
@@ -339,6 +364,36 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
       startedAt,
       completedAt,
     });
+  }
+
+  // Everything fetched was already published by this agent recently: nothing
+  // to do, and no reason to pay for a model call. Not a failure.
+  const dedupeDays = skill.manifest.dedupeDays ?? DEFAULT_DEDUPE_DAYS;
+  if (sourceItems.length > 0) {
+    const { fresh, skipped } = await dropAlreadyPublished(agentRow.id, sourceItems, dedupeDays, startedAt);
+    if (skipped > 0) log.info({ skipped, fresh: fresh.length, dedupeDays }, 'already_published_skipped');
+    sourceItems = fresh;
+    if (fresh.length === 0) {
+      const completedAt = new Date();
+      await prisma.agentRun.update({
+        where: { id: runId },
+        data: { status: 'success', output: JSON.stringify({ note: 'no_new_items', skipped }), completedAt },
+      });
+      log.info({ skipped }, 'run ok (nothing new)');
+      return {
+        runId,
+        agentSlug: skill.id,
+        status: 'success',
+        output: { note: 'no_new_items', skipped },
+        tokensInput: 0,
+        tokensOutput: 0,
+        costUsd: 0,
+        citations: [],
+        articleIds: [],
+        startedAt,
+        completedAt,
+      };
+    }
   }
 
   const request: NormalizedRequest = {

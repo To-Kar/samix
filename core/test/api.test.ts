@@ -314,3 +314,65 @@ describe('model choice', () => {
     expect((await local.inject({ url: '/agents/nope/model', headers: AUTH })).statusCode).toBe(404);
   });
 });
+
+describe('agents: list, enable/disable, per-agent latest', () => {
+  it('lists agents with title, schedule, model and last run', async () => {
+    const skill = makeSkill();
+    skill.title = 'Tech & KI';
+    skill.manifest.schedule = { cron: '0 6 * * *', timezone: 'Europe/Berlin' };
+    const agentId = await seedAgent(skill);
+    await prisma.agentRun.create({ data: { agentId, status: 'success', trigger: 'manual', costUsd: 0.02 } });
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+
+    const list = (await local.inject({ url: '/agents', headers: AUTH })).json() as Record<string, unknown>[];
+    const mine = list.find((a) => a.slug === skill.id)!;
+
+    expect(mine).toMatchObject({
+      title: 'Tech & KI',
+      enabled: true,
+      model: 'claude-haiku-4-5',
+      schedule: { cron: '0 6 * * *', timezone: 'Europe/Berlin' },
+      lastRun: { status: 'success', costUsd: 0.02 },
+    });
+  });
+
+  it('switches an agent off and on; a disabled agent cannot be run manually', async () => {
+    const skill = makeSkill({ withSources: false, withSchema: false });
+    await seedAgent(skill);
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+    const put = (payload: unknown) =>
+      local.inject({ method: 'PUT', url: `/agents/${skill.id}/enabled`, headers: AUTH, payload: payload as object });
+
+    expect((await put({ enabled: 'yes' })).statusCode).toBe(400);
+    expect((await put({})).statusCode).toBe(400);
+    expect((await local.inject({ method: 'PUT', url: '/agents/nope/enabled', headers: AUTH, payload: { enabled: false } })).statusCode).toBe(404);
+
+    expect((await put({ enabled: false })).json()).toEqual({ ok: true, enabled: false });
+    expect(skill.enabled).toBe(false);
+    expect((await prisma.agent.findUniqueOrThrow({ where: { slug: skill.id } })).enabled).toBe(false);
+    const run = await local.inject({ method: 'POST', url: `/agents/${skill.id}/run`, headers: AUTH });
+    expect(run.statusCode).toBe(409);
+    expect(run.json().error).toBe('agent_disabled');
+
+    expect((await put({ enabled: true })).json().enabled).toBe(true);
+  });
+
+  it('"latest" can be limited to one agent (a Ressort)', async () => {
+    const a = makeSkill();
+    const b = makeSkill();
+    const idA = await seedAgent(a);
+    const idB = await seedAgent(b);
+    const mk = async (agentId: string, at: string, title: string) => {
+      const run = await prisma.agentRun.create({ data: { agentId, status: 'success', trigger: 'manual', startedAt: new Date(at) } });
+      await prisma.article.create({ data: { agentRunId: run.id, title, summary: 's', importance: 3 } });
+      return run.id;
+    };
+    const runA = await mk(idA, '2030-01-01T06:00:00Z', 'from A');
+    const runB = await mk(idB, '2030-01-02T06:00:00Z', 'from B'); // newer overall
+    const local = await buildApp({ token: 'tok', logger, getSkills: () => [a, b] });
+
+    expect((await local.inject({ url: '/editions/latest', headers: AUTH })).json().id).toBe(runB);
+    expect((await local.inject({ url: `/editions/latest?agent=${a.id}`, headers: AUTH })).json().id).toBe(runA);
+    expect((await local.inject({ url: '/editions/latest?agent=nobody', headers: AUTH })).statusCode).toBe(404);
+  });
+});

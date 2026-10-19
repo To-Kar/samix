@@ -12,6 +12,10 @@ const tasks = new Map<string, ScheduledTask>();
 
 function registerJob(skill: Skill, logger: Logger): void {
   const schedule = skill.manifest.schedule!;
+  if (!skill.enabled) {
+    logger.info({ skill: skill.id }, 'agent_disabled; not scheduled');
+    return;
+  }
 
   if (!cron.validate(schedule.cron)) {
     logger.error({ skill: skill.id, cron: schedule.cron }, 'invalid_cron; skipping');
@@ -39,6 +43,7 @@ function registerJob(skill: Skill, logger: Logger): void {
 
 export async function checkCatchup(skill: Skill, log: Logger): Promise<void> {
   const schedule = skill.manifest.schedule!;
+  if (!skill.enabled) return;
 
   try {
     const interval = CronExpressionParser.parse(schedule.cron, { tz: schedule.timezone });
@@ -124,7 +129,7 @@ export function startWakeDetector(
     if (gap <= gapMs) return;
     logger.info({ gapSeconds: Math.round(gap / 1000) }, 'wake_detected');
     for (const skill of skills) {
-      if (skill.type === 'proactive' && skill.manifest.schedule?.catchupOnStartup) {
+      if (skill.enabled && skill.type === 'proactive' && skill.manifest.schedule?.catchupOnStartup) {
         void catchup(skill, logger);
       }
     }

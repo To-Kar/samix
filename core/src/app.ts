@@ -82,15 +82,52 @@ export async function buildApp(deps: AppDeps) {
 
   fastify.get('/agents', async () => {
     const rows = await prisma.agent.findMany({ orderBy: { slug: 'asc' } });
-    return rows.map((a) => ({
-      id: a.id,
-      slug: a.slug,
-      type: a.type,
-      enabled: a.enabled,
-      createdAt: a.createdAt,
-      updatedAt: a.updatedAt,
-    }));
+    const lastRuns = await Promise.all(
+      rows.map((a) =>
+        prisma.agentRun.findFirst({
+          where: { agentId: a.id },
+          orderBy: { startedAt: 'desc' },
+          select: { startedAt: true, status: true, error: true, costUsd: true },
+        })
+      )
+    );
+    return rows.map((a, i) => {
+      const skill = skillList().find((s) => s.id === a.slug);
+      return {
+        id: a.id,
+        slug: a.slug,
+        title: skill?.title ?? a.slug,
+        description: skill?.description ?? '',
+        type: a.type,
+        enabled: a.enabled,
+        schedule: skill?.manifest.schedule ?? null,
+        model: skill?.manifest.model.primary ?? null,
+        lastRun: lastRuns[i] ?? null,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+      };
+    });
   });
+
+  fastify.put<{ Params: { slug: string }; Body: { enabled?: unknown } }>(
+    '/agents/:slug/enabled',
+    async (request, reply) => {
+      const skill = skillList().find((s) => s.id === request.params.slug);
+      if (!skill) {
+        reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+        return reply;
+      }
+      if (typeof request.body?.enabled !== 'boolean') {
+        reply.code(400).send({ error: 'invalid_body', message: 'enabled must be true or false' });
+        return reply;
+      }
+      await prisma.agent.update({ where: { slug: skill.id }, data: { enabled: request.body.enabled } });
+      skill.enabled = request.body.enabled;
+      // (Re)registers the cron job, or drops it when switched off.
+      reloadSkill(skill.id, skill, request.log as unknown as typeof logger);
+      return { ok: true, enabled: skill.enabled };
+    }
+  );
 
   fastify.post<{ Params: { slug: string } }>(
     '/agents/:slug/run',
@@ -99,6 +136,10 @@ export async function buildApp(deps: AppDeps) {
       const skill = skillList().find((s) => s.id === slug);
       if (!skill) {
         reply.code(404).send({ error: 'agent_not_found', slug });
+        return reply;
+      }
+      if (!skill.enabled) {
+        reply.code(409).send({ error: 'agent_disabled', slug });
         return reply;
       }
       const result = await runAgent({
@@ -256,6 +297,8 @@ export async function buildApp(deps: AppDeps) {
   });
   const editionQuery = z.object({
     leadParagraphs: z.coerce.number().int().min(0).max(20).default(4),
+    // Only used with id "latest": the newest edition of this agent (a Ressort).
+    agent: z.string().min(1).optional(),
   });
   const hasArticles = { articles: { some: {} } } as const;
 
@@ -302,7 +345,10 @@ export async function buildApp(deps: AppDeps) {
       // "latest" is a convenience for the front page.
       const run =
         request.params.id === 'latest'
-          ? await prisma.agentRun.findFirst({ where: hasArticles, orderBy: { startedAt: 'desc' } })
+          ? await prisma.agentRun.findFirst({
+              where: { ...hasArticles, ...(q.data.agent ? { agent: { slug: q.data.agent } } : {}) },
+              orderBy: { startedAt: 'desc' },
+            })
           : await prisma.agentRun.findUnique({ where: { id: request.params.id } });
       if (!run) {
         reply.code(404).send({ error: 'edition_not_found', id: request.params.id });

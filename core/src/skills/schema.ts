@@ -44,11 +44,14 @@ export const manifestYamlSchema = z.object({
   schedule: scheduleSchema.optional(),
   sources: z.array(sourceSchema).optional(),
   output: outputSchema,
+  dedupe_days: z.number().int().min(0).max(365).optional(),
+  personalize: z.boolean().optional(),
 });
 
 export type ManifestYaml = z.infer<typeof manifestYamlSchema>;
 
 export const skillFrontmatterSchema = z.object({
   name: z.string().min(1),
+  title: z.string().min(1).optional(),
   description: z.string().min(1),
 });

@@ -29,6 +29,9 @@ export function makeSkill(opts: {
   const { withSources = true, withSchema = true } = opts;
   return {
     id,
+    title: id,
+    description: 'test agent',
+    enabled: true,
     type: 'proactive',
     version: '1.0',
     skillMdPath: resolve(NEWSLETTER_DIR, 'SKILL.md'),
