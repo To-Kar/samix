@@ -44,10 +44,12 @@ describe('traceable output', () => {
 
     expect(result.status).toBe('success');
     expect(result.articleIds).toHaveLength(5);
+    expect((await prisma.agentRun.findUnique({ where: { id: result.runId } }))?.model).toBe('claude-haiku-4-5');
     const rows = await articlesOf(result.runId);
     expect(rows).toHaveLength(5);
     for (const r of rows) {
       expect(r.sourceName).toBe('Example Feed');
+      expect(r.importance).toBe(3); // the model gave none → default
       // The source's date wins over the model's invented 1999 date.
       expect(r.publishedAt?.toISOString()).toBe('2026-10-18T08:00:00.000Z');
     }

@@ -8,6 +8,8 @@ import { applyMigrations } from './db/migrate.js';
 import { watchParent } from './watchdog.js';
 import { startScheduler } from './scheduler/index.js';
 import { buildApp } from './app.js';
+import { registerContentPrefetch } from './content/prefetch.js';
+import { applyContentRetention } from './content/retention.js';
 import type { Skill } from './types.js';
 
 const token = process.env.SAMIX_TOKEN;
@@ -36,6 +38,12 @@ async function start(): Promise<void> {
   await prisma.$connect();
   await recoverInterruptedRuns(logger);
   skills = await loadSkills({ agentsDir });
+  registerContentPrefetch(logger);
+  await applyContentRetention(logger);
+  setInterval(
+    () => void applyContentRetention(logger).catch((err) => logger.warn({ err }, 'retention_failed')),
+    24 * 60 * 60 * 1000
+  ).unref();
   startScheduler(skills, logger);
 
   const actualPort = await fastify.listen({ host: '127.0.0.1', port });

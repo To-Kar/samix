@@ -80,6 +80,12 @@ describe('enforceTraceability', () => {
     expect(garbage.rejected[0]?.reason).toBe('no_publication_date');
   });
 
+  it('clamps importance to 1..5 and defaults to 3', () => {
+    const run = (importance?: number) =>
+      enforceTraceability([{ ...cand('https://example.com/p'), importance }], [src('https://example.com/p', D)]).accepted[0]?.importance;
+    expect([run(undefined), run(0), run(9), run(4.6), run(Number.NaN)]).toEqual([3, 1, 5, 5, 3]);
+  });
+
   it('keeps the first of two articles about the same URL', () => {
     const r = enforceTraceability(
       [cand('https://example.com/p'), cand('https://example.com/p/')],

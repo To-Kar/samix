@@ -11,6 +11,8 @@ import { runAgent } from './runner/runner.js';
 import { reloadSkill } from './scheduler/index.js';
 import { leadExcerpt, parseBlocks } from './content/blocks.js';
 import { normalizeUrl } from './output/traceability.js';
+import { ensureArticleContent } from './content/articleContent.js';
+import { readMedia } from './content/media.js';
 import type { Skill, SourceSpec } from './types.js';
 
 const PKG_VERSION = '0.1.0';
@@ -348,15 +350,12 @@ export async function buildApp(deps: AppDeps) {
     }
   );
 
-  fastify.get<{ Params: { id: string } }>('/articles/:id', async (request, reply) => {
+  async function loadArticleDetail(id: string) {
     const a = await prisma.article.findUnique({
-      where: { id: request.params.id },
+      where: { id },
       include: { content: true, agentRun: { select: { id: true, model: true, startedAt: true } } },
     });
-    if (!a) {
-      reply.code(404).send({ error: 'article_not_found', id: request.params.id });
-      return reply;
-    }
+    if (!a) return null;
     // Evidence: the fetched item(s) of the same run that this article rests on.
     const key = a.sourceUrl ? normalizeUrl(a.sourceUrl) : null;
     const snapshots = key
@@ -392,6 +391,51 @@ export async function buildApp(deps: AppDeps) {
         fetchedAt: s.fetchedAt,
       })),
     };
+  }
+
+  fastify.get<{ Params: { id: string } }>('/articles/:id', async (request, reply) => {
+    const detail = await loadArticleDetail(request.params.id);
+    if (!detail) {
+      reply.code(404).send({ error: 'article_not_found', id: request.params.id });
+      return reply;
+    }
+    return detail;
+  });
+
+  // Fetches the original page's text on demand (lazy), caches it, and returns
+  // the article. Remote problems come back as content.status, not as an error.
+  fastify.post<{ Params: { id: string }; Body: { refresh?: boolean } | undefined }>(
+    '/articles/:id/content',
+    async (request, reply) => {
+      const exists = await prisma.article.findUnique({
+        where: { id: request.params.id },
+        select: { id: true },
+      });
+      if (!exists) {
+        reply.code(404).send({ error: 'article_not_found', id: request.params.id });
+        return reply;
+      }
+      await ensureArticleContent(request.params.id, {
+        refresh: request.body?.refresh === true,
+        logger: request.log as unknown as Logger,
+      });
+      return loadArticleDetail(request.params.id);
+    }
+  );
+
+  // Cached images. Needs the bearer token like everything else, so the UI
+  // fetches them with the header and shows them via blob: URLs.
+  fastify.get<{ Params: { id: string } }>('/media/:id', async (request, reply) => {
+    const media = await readMedia(request.params.id);
+    if (!media) {
+      reply.code(404).send({ error: 'media_not_found' });
+      return reply;
+    }
+    reply
+      .header('Content-Type', media.mime)
+      .header('Cache-Control', 'private, max-age=31536000, immutable')
+      .header('Content-Security-Policy', "default-src 'none'; sandbox");
+    return reply.send(media.data);
   });
 
   return fastify;

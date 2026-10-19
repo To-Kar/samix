@@ -23,6 +23,7 @@ import {
 } from '../output/traceability.js';
 import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
+import { notifyRunSuccess } from './hooks.js';
 
 // Module-level singleton — the compiled-schema cache is the hot path and
 // must persist across runs.
@@ -531,7 +532,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
       { costUsd, model: servingAdapter.name, articles: articleIds.length },
       'run ok'
     );
-    return {
+    const result: RunResult = {
       runId,
       agentSlug: skill.id,
       status: 'success',
@@ -544,6 +545,10 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
       startedAt,
       completedAt,
     };
+    notifyRunSuccess(result, skill, (err) =>
+      log.warn({ err: err instanceof Error ? err.message : String(err) }, 'run_success_hook_failed')
+    );
+    return result;
   } catch (err) {
     const completedAt = new Date();
     const message = err instanceof Error ? err.message : String(err);

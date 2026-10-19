@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { prisma } from '../src/db/prisma.js';
 import { logger } from '../src/logger.js';
 import { makeSkill, seedAgent } from './helpers.js';
+import { PNG, useFakeNet } from './net.js';
 
 const AUTH = { authorization: 'Bearer tok' };
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -137,5 +140,44 @@ describe('editions', () => {
     expect(a.run.model).toBe('claude-haiku-4-5');
     expect(a.sources).toHaveLength(1);
     expect(a.sources[0]).toMatchObject({ title: 'Original title', sourceType: 'rss' });
+  });
+});
+
+describe('on-demand content and media', () => {
+  const net = useFakeNet({
+    'https://magazin.example/ki/modell': { headers: { 'content-type': 'text/html' }, body: readFileSync(resolve(import.meta.dirname, 'fixtures/article.html'), 'utf8') },
+    'https://magazin.example/img/chart.png': { headers: { 'content-type': 'image/png' }, body: PNG },
+    'https://magazin.example/img/hero-large.jpg': { headers: { 'content-type': 'image/png' }, body: PNG },
+  });
+
+  it('POST /articles/:id/content fetches lazily, caches, and returns blocks', async () => {
+    const a = await prisma.article.create({
+      data: { agentRunId: editionIds[0]!, title: 'lazy', summary: 's', sourceUrl: 'https://magazin.example/ki/modell', importance: 3 },
+    });
+    expect((await app.inject({ method: 'POST', url: `/articles/${a.id}/content` })).statusCode).toBe(401);
+
+    const res = await app.inject({ method: 'POST', url: `/articles/${a.id}/content`, headers: AUTH });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.content.status).toBe('ok');
+    expect(body.content.blocks.length).toBeGreaterThan(5);
+
+    const calls = net.calls.length;
+    await app.inject({ method: 'POST', url: `/articles/${a.id}/content`, headers: AUTH });
+    expect(net.calls.length).toBe(calls);
+
+    // Images are reachable through the API, with the token.
+    const image = body.content.blocks.find((b: { type: string }) => b.type === 'image');
+    expect((await app.inject({ url: `/media/${image.mediaId}` })).statusCode).toBe(401);
+    const img = await app.inject({ url: `/media/${image.mediaId}`, headers: AUTH });
+    expect(img.statusCode).toBe(200);
+    expect(img.headers['content-type']).toBe('image/png');
+    expect(img.rawPayload.equals(PNG)).toBe(true);
+  });
+
+  it('404s for unknown articles and malformed media ids', async () => {
+    expect((await app.inject({ method: 'POST', url: '/articles/nope/content', headers: AUTH })).statusCode).toBe(404);
+    expect((await app.inject({ url: '/media/..%2F..%2Fetc%2Fpasswd', headers: AUTH })).statusCode).toBe(404);
+    expect((await app.inject({ url: `/media/${'f'.repeat(64)}`, headers: AUTH })).statusCode).toBe(404);
   });
 });
