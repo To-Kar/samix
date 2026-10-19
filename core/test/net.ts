@@ -28,7 +28,8 @@ export function useFakeNet(routes: Record<string, FakeResponse | undefined>, pri
     netDeps.lookup = async (host) => (privateHosts.includes(host) ? ['10.0.0.1'] : ['93.184.216.34']);
     netDeps.fetch = async (url, init) => {
       calls.push(url);
-      const r = routes[url];
+      // Real fetch normalises the URL (adds the root slash, lowercases the host).
+      const r = routes[url] ?? routes[new URL(url).toString()];
       const status = r?.status ?? (r ? 200 : 404);
       const body = r?.body ?? '';
       const stream =

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MODEL_IDS } from '../types.js';
+import { MODEL_IDS, SOURCE_TYPES } from '../types.js';
 
 const modelIdSchema = z.enum(MODEL_IDS);
 
@@ -24,7 +24,7 @@ const scheduleSchema = z.object({
 });
 
 const sourceSchema = z.object({
-  type: z.enum(['rss', 'perplexity_search', 'arxiv', 'api', 'custom']),
+  type: z.enum(SOURCE_TYPES),
   config: z.record(z.string(), z.unknown()).default({}),
 });
 

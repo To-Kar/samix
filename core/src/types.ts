@@ -56,8 +56,12 @@ export interface ScheduleSpec {
   catchupOnStartup?: boolean;
 }
 
+// Single source of truth for manifest validation and the sources API.
+// `api` and `custom` are accepted in manifests but have no fetcher yet.
+export const SOURCE_TYPES = ['rss', 'perplexity_search', 'arxiv', 'website', 'api', 'custom'] as const;
+
 export interface SourceSpec {
-  type: 'rss' | 'perplexity_search' | 'arxiv' | 'api' | 'custom';
+  type: (typeof SOURCE_TYPES)[number];
   config: Record<string, unknown>;
 }
 
@@ -137,7 +141,7 @@ export interface ModelAdapter {
   generate(req: NormalizedRequest): Promise<NormalizedResponse>;
 }
 
-export type FetcherType = 'rss' | 'perplexity_search' | 'arxiv';
+export type FetcherType = 'rss' | 'perplexity_search' | 'arxiv' | 'website';
 
 export interface SourceItem {
   url: string;

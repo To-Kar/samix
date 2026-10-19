@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { prisma } from '../src/db/prisma.js';
@@ -179,5 +180,72 @@ describe('on-demand content and media', () => {
     expect((await app.inject({ method: 'POST', url: '/articles/nope/content', headers: AUTH })).statusCode).toBe(404);
     expect((await app.inject({ url: '/media/..%2F..%2Fetc%2Fpasswd', headers: AUTH })).statusCode).toBe(404);
     expect((await app.inject({ url: `/media/${'f'.repeat(64)}`, headers: AUTH })).statusCode).toBe(404);
+  });
+});
+
+describe('sources: preview and validation', () => {
+  const feed = readFileSync(resolve(import.meta.dirname, 'fixtures/site/feed.xml'), 'utf8');
+  const home = readFileSync(resolve(import.meta.dirname, 'fixtures/site/home-with-feed.html'), 'utf8');
+  useFakeNet({
+    'https://tech.example/robots.txt': { status: 404 },
+    'https://tech.example/': { headers: { 'content-type': 'text/html' }, body: home },
+    'https://tech.example/rss/alle.xml': { headers: { 'content-type': 'application/xml' }, body: feed },
+  });
+
+  const post = (url: string, payload: unknown) =>
+    app.inject({ method: 'POST', url, headers: AUTH, payload: payload as object });
+
+  it('previews a website source with method, counts and items', async () => {
+    const res = await post('/sources/preview', {
+      type: 'website',
+      config: { url: 'tech.example', filter: { topic: 'KI' } },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toMatchObject({ method: 'feed', candidates: 5, withoutDate: 1, filteredOut: 3 });
+    expect(body.items).toEqual([
+      expect.objectContaining({ title: 'Neues KI-Modell schlägt Konkurrenz', url: 'https://tech.example/artikel/ki-modell' }),
+    ]);
+  });
+
+  it('rejects invalid configs with a readable message', async () => {
+    const bad = await post('/sources/preview', { type: 'website', config: { url: 'tech.example', maxItems: 0 } });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().message).toMatch(/maxItems/);
+    const semantic = await post('/sources/preview', { type: 'website', config: { url: 'x', filter: { topic: 'KI', mode: 'semantic' } } });
+    expect(semantic.json().message).toMatch(/semantic/);
+  });
+
+  it('does not preview paid sources', async () => {
+    const res = await post('/sources/preview', { type: 'perplexity_search', config: { queries: ['x'] } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('preview_not_available');
+  });
+
+  it('requires auth', async () => {
+    const res = await app.inject({ method: 'POST', url: '/sources/preview', payload: { type: 'website', config: { url: 'x' } } });
+    expect(res.statusCode).toBe(401);
+  });
+
+  describe('PUT /agents/:slug/sources', () => {
+    it('refuses an invalid website config and leaves the manifest untouched; saves a valid one', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'samix-agent-'));
+      const manifest = 'id: x\nsources: []\n';
+      writeFileSync(join(dir, 'manifest.yaml'), manifest);
+      const skill = makeSkill();
+      skill.skillMdPath = join(dir, 'SKILL.md');
+      const local = await buildApp({ token: 'tok', logger, getSkills: () => [skill] });
+      const put = (sources: unknown) =>
+        local.inject({ method: 'PUT', url: `/agents/${skill.id}/sources`, headers: AUTH, payload: { sources } });
+
+      const bad = await put([{ type: 'website', config: { url: 'tech.example', maxItems: 999 } }]);
+      expect(bad.statusCode).toBe(400);
+      expect(readFileSync(join(dir, 'manifest.yaml'), 'utf8')).toBe(manifest);
+
+      const ok = await put([{ type: 'website', config: { url: 'tech.example', filter: { topic: 'KI' } } }]);
+      expect(ok.statusCode).toBe(200);
+      expect(readFileSync(join(dir, 'manifest.yaml'), 'utf8')).toContain('tech.example');
+      expect(skill.manifest.sources?.[0]?.type).toBe('website');
+    });
   });
 });

@@ -1,0 +1,5 @@
+<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+<url><loc>https://news.example/a/ki-regulierung?x=1&amp;y=2</loc><lastmod>2026-10-18T08:00:00Z</lastmod><news:news><news:publication_date>2026-10-18T06:00:00Z</news:publication_date><news:title>KI-Regulierung: Was jetzt gilt</news:title></news:news></url>
+<url><loc>https://news.example/a/boerse</loc><news:news><news:publication_date>2026-10-17T06:00:00Z</news:publication_date><news:title><![CDATA[Börse schließt höher]]></news:title></news:news></url>
+<url><loc>https://other.example/a/fremd</loc><lastmod>2026-10-18T08:00:00Z</lastmod></url>
+</urlset>

@@ -1,0 +1,7 @@
+<?xml version="1.0"?><rss version="2.0"><channel><title>Beispiel Tech Feed</title><link>https://tech.example</link>
+<item><title>Neues KI-Modell schlägt Konkurrenz</title><link>https://tech.example/artikel/ki-modell</link><pubDate>Sun, 18 Oct 2026 09:00:00 GMT</pubDate><description>Ein Modell mit KI-Architektur.</description></item>
+<item><title>Test: Skiing-Jacke im Alltag</title><link>https://tech.example/artikel/ski-jacke</link><pubDate>Sat, 17 Oct 2026 09:00:00 GMT</pubDate><description>Skiing und mehr in Kiel.</description></item>
+<item><title>Grafikkarte im Test</title><link>https://tech.example/artikel/gpu</link><pubDate>Fri, 16 Oct 2026 09:00:00 GMT</pubDate><description>Neue Chips.</description></item>
+<item><title>Ohne Datum</title><link>https://tech.example/artikel/undatiert</link></item>
+<item><title>Ältester Artikel zur künstlichen Intelligenz</title><link>https://tech.example/artikel/alt</link><pubDate>Mon, 12 Oct 2026 09:00:00 GMT</pubDate></item>
+</channel></rss>

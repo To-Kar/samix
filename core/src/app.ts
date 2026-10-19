@@ -13,7 +13,9 @@ import { leadExcerpt, parseBlocks } from './content/blocks.js';
 import { normalizeUrl } from './output/traceability.js';
 import { ensureArticleContent } from './content/articleContent.js';
 import { readMedia } from './content/media.js';
-import type { Skill, SourceSpec } from './types.js';
+import { SOURCE_TYPES, type Skill, type SourceItem, type SourceSpec } from './types.js';
+import { WebsiteFetcher, type WebsiteConfig } from './sources/website.js';
+import { resolveFetcher, validateSourceSpec } from './sources/index.js';
 
 const PKG_VERSION = '0.1.0';
 
@@ -193,7 +195,7 @@ export async function buildApp(deps: AppDeps) {
   const sourcesBodySchema = z.object({
     sources: z.array(
       z.object({
-        type: z.enum(['rss', 'perplexity_search', 'arxiv', 'api', 'custom']),
+        type: z.enum(SOURCE_TYPES),
         config: z.record(z.string(), z.unknown()).default({}),
       })
     ),
@@ -225,6 +227,14 @@ export async function buildApp(deps: AppDeps) {
       if (!parsed.success) {
         reply.code(400).send({ error: 'invalid_sources', details: parsed.error.flatten() });
         return reply;
+      }
+      for (const spec of parsed.data.sources) {
+        try {
+          validateSourceSpec(spec as SourceSpec);
+        } catch (err) {
+          reply.code(400).send({ error: 'invalid_source_config', type: spec.type, message: errorMessage(err) });
+          return reply;
+        }
       }
 
       const manifestDir = dirname(skill.skillMdPath);
@@ -350,6 +360,34 @@ export async function buildApp(deps: AppDeps) {
     }
   );
 
+  // Dry run of a source for the sources editor: what would be fetched, and by
+  // which method. Perplexity is excluded because a preview would cost money.
+  fastify.post('/sources/preview', async (request, reply) => {
+    const parsed = sourcesBodySchema.shape.sources.element.safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_source', details: parsed.error.flatten() });
+      return reply;
+    }
+    const spec = parsed.data as SourceSpec;
+    if (spec.type !== 'website' && spec.type !== 'rss' && spec.type !== 'arxiv') {
+      reply.code(400).send({ error: 'preview_not_available', type: spec.type });
+      return reply;
+    }
+    const ctx = { runId: 'preview', logger: request.log as unknown as Logger };
+    try {
+      validateSourceSpec(spec);
+      if (spec.type === 'website') {
+        const r = await new WebsiteFetcher().discover(spec.config as WebsiteConfig, ctx);
+        return { ...r, items: r.items.map(previewItem) };
+      }
+      const items = await resolveFetcher(spec.type)!.fetch(spec.config, ctx);
+      return { method: spec.type, candidates: items.length, warnings: [], items: items.map(previewItem) };
+    } catch (err) {
+      reply.code(400).send({ error: 'invalid_source_config', type: spec.type, message: errorMessage(err) });
+      return reply;
+    }
+  });
+
   async function loadArticleDetail(id: string) {
     const a = await prisma.article.findUnique({
       where: { id },
@@ -440,6 +478,20 @@ export async function buildApp(deps: AppDeps) {
 
   return fastify;
 }
+
+const errorMessage = (err: unknown): string =>
+  err instanceof z.ZodError
+    ? err.issues.map((i) => `${i.path.join('.') || 'config'}: ${i.message}`).join('; ')
+    : err instanceof Error
+      ? err.message
+      : String(err);
+
+const previewItem = (i: SourceItem) => ({
+  title: i.title,
+  url: i.url,
+  publishedAt: i.publishedAt ?? null,
+  sourceName: i.sourceName,
+});
 
 type ArticleWithContent = Awaited<
   ReturnType<typeof prisma.article.findMany<{ include: { content: true } }>>
