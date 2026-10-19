@@ -17,7 +17,9 @@
           "summary": { "type": "string", "maxLength": 280 },
           "sourceUrl": { "type": "string", "format": "uri" },
           "publishedAt": { "type": "string", "format": "date-time" },
-          "topic": { "type": "string" }
+          "topic": { "type": "string" },
+          "importance": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "importanceReason": { "type": "string", "maxLength": 140 }
         }
       }
     }

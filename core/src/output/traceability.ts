@@ -11,12 +11,17 @@ export interface ArticleCandidate {
   sourceUrl?: string;
   publishedAt?: string;
   topic?: string;
+  importance?: number;
+  importanceReason?: string;
 }
 
 export interface TraceableArticle {
   title: string;
   summary: string;
   topic?: string;
+  // 1..5; 3 when the model gave none.
+  importance: number;
+  importanceReason?: string;
   // Taken from the matching source item, not from the model's output.
   sourceUrl: string;
   sourceName: string;
@@ -66,6 +71,13 @@ export function normalizeUrl(raw: string): string | null {
   return `${host}${port}${path}${query ? `?${query}` : ''}`;
 }
 
+export const DEFAULT_IMPORTANCE = 3;
+
+function clampImportance(raw: number | undefined): number {
+  if (raw == null || !Number.isFinite(raw)) return DEFAULT_IMPORTANCE;
+  return Math.min(5, Math.max(1, Math.round(raw)));
+}
+
 function parseDate(raw: string | undefined): Date | undefined {
   if (!raw) return undefined;
   const d = new Date(raw);
@@ -113,6 +125,8 @@ export function enforceTraceability(
       title: c.title,
       summary: c.summary,
       topic: c.topic,
+      importance: clampImportance(c.importance),
+      importanceReason: c.importanceReason,
       sourceUrl: source.url,
       sourceName: source.sourceName,
       publishedAt,

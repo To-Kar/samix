@@ -33,6 +33,8 @@ model AgentRun {
   tokensOutput Int       @default(0)
   costUsd      Float     @default(0)
   error        String?
+  // The adapter that actually served the call (may be the fallback).
+  model        String?
   startedAt    DateTime  @default(now())
   completedAt  DateTime?
 
@@ -53,9 +55,36 @@ model Article {
   publishedAt DateTime?
   topic       String?
   metadata    String?
+  // 1 (filler) .. 5 (lead story), as judged by the model; shown to the user
+  // together with the reason.
+  importance       Int?
+  importanceReason String?
   createdAt   DateTime  @default(now())
 
+  content ArticleContent?
+
   @@index([topic, createdAt])
+}
+
+// Full text of the linked page, extracted locally (no LLM involved) and
+// cached. `blocks` is a JSON array of structured blocks, never raw HTML.
+model ArticleContent {
+  id             String   @id @default(uuid())
+  articleId      String   @unique
+  article        Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  // ok | unsupported | failed. `error` carries the specific reason.
+  status         String
+  error          String?
+  finalUrl       String?
+  title          String?
+  byline         String?
+  siteName       String?
+  lang           String?
+  leadImageId    String?
+  blocks         String   @default("[]")
+  wordCount      Int      @default(0)
+  readingMinutes Int      @default(0)
+  fetchedAt      DateTime @default(now())
 }
 
 model BudgetLedger {

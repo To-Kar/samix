@@ -26,11 +26,22 @@ and return a JSON object matching this shape:
       "summary": "string (<=280 chars, your own words)",
       "sourceUrl": "string (MUST be exactly one url from the input)",
       "publishedAt": "string (ISO date-time, MUST match the same input item)",
-      "topic": "string (short, e.g. 'research', 'tooling', 'industry')"
+      "topic": "string (short, e.g. 'research', 'tooling', 'industry')",
+      "importance": "integer 1-5 (see below)",
+      "importanceReason": "string (<=140 chars, one plain sentence: why this rank)"
     }
   ]
 }
 ```
+
+Importance decides where the item is printed in the newspaper:
+
+- 5 = lead story. Give 5 to at most ONE item, 4 to at most TWO items.
+- 3 = normal article. 1-2 = short notice.
+- Judge by concrete impact and novelty, not by how loud the source is.
+- `importanceReason` is shown to the reader, so state the actual reason
+  (e.g. "First open-weights model above X on benchmark Y"), not a
+  restatement of the title.
 
 Hard rules — violations fail the run:
 

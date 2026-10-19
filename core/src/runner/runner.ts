@@ -176,6 +176,8 @@ async function createArticles(
     sourceName: a.sourceName,
     publishedAt: a.publishedAt,
     topic: a.topic,
+    importance: a.importance,
+    importanceReason: a.importanceReason,
   }));
 
   await prisma.article.createMany({ data: rows });
@@ -419,6 +421,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
         where: { id: runId },
         data: {
           status: 'success',
+          model: servingAdapter.name,
           output: rawOutput,
           tokensInput: response.usage.inputTokens,
           tokensOutput: response.usage.outputTokens,
@@ -455,6 +458,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
         where: { id: runId },
         data: {
           status: 'partial',
+          model: servingAdapter.name,
           output: rawOutput,
           error,
           tokensInput: response.usage.inputTokens,
@@ -514,6 +518,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
       where: { id: runId },
       data: {
         status: 'success',
+        model: servingAdapter.name,
         output: rawOutput,
         tokensInput: response.usage.inputTokens,
         tokensOutput: response.usage.outputTokens,
