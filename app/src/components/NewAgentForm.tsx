@@ -10,7 +10,7 @@ interface Props {
 }
 
 const field =
-  'w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400';
+  'w-full rounded border border-line bg-paper-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus';
 
 export function NewAgentForm({ api, onCreated, onCancel }: Props) {
   const [title, setTitle] = useState('');
@@ -62,7 +62,7 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl">
-      <h3 className="font-serif font-bold text-xl">Neues Ressort</h3>
+      <h3 className="font-head font-bold text-xl">Neues Ressort</h3>
 
       <label className="flex flex-col gap-1">
         <span className="text-xs font-semibold">Name</span>
@@ -79,7 +79,7 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
           maxLength={400}
           placeholder="z. B. Künstliche Intelligenz, Sprachmodelle und ihre Anwendung im Alltag"
         />
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-ink-soft">
           Das Sprachmodell wählt aus den abgerufenen Beiträgen die passenden aus. Stichwörter an den Quellen filtern
           vorher kostenlos.
         </span>
@@ -98,15 +98,15 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
             <input type="radio" name="where" className="mt-1" checked={where === id} onChange={() => setWhere(id)} />
             <span>
               <span className="font-semibold">{label}</span>
-              <span className="block text-xs text-neutral-500">{note}</span>
+              <span className="block text-xs text-ink-soft">{note}</span>
             </span>
           </label>
         ))}
         {searches ? (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-soft">
             Jede Suche kostet extra (geschätzt etwa 0,25 Cent, abgebucht vom Tageslimit des Ressorts). Das lässt sich später unter
             „Quellen“ des Ressorts ändern.
-            {!searchKey ? <span className="text-amber-700 dark:text-amber-400"> Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter).</span> : null}
+            {!searchKey ? <span className="text-warning"> Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter).</span> : null}
           </p>
         ) : null}
       </fieldset>
@@ -124,14 +124,14 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
         <ScheduleEditor value={schedule} onChange={setSchedule} />
       </div>
 
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-soft">
         Beim Anlegen wird nichts abgerufen und nichts bezahlt. Kosten entstehen erst, wenn du „Neue Artikel holen“
         drückst oder der Zeitplan greift. Pro Ressort gilt ein eigenes Tageslimit.
       </p>
 
-      {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}
+      {error ? <p className="text-xs text-danger font-mono">{error}</p> : null}
       {!valid ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+        <p className="text-xs text-warning" role="status">
           Zum Anlegen fehlt noch: {missing.join(', ')}.
         </p>
       ) : null}
@@ -139,7 +139,7 @@ export function NewAgentForm({ api, onCreated, onCancel }: Props) {
         <button
           onClick={() => void create()}
           disabled={!valid || busy}
-          className="border border-ink dark:border-ink-dark px-4 py-1.5 text-sm font-bold hover:bg-ink hover:text-paper dark:hover:bg-ink-dark dark:hover:text-paper-dark disabled:opacity-40"
+          className="border border-ink px-4 py-1.5 text-sm font-bold hover:bg-ink hover:text-paper disabled:opacity-40"
         >
           {busy ? 'Legt an …' : 'Ressort anlegen'}
         </button>

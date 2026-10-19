@@ -51,9 +51,9 @@ export default function App() {
 
   if (initError) {
     return (
-      <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark p-8">
+      <main className="min-h-full bg-paper text-ink p-8">
         <h1 className="text-2xl font-semibold mb-2">Samix</h1>
-        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 p-4 text-red-800 dark:text-red-200 text-sm">
+        <div className="rounded-lg border border-danger bg-danger-paper p-4 text-danger text-sm">
           <div className="font-medium mb-1">Core config unavailable</div>
           <div className="font-mono text-xs">{initError}</div>
           <div className="mt-2 text-xs">
@@ -68,7 +68,7 @@ export default function App() {
 
   if (!api) {
     return (
-      <main className="min-h-full flex items-center justify-center text-sm text-ink-soft dark:text-ink-soft-dark bg-paper dark:bg-paper-dark">
+      <main className="min-h-full flex items-center justify-center text-sm text-ink-soft bg-paper">
         Connecting…
       </main>
     );
@@ -77,7 +77,7 @@ export default function App() {
   const topBtn = 'px-2 py-1 text-xs uppercase tracking-wider hover:underline';
 
   return (
-    <main className="min-h-full bg-paper dark:bg-paper-dark text-ink dark:text-ink-dark flex flex-col">
+    <main className="min-h-full bg-paper text-ink flex flex-col">
       <ConnectionBanner api={api} />
       <div className="max-w-6xl w-full mx-auto px-6 pt-3 pb-12 flex flex-col gap-4">
         <ModelHint api={api} refreshKey={view.kind} />
@@ -104,7 +104,7 @@ export default function App() {
 
         {view.kind === 'settings' ? (
           <section className="max-w-3xl">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft mb-3">
               Einrichtung
             </h2>
             <Settings api={api} />
@@ -113,7 +113,7 @@ export default function App() {
 
         {view.kind === 'agents' ? (
           <section>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft dark:text-ink-soft-dark mb-3">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-ink-soft mb-3">
               Ressorts
             </h2>
             <Agents api={api} onChanged={() => setPaperToken((t) => t + 1)} />

@@ -1,0 +1,89 @@
+{
+  "format": "samix-theme/1",
+  "id": "klar",
+  "name": "Klar",
+  "version": 1,
+  "author": "Samix",
+  "stance": "Nichts, was nicht trägt: eine Schrift, viel Luft, keine Linien — der Text ist die einzige Form.",
+  "l10n": {
+    "en": {
+      "name": "Clear",
+      "stance": "Nothing that does not carry weight: one typeface, plenty of air, no rules — the text is the only form."
+    }
+  },
+  "modes": {
+    "light": {
+      "paper": "#fafaf9",
+      "paper-raised": "#ffffff",
+      "ink": "#1a1a1a",
+      "ink-soft": "#5e5e5c",
+      "rule": "#e6e6e3",
+      "line": "#8a8a86",
+      "accent": "#1d5bb8",
+      "on-accent": "#ffffff",
+      "mark": "#d7e4f8",
+      "focus": "#1d5bb8",
+      "danger": "#b3261e",
+      "danger-paper": "#fbe9e7",
+      "warning": "#7a5000",
+      "warning-paper": "#fbf0d9"
+    },
+    "dark": {
+      "paper": "#121212",
+      "paper-raised": "#1b1b1b",
+      "ink": "#ececea",
+      "ink-soft": "#a3a3a0",
+      "rule": "#2c2c2b",
+      "line": "#6f6f6c",
+      "accent": "#8ab4f8",
+      "on-accent": "#121212",
+      "mark": "#23395d",
+      "focus": "#8ab4f8",
+      "danger": "#f2a097",
+      "danger-paper": "#3b1714",
+      "warning": "#f0c46a",
+      "warning-paper": "#33280f"
+    }
+  },
+  "type": {
+    "headline": {
+      "family": "Source Sans 3",
+      "weight": 600,
+      "style": "normal"
+    },
+    "body": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "ui": {
+      "family": "Source Sans 3",
+      "weight": 400
+    },
+    "serif": {
+      "family": "Source Serif 4"
+    },
+    "size": 18,
+    "leading": 1.6,
+    "measure": 66,
+    "headlineCase": "normal",
+    "kicker": "normal"
+  },
+  "shape": {
+    "radius": 6,
+    "rule": "none",
+    "ruleWidth": 1,
+    "columnRules": false,
+    "mastheadRule": "none"
+  },
+  "layout": {
+    "density": "airy",
+    "columns": 2,
+    "paragraph": "space",
+    "justify": false,
+    "hyphens": true
+  },
+  "images": {
+    "show": "always",
+    "treatment": "none"
+  }
+}

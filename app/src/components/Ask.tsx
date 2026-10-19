@@ -136,14 +136,14 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
           {conversations.map((c) => (
             <li key={c.id} className="group flex items-baseline gap-1">
               <button
-                className={`flex-1 text-left truncate hover:underline ${c.id === currentId ? 'font-semibold' : 'text-ink-soft dark:text-ink-soft-dark'}`}
+                className={`flex-1 text-left truncate hover:underline ${c.id === currentId ? 'font-semibold' : 'text-ink-soft'}`}
                 title={c.title}
                 onClick={() => void open(c.id)}
               >
                 {c.title}
               </button>
               <button
-                className="text-xs text-ink-soft dark:text-ink-soft-dark opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-red-700"
+                className="text-xs text-ink-soft opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-danger"
                 aria-label={`Gespräch „${c.title}“ löschen`}
                 onClick={() => void remove(c.id)}
               >
@@ -152,18 +152,18 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
             </li>
           ))}
           {conversations.length === 0 ? (
-            <li className="text-xs text-ink-soft dark:text-ink-soft-dark">Noch keine Gespräche.</li>
+            <li className="text-xs text-ink-soft">Noch keine Gespräche.</li>
           ) : null}
         </ul>
       </aside>
 
       <section className="min-w-0 max-w-[68ch] flex flex-col gap-6">
         <header>
-          <h2 className="font-serif font-bold text-3xl leading-tight">Fragen</h2>
-          <p className="text-sm text-ink-soft dark:text-ink-soft-dark mt-1">
+          <h2 className="font-head font-bold text-3xl leading-tight">Fragen</h2>
+          <p className="text-sm text-ink-soft mt-1">
             Antworten kommen nur aus deinen Artikeln{released > 0 ? ` und ${released} freigegebenen Projekt${released === 1 ? '' : 'en'}` : ''} und nennen ihre Quellen.
           </p>
-          <p className="text-xs text-ink-soft dark:text-ink-soft-dark mt-1">
+          <p className="text-xs text-ink-soft mt-1">
             {models.length
               ? `Deine Frage und gefundene Auszüge gehen an ${models.map((m) => `„${m}“`).join(' und ')}. `
               : ''}
@@ -174,7 +174,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
         </header>
 
         {off ? (
-          <p className="border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" role="status">
+          <p className="border border-warning bg-warning-paper p-3 text-sm" role="status">
             {!entry ? 'Die Auskunft ist in dieser Installation nicht vorhanden.' : explainAsk('agent_disabled')}
           </p>
         ) : null}
@@ -186,7 +186,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
           {pending ? (
             <>
               <Question text={pending} />
-              <p className="text-sm text-ink-soft dark:text-ink-soft-dark" role="status">
+              <p className="text-sm text-ink-soft" role="status">
                 Die Zeitung wird durchsucht …
               </p>
             </>
@@ -194,7 +194,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
         </div>
 
         {error ? (
-          <div className="border border-red-400 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-800 dark:text-red-200 flex flex-wrap items-center gap-3" role="alert">
+          <div className="border border-danger bg-danger-paper p-3 text-sm text-danger flex flex-wrap items-center gap-3" role="alert">
             <span>{error}</span>
             {setupError ? (
               <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
@@ -205,14 +205,14 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
         ) : null}
 
         <form
-          className="flex flex-col gap-2 sticky bottom-0 bg-paper dark:bg-paper-dark pt-2"
+          className="flex flex-col gap-2 sticky bottom-0 bg-paper pt-2"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
           }}
         >
           <textarea
-            className="w-full resize-none border border-rule dark:border-rule-dark bg-transparent p-2 text-sm"
+            className="w-full resize-none border border-rule bg-transparent p-2 text-sm"
             rows={2}
             maxLength={2000}
             placeholder="Was möchtest du wissen? z. B. „Was gab es zuletzt zu KI-Chips?“"
@@ -227,7 +227,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
             }}
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-soft dark:text-ink-soft-dark">Enter sendet, Umschalt+Enter = neue Zeile</span>
+            <span className="text-xs text-ink-soft">Enter sendet, Umschalt+Enter = neue Zeile</span>
             <button type="submit" className={`${smallBtn} font-bold`} disabled={!question.trim() || !!pending || !!off}>
               Fragen
             </button>
@@ -242,7 +242,7 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
 
 function Question({ text }: { text: string }) {
   return (
-    <p className="self-end max-w-[85%] border border-rule dark:border-rule-dark px-3 py-2 text-sm whitespace-pre-wrap">
+    <p className="self-end max-w-[85%] border border-rule px-3 py-2 text-sm whitespace-pre-wrap">
       {text}
     </p>
   );
@@ -268,7 +268,7 @@ function Answer({
 
   if (message.status !== 'ok') {
     return (
-      <div className="border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" role="status">
+      <div className="border border-warning bg-warning-paper p-3 text-sm" role="status">
         <p>{explainAsk(message.error)}</p>
         {needsSetup(message.error) ? (
           <button className="mt-2 uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
@@ -283,18 +283,18 @@ function Answer({
   return (
     <article className="flex flex-col gap-3">
       {message.route?.kind === 'delegate' ? (
-        <p className="text-xs uppercase tracking-wider text-ink-soft dark:text-ink-soft-dark">
+        <p className="text-xs uppercase tracking-wider text-ink-soft">
           {ROUTE_LABEL[message.route.agent ?? ''] ?? `Weitergeleitet an: ${titleOf(message.route.agent)}`}
         </p>
       ) : null}
-      <p className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
+      <p className="font-body text-lg leading-relaxed whitespace-pre-wrap">
         {splitAnswer(message.content, refs).map((p, i) =>
           'text' in p ? (
             <span key={i}>{p.text}</span>
           ) : (
             <button
               key={i}
-              className="align-super text-[0.7em] font-bold px-0.5 hover:underline"
+              className="align-super text-[0.7em] font-bold px-0.5 text-accent underline"
               aria-label={`Quelle ${p.ref} öffnen`}
               onClick={() => {
                 const c = message.citations.find((x) => x.number === p.ref);
@@ -307,7 +307,7 @@ function Answer({
         )}
       </p>
       {message.citations.length > 0 ? (
-        <ol className="flex flex-col gap-1 border-t border-rule dark:border-rule-dark pt-2 text-sm">
+        <ol className="flex flex-col gap-1 border-t border-rule pt-2 text-sm">
           {message.citations.map((c) => (
             <li key={c.articleId} className="flex gap-2">
               <span className="font-bold">[{c.number}]</span>
@@ -315,14 +315,14 @@ function Answer({
                 {c.kind === 'file' ? (
                   <>
                     <span className="font-mono font-semibold">{c.title}</span>
-                    <span className="text-ink-soft dark:text-ink-soft-dark"> · Projekt {c.sourceName}</span>
+                    <span className="text-ink-soft"> · Projekt {c.sourceName}</span>
                   </>
                 ) : (
                   <>
                     <button className="text-left font-semibold hover:underline" onClick={() => open(c)}>
                       {c.title}
                     </button>
-                    <span className="text-ink-soft dark:text-ink-soft-dark">
+                    <span className="text-ink-soft">
                       {' · '}
                       {[c.sourceName ?? hostnameOf(c.url), formatShortDate(c.publishedAt)].filter(Boolean).join(' · ')}
                     </span>
@@ -350,7 +350,7 @@ function describeStep(s: TraceStep): string {
 function Trace({ message }: { message: ConversationMessage }) {
   const steps = message.trace ?? [];
   return (
-    <details className="text-xs text-ink-soft dark:text-ink-soft-dark">
+    <details className="text-xs text-ink-soft">
       <summary className="cursor-pointer">Wie kam das zustande?</summary>
       <div className="mt-1 flex flex-col gap-1">
         <p>
@@ -392,7 +392,7 @@ function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient 
   return (
     <div className="flex items-center gap-3 text-sm">
       <button
-        className="border border-ink dark:border-ink-dark px-3 py-1 text-xs uppercase tracking-wider hover:underline disabled:opacity-40"
+        className="border border-ink px-3 py-1 text-xs uppercase tracking-wider hover:underline disabled:opacity-40"
         disabled={state.kind !== 'idle'}
         onClick={() => void run()}
       >

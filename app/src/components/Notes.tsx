@@ -47,7 +47,7 @@ export function Notes({ api }: { api: ApiClient }) {
 
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <p className="text-ink-soft dark:text-ink-soft-dark">
+      <p className="text-ink-soft">
         Was du hier einträgst, kann die Auskunft lesen, um Suchen an deine Interessen anzupassen (dann steht „read_notes“
         unter „Wie kam das zustande?“), und Ressorts mit eingeschalteter Personalisierung nutzen es beim Ranking (siehe „Dein
         Profil“ des Ressorts). Nur dann geht es an das Modell. Notizen sind keine Quellen.
@@ -56,12 +56,12 @@ export function Notes({ api }: { api: ApiClient }) {
         {(notes ?? []).map((n) => (
           <li key={n.id} className="flex items-baseline gap-2">
             <span className="flex-1">• {n.text}</span>
-            <button className="hover:text-red-700" aria-label={`Notiz „${n.text}“ löschen`} onClick={() => void remove(n.id)}>
+            <button className="hover:text-danger" aria-label={`Notiz „${n.text}“ löschen`} onClick={() => void remove(n.id)}>
               ✕
             </button>
           </li>
         ))}
-        {notes?.length === 0 ? <li className="text-ink-soft dark:text-ink-soft-dark">Noch keine Notizen.</li> : null}
+        {notes?.length === 0 ? <li className="text-ink-soft">Noch keine Notizen.</li> : null}
       </ul>
       <form
         className="flex gap-2"
@@ -71,7 +71,7 @@ export function Notes({ api }: { api: ApiClient }) {
         }}
       >
         <input
-          className="flex-1 border border-rule dark:border-rule-dark bg-transparent px-2 py-1"
+          className="flex-1 border border-rule bg-transparent px-2 py-1"
           value={text}
           maxLength={MAX_CHARS}
           placeholder="z. B. Ich verfolge Rust und offene Sprachmodelle"
@@ -81,7 +81,7 @@ export function Notes({ api }: { api: ApiClient }) {
           Merken
         </button>
       </form>
-      {error ? <p className="text-red-700 dark:text-red-400">{error}</p> : null}
+      {error ? <p className="text-danger">{error}</p> : null}
     </div>
   );
 }

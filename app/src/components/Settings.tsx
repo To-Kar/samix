@@ -8,6 +8,9 @@ import { type SecretAccount, deleteSecret, hasSecret, setSecret } from '../lib/k
 import { AgentModel } from './AgentModel';
 import { Costs } from './Costs';
 import { Notes } from './Notes';
+import { useI18n } from '../i18n/I18nProvider';
+import { Appearance } from './Appearance';
+import { ThemeShare } from './ThemeShare';
 import { Projects } from './Projects';
 
 // "Einrichtung": everything that has to be set up once, in the order it is
@@ -30,12 +33,13 @@ const OPTIONAL: Provider[] = [
   { account: 'PERPLEXITY_API_KEY', name: 'Perplexity', testModel: 'perplexity-sonar', note: 'Für die allgemeine Websuche der Ressorts (kostet pro Suche extra).' },
 ];
 
-const card = 'border border-rule dark:border-rule-dark p-4 flex flex-col gap-3';
-const h3 = 'font-serif font-bold text-xl';
-const btn = 'rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40';
-const select = 'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs';
+const card = 'border border-rule p-4 flex flex-col gap-3';
+const h3 = 'font-head font-bold text-xl';
+const btn = 'rounded border border-line px-3 py-1 text-xs hover:bg-ink/5 disabled:opacity-40';
+const select = 'rounded border border-line bg-paper-raised px-2 py-1 text-xs';
 
 export function Settings({ api }: { api: ApiClient }) {
+  const { t } = useI18n();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [restartNote, setRestartNote] = useState<string | null>(null);
@@ -82,7 +86,7 @@ export function Settings({ api }: { api: ApiClient }) {
     <div className="flex flex-col gap-6 max-w-3xl">
       <section className={card}>
         <h3 className={h3}>1 · Anbieter und Schlüssel</h3>
-        <p className="text-xs text-ink-soft dark:text-ink-soft-dark">
+        <p className="text-xs text-ink-soft">
           Der Schlüssel liegt im Schlüsselbund deines Betriebssystems (Dienst „samix“) und wird in der App nie angezeigt. Mit
           „Testen“ schickt Samix eine winzige Anfrage (Bruchteile eines Cents) und sagt dir, ob der Schlüssel funktioniert.
         </p>
@@ -97,7 +101,7 @@ export function Settings({ api }: { api: ApiClient }) {
             ))}
           </div>
         </details>
-        {restartNote ? <p className="text-xs border border-rule dark:border-rule-dark px-3 py-2">{restartNote}</p> : null}
+        {restartNote ? <p className="text-xs border border-rule px-3 py-2">{restartNote}</p> : null}
       </section>
 
       <DefaultModel api={api} models={models} agents={agents} version={version} onChanged={reload} />
@@ -120,6 +124,17 @@ export function Settings({ api }: { api: ApiClient }) {
       </section>
 
       <LeadLength />
+
+      <section className={card}>
+        <h3 className={h3}>{t.app.appearance}</h3>
+        <Appearance />
+      </section>
+
+      <section className={card}>
+        <h3 className={h3}>{t.share.title}</h3>
+        <ThemeShare />
+      </section>
+
       <AppSection />
     </div>
   );
@@ -192,14 +207,14 @@ function ProviderRow({
   };
 
   const status = active ? 'Aktiv' : saved ? 'Gespeichert – wird nach einem Neustart der App aktiv' : 'Kein Schlüssel';
-  const statusCls = active ? 'text-emerald-700 dark:text-emerald-400' : saved ? 'text-amber-700 dark:text-amber-400' : 'text-ink-soft dark:text-ink-soft-dark';
+  const statusCls = active ? 'text-ink' : saved ? 'text-warning' : 'text-ink-soft';
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-x-3 text-sm">
         <span className="font-semibold">{provider.name}</span>
         <span className={`text-xs ${statusCls}`}>{status}</span>
-        <span className="text-xs text-ink-soft dark:text-ink-soft-dark">{provider.note}</span>
+        <span className="text-xs text-ink-soft">{provider.note}</span>
       </div>
       <div className="flex items-center gap-2">
         <input
@@ -208,7 +223,7 @@ function ProviderRow({
           onChange={(e) => setValue(e.target.value)}
           placeholder={saved ? '••• (neuen Schlüssel eingeben, um ihn zu ersetzen)' : 'API-Schlüssel einfügen'}
           disabled={busy}
-          className="flex-1 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-mono disabled:opacity-50"
+          className="flex-1 rounded border border-line bg-paper-raised px-2 py-1 text-xs font-mono disabled:opacity-50"
           onKeyDown={(e) => {
             if (e.key === 'Enter') void save();
           }}
@@ -220,13 +235,13 @@ function ProviderRow({
           {test === 'running' ? 'Testet …' : 'Testen'}
         </button>
         {saved ? (
-          <button className={`${btn} text-red-700 dark:text-red-400`} onClick={() => void remove()} disabled={busy}>
+          <button className={`${btn} text-danger`} onClick={() => void remove()} disabled={busy}>
             Entfernen
           </button>
         ) : null}
       </div>
       {test && test !== 'running' ? (
-        <p className={`text-xs ${test.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`} role="status">
+        <p className={`text-xs ${test.ok ? 'text-ink' : 'text-danger'}`} role="status">
           {test.ok
             ? `Funktioniert (${test.ms} ms, ${formatUsd(test.costUsd)}).`
             : test.error === 'key_missing'
@@ -234,7 +249,7 @@ function ProviderRow({
               : `Fehlgeschlagen: ${explainFailure(test.error)}`}
         </p>
       ) : null}
-      {error ? <p className="text-xs text-red-700 dark:text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );
 }
@@ -281,10 +296,10 @@ function DefaultModel({
   };
 
   return (
-    <section className="border border-rule dark:border-rule-dark p-4 flex flex-col gap-3">
-      <h3 className="font-serif font-bold text-xl">2 · Modell für alle Agenten</h3>
+    <section className="border border-rule p-4 flex flex-col gap-3">
+      <h3 className="font-head font-bold text-xl">2 · Modell für alle Agenten</h3>
       {usable.length === 0 ? (
-        <p className="text-xs text-ink-soft dark:text-ink-soft-dark">Trage zuerst oben einen Schlüssel ein (oder installiere Ollama für ein lokales Modell).</p>
+        <p className="text-xs text-ink-soft">Trage zuerst oben einen Schlüssel ein (oder installiere Ollama für ein lokales Modell).</p>
       ) : (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <select className={select} value={selected} onChange={(e) => setChoice(e.target.value)}>
@@ -307,8 +322,8 @@ function DefaultModel({
           .map((a) => (
             <li key={a.slug} className="flex gap-2">
               <span className="w-48">{a.title}</span>
-              <span className="font-mono text-ink-soft dark:text-ink-soft-dark">{a.model ?? '–'}</span>
-              {a.version ? <span className="text-ink-soft dark:text-ink-soft-dark">Prompt v{a.version}</span> : null}
+              <span className="font-mono text-ink-soft">{a.model ?? '–'}</span>
+              {a.version ? <span className="text-ink-soft">Prompt v{a.version}</span> : null}
             </li>
           ))}
       </ul>
@@ -364,7 +379,7 @@ function AppSection() {
       >
         Logdatei anzeigen
       </button>
-      {error ? <div className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</div> : null}
+      {error ? <div className="text-xs text-danger font-mono">{error}</div> : null}
     </section>
   );
 }

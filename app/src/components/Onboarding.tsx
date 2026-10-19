@@ -89,8 +89,8 @@ export function Onboarding({ api, onDone }: Props) {
 
   return (
     <div className="mx-auto max-w-xl py-10">
-      <h2 className="font-serif font-bold text-3xl mb-2">Willkommen bei Samix</h2>
-      <p className="text-ink-soft dark:text-ink-soft-dark mb-6">
+      <h2 className="font-head font-bold text-3xl mb-2">Willkommen bei Samix</h2>
+      <p className="text-ink-soft mb-6">
         Samix sammelt Artikel aus deinen Quellen und fasst sie mit einem Sprachmodell zusammen. Welches soll es benutzen?
         Das lässt sich später unter „Einrichtung“ ändern.
       </p>
@@ -99,12 +99,12 @@ export function Onboarding({ api, onDone }: Props) {
         {available.map((c) => (
           <label
             key={c.id}
-            className={`flex gap-3 border p-3 cursor-pointer ${choice === c.id ? 'border-ink dark:border-ink-dark' : 'border-rule dark:border-rule-dark'}`}
+            className={`flex gap-3 border p-3 cursor-pointer ${choice === c.id ? 'border-ink' : 'border-rule'}`}
           >
             <input type="radio" name="model" checked={choice === c.id} onChange={() => setChoice(c.id)} />
             <span>
               <span className="font-bold block">{c.title}</span>
-              <span className="text-sm text-ink-soft dark:text-ink-soft-dark">{c.note}</span>
+              <span className="text-sm text-ink-soft">{c.note}</span>
             </span>
           </label>
         ))}
@@ -119,25 +119,25 @@ export function Onboarding({ api, onDone }: Props) {
             onChange={(e) => setKey(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void finish()}
             placeholder="wird im Schlüsselbund des Betriebssystems gespeichert"
-            className="w-full border border-rule dark:border-rule-dark bg-transparent px-3 py-2 font-mono text-sm"
+            className="w-full border border-rule bg-transparent px-3 py-2 font-mono text-sm"
             autoComplete="off"
           />
         </label>
       ) : null}
 
-      <ol className="mb-4 text-xs text-ink-soft dark:text-ink-soft-dark flex gap-4">
+      <ol className="mb-4 text-xs text-ink-soft flex gap-4">
         <li>1 Anbieter wählen</li>
         <li>2 Schlüssel einfügen</li>
         <li>3 Test</li>
         <li>4 Erste Ausgabe</li>
       </ol>
       {step ? <p className="mb-4 text-sm" role="status">{step}</p> : null}
-      {message ? <p className="mb-4 text-sm text-red-700 dark:text-red-400">{message}</p> : null}
+      {message ? <p className="mb-4 text-sm text-danger">{message}</p> : null}
 
       <button
         onClick={() => void finish()}
         disabled={busy || !models}
-        className="border border-ink dark:border-ink-dark px-4 py-2 font-bold hover:bg-ink hover:text-paper dark:hover:bg-ink-dark dark:hover:text-paper-dark disabled:opacity-40"
+        className="border border-ink px-4 py-2 font-bold hover:bg-ink hover:text-paper disabled:opacity-40"
       >
         {busy ? 'Einen Moment …' : 'Weiter und erste Ausgabe erstellen'}
       </button>

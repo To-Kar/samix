@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ApiClient, ModelInfo } from '../lib/api';
 
 const select =
-  'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs';
+  'rounded border border-line bg-paper-raised px-2 py-1 text-xs';
 
 export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; slug: string; version: number; onSaved?: () => void }) {
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -68,7 +68,7 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
         </select>
       </label>
       {selected && !selected.keyConfigured ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-warning">
           Für {selected.id} fehlt der Schlüssel ({selected.keyEnv}). Bitte zuerst unter „Einrichtung“ eintragen.
         </p>
       ) : null}
@@ -76,11 +76,11 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
         <button
           onClick={() => void save()}
           disabled={!primary}
-          className="rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+          className="rounded border border-line px-3 py-1 text-xs hover:bg-ink/5 disabled:opacity-40"
         >
           Modell speichern
         </button>
-        {message ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{message}</span> : null}
+        {message ? <span className="text-xs text-ink-soft">{message}</span> : null}
       </div>
     </div>
   );

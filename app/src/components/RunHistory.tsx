@@ -26,17 +26,17 @@ export function RunHistory({ api, slug, version }: { api: ApiClient; slug: strin
     api.listRuns(slug, 20).then(setRuns, (e: unknown) => setError(e instanceof Error ? e.message : String(e)));
   }, [api, slug, version]);
 
-  if (error) return <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p>;
-  if (!runs) return <p className="text-xs text-neutral-400">Lädt …</p>;
-  if (runs.length === 0) return <p className="text-xs text-neutral-400">Noch keine Läufe.</p>;
+  if (error) return <p className="text-xs text-danger font-mono">{error}</p>;
+  if (!runs) return <p className="text-xs text-ink-soft">Lädt …</p>;
+  if (runs.length === 0) return <p className="text-xs text-ink-soft">Noch keine Läufe.</p>;
 
   const total = runs.reduce((s, r) => s + r.costUsd, 0);
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-soft">
         Die letzten {runs.length} Läufe · zusammen {formatUsd(total)}
       </p>
-      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
+      <ul className="flex flex-col divide-y divide-rule text-xs">
         {runs.map((r) => {
           const st = RUN_STATUS[r.status] ?? { label: r.status, cls: '' };
           return (
@@ -44,15 +44,15 @@ export function RunHistory({ api, slug, version }: { api: ApiClient; slug: strin
               <div className="flex flex-wrap items-baseline gap-x-3">
                 <span className={`font-semibold ${st.cls}`}>{st.label}</span>
                 <span>{formatDateTime(r.startedAt)}</span>
-                <span className="text-neutral-500">{TRIGGER[r.trigger] ?? r.trigger}</span>
-                {r.model ? <span className="text-neutral-500">{r.model}</span> : null}
-                <span className="ml-auto text-neutral-500">
+                <span className="text-ink-soft">{TRIGGER[r.trigger] ?? r.trigger}</span>
+                {r.model ? <span className="text-ink-soft">{r.model}</span> : null}
+                <span className="ml-auto text-ink-soft">
                   {formatUsd(r.costUsd)} · {r.tokensInput + r.tokensOutput} Tokens
                 </span>
               </div>
-              <p className="text-neutral-600 dark:text-neutral-400">{detail(r)}</p>
+              <p className="text-ink-soft">{detail(r)}</p>
               {r.skippedSimilar?.length ? (
-                <details className="text-neutral-500">
+                <details className="text-ink-soft">
                   <summary className="cursor-pointer">
                     {r.skippedSimilar.length} Meldung{r.skippedSimilar.length === 1 ? '' : 'en'} übersprungen (gleiche Überschrift wie schon veröffentlicht)
                   </summary>
@@ -66,7 +66,7 @@ export function RunHistory({ api, slug, version }: { api: ApiClient; slug: strin
                 </details>
               ) : null}
               {r.sourceNotes?.length ? (
-                <ul className="text-neutral-500 list-disc pl-5">
+                <ul className="text-ink-soft list-disc pl-5">
                   {r.sourceNotes.map((n, i) => (
                     <li key={i}>{n}</li>
                   ))}

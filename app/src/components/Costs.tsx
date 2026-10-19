@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ApiClient, Costs as CostsData } from '../lib/api';
 import { formatUsd } from '../lib/format';
 
-const btn = 'rounded border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40';
-const num = 'w-24 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-right font-mono';
+const btn = 'rounded border border-line px-2 py-1 text-xs hover:bg-ink/5 disabled:opacity-40';
+const num = 'w-24 rounded border border-line bg-paper-raised px-2 py-1 text-xs text-right font-mono';
 
 const asNumber = (v: string): number | null => {
   const n = Number(v.replace(',', '.'));
@@ -39,7 +39,7 @@ export function Costs({ api }: { api: ApiClient }) {
     }
   };
 
-  if (!data) return <p className="text-xs text-ink-soft dark:text-ink-soft-dark">{message ?? 'Lädt …'}</p>;
+  if (!data) return <p className="text-xs text-ink-soft">{message ?? 'Lädt …'}</p>;
   const max = Math.max(0.0001, ...data.days.map((d) => d.costUsd));
 
   return (
@@ -59,7 +59,7 @@ export function Costs({ api }: { api: ApiClient }) {
             <AgentLimit key={a.slug} agent={a} onSave={(usd) => act(() => api.setAgentLimit(a.slug, usd), `Limit von „${a.title}“ gespeichert.`)} />
           ))}
         </ul>
-        <p className="mt-1 text-ink-soft dark:text-ink-soft-dark">
+        <p className="mt-1 text-ink-soft">
           Das Tageslimit gilt je Agent und Tag (UTC). Ist es erreicht, läuft der Agent erst morgen wieder, außer du erhöhst es. 0 =
           kein Limit für diesen Agenten. Die Websuche zählt zum Limit des Ressorts.
         </p>
@@ -71,7 +71,7 @@ export function Costs({ api }: { api: ApiClient }) {
           {data.days.map((d) => (
             <li key={d.day} className="flex items-center gap-2">
               <span className="w-24">{d.day}</span>
-              <span className="inline-block h-2 bg-ink dark:bg-ink-dark" style={{ width: `${Math.round((d.costUsd / max) * 160)}px` }} />
+              <span className="inline-block h-2 bg-ink" style={{ width: `${Math.round((d.costUsd / max) * 160)}px` }} />
               <span>{formatUsd(d.costUsd)}</span>
             </li>
           ))}
@@ -80,7 +80,7 @@ export function Costs({ api }: { api: ApiClient }) {
 
       <div>
         <h4 className="font-semibold uppercase tracking-wider mb-1">Preise (USD je Million Tokens)</h4>
-        <p className="mb-2 text-ink-soft dark:text-ink-soft-dark">
+        <p className="mb-2 text-ink-soft">
           Samix rechnet die Kosten selbst aus Tokenzahlen und diesen Preisen. Die eingebauten Preise habe ich nicht gegen die
           Preisseiten der Anbieter geprüft: trage ein, was dort steht, dann gilt ab sofort dein Wert. Perplexity-Suchen werden
           pauschal mit 0,0025 $ geschätzt (gemessen an Perplexitys Abrechnung vom 19.10.: etwa 0,0024 $ je Suche, davon 0,001 $ Suchgebühr).
@@ -120,7 +120,7 @@ function GlobalCap({ data, onSave, onReset }: { data: CostsData; onSave: (usd: n
           Zurücksetzen
         </button>
       ) : null}
-      <span className="text-ink-soft dark:text-ink-soft-dark">0 = kein globales Limit</span>
+      <span className="text-ink-soft">0 = kein globales Limit</span>
     </div>
   );
 }
@@ -132,7 +132,7 @@ function AgentLimit({ agent, onSave }: { agent: CostsData['agents'][number]; onS
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span className="w-44 font-medium">{agent.title}</span>
-      <span className="w-52 text-ink-soft dark:text-ink-soft-dark">
+      <span className="w-52 text-ink-soft">
         {formatUsd(agent.todayUsd)}
         {agent.todaySearchUsd > 0 ? ` (davon Suche ${formatUsd(agent.todaySearchUsd)})` : ''}
       </span>
@@ -174,13 +174,13 @@ function PriceRow({ info, onSave, onReset }: { info: CostsData['prices'][number]
       </button>
       {info.custom ? (
         <>
-          <span className="text-emerald-700 dark:text-emerald-400">von dir gesetzt</span>
+          <span className="text-ink">von dir gesetzt</span>
           <button className={btn} onClick={onReset}>
             Eingebauten Preis nutzen
           </button>
         </>
       ) : (
-        <span className="text-ink-soft dark:text-ink-soft-dark">eingebaut, ungeprüft</span>
+        <span className="text-ink-soft">eingebaut, ungeprüft</span>
       )}
     </li>
   );

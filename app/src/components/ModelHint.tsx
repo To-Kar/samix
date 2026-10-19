@@ -44,7 +44,7 @@ export function ModelHint({ api, refreshKey }: { api: ApiClient; refreshKey: unk
 
   const names = state.stuck.map((a) => `${a.title} (${a.model})`).join(', ');
   return (
-    <div className="border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm flex flex-wrap items-center gap-3" role="status">
+    <div className="border border-warning bg-warning-paper p-3 text-sm flex flex-wrap items-center gap-3" role="status">
       <span>
         Für {names} fehlt der API-Schlüssel, für {state.options.join(' und ')} ist einer eingetragen.
       </span>

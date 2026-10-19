@@ -23,7 +23,7 @@ const browserZone = (): string => {
 
 const two = (n: number) => String(n).padStart(2, '0');
 const field =
-  'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs';
+  'rounded border border-line bg-paper-raised px-2 py-1 text-xs';
 
 type Mode = 'manual' | Recurrence['kind'];
 

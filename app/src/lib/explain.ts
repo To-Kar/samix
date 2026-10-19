@@ -39,10 +39,10 @@ export function explainPartial(error: string | null | undefined): string {
 }
 
 export const RUN_STATUS: Record<string, { label: string; cls: string }> = {
-  success: { label: 'ok', cls: 'text-emerald-700 dark:text-emerald-400' },
-  partial: { label: 'teilweise', cls: 'text-amber-700 dark:text-amber-400' },
-  failed: { label: 'fehlgeschlagen', cls: 'text-red-700 dark:text-red-400' },
-  running: { label: 'läuft', cls: 'text-neutral-500' },
+  success: { label: 'ok', cls: 'text-ink' },
+  partial: { label: 'teilweise', cls: 'text-warning' },
+  failed: { label: 'fehlgeschlagen', cls: 'text-danger' },
+  running: { label: 'läuft', cls: 'text-ink-soft' },
 };
 
 // How a question to "Fragen" ended, when there is no answer to show.

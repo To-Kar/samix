@@ -56,11 +56,11 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
     }
   };
 
-  const input = 'border border-rule dark:border-rule-dark bg-transparent px-2 py-1';
+  const input = 'border border-rule bg-transparent px-2 py-1';
 
   return (
     <div className="flex flex-col gap-3 text-xs">
-      <p className="text-ink-soft dark:text-ink-soft-dark">
+      <p className="text-ink-soft">
         Die Auskunft „Frag dein Projekt“ darf Textdateien dieser Ordner lesen (nur lesen, nichts wird verändert). Schlüssel,
         <code> .env</code>-Dateien, <code>.git</code> und <code>node_modules</code> sind ausgeschlossen. Mit dem Haken
         gehen gelesene Dateiausschnitte an den Modellanbieter; ohne Haken liest sie nichts. Das ist eine Heuristik: prüfe
@@ -70,8 +70,8 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
         {(projects ?? []).map((p) => (
           <li key={p.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="font-semibold">{p.name}</span>
-            <span className="font-mono text-ink-soft dark:text-ink-soft-dark break-all">{p.path}</span>
-            {!p.exists ? <span className="text-red-700 dark:text-red-400">Ordner nicht gefunden</span> : null}
+            <span className="font-mono text-ink-soft break-all">{p.path}</span>
+            {!p.exists ? <span className="text-danger">Ordner nicht gefunden</span> : null}
             <label className="flex items-center gap-1">
               <input
                 type="checkbox"
@@ -81,7 +81,7 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
               an Modell senden erlaubt
             </label>
             <button
-              className="hover:text-red-700"
+              className="hover:text-danger"
               aria-label={`Freigabe von „${p.name}“ entfernen`}
               onClick={() => void guard(() => api.deleteProject(p.id))}
             >
@@ -89,7 +89,7 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
             </button>
           </li>
         ))}
-        {projects?.length === 0 ? <li className="text-ink-soft dark:text-ink-soft-dark">Noch kein Ordner freigegeben.</li> : null}
+        {projects?.length === 0 ? <li className="text-ink-soft">Noch kein Ordner freigegeben.</li> : null}
       </ul>
       <form
         className="flex flex-col gap-2"
@@ -124,7 +124,7 @@ export function Projects({ api, onChanged }: { api: ApiClient; onChanged?: (rele
           Ordner freigeben
         </button>
       </form>
-      {error ? <p className="text-red-700 dark:text-red-400">{error}</p> : null}
+      {error ? <p className="text-danger">{error}</p> : null}
     </div>
   );
 }

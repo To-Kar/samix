@@ -53,9 +53,9 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 const input =
-  'rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-400';
+  'rounded border border-line bg-paper-raised px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-focus';
 const smallBtn =
-  'rounded border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40';
+  'rounded border border-line px-2 py-1 text-xs hover:bg-ink/5 disabled:opacity-40';
 
 interface Props {
   api: ApiClient;
@@ -88,7 +88,7 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
       {rows.map((row, i) => {
         const p = previews[i];
         return (
-          <div key={i} className="flex flex-col gap-2 rounded border border-neutral-200 dark:border-neutral-800 p-2">
+          <div key={i} className="flex flex-col gap-2 rounded border border-rule p-2">
             <div className="flex flex-wrap gap-2">
               <input
                 type="text"
@@ -121,16 +121,16 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
               </button>
               <button
                 onClick={() => onChange(rows.filter((_, j) => j !== i))}
-                className={`${smallBtn} text-red-600 dark:text-red-400`}
+                className={`${smallBtn} text-danger`}
               >
                 Entfernen
               </button>
             </div>
 
-            {p?.error ? <div className="text-xs text-red-600 dark:text-red-400 font-mono">{p.error}</div> : null}
+            {p?.error ? <div className="text-xs text-danger font-mono">{p.error}</div> : null}
 
             {p?.data ? (
-              <div className="text-xs text-neutral-600 dark:text-neutral-400 flex flex-col gap-1">
+              <div className="text-xs text-ink-soft flex flex-col gap-1">
                 <p>
                   {p.data.method
                     ? `Gefunden über ${METHOD_LABEL[p.data.method] ?? p.data.method}: ${p.data.candidates} Artikel, ${p.data.items.length} übernommen`
@@ -139,7 +139,7 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
                   {p.data.filteredOut ? ` · ${p.data.filteredOut} vom Filter aussortiert` : ''}
                 </p>
                 {p.data.warnings.map((w) => (
-                  <p key={w} className="text-amber-700 dark:text-amber-400">
+                  <p key={w} className="text-warning">
                     ⚠ {w}
                   </p>
                 ))}
@@ -147,7 +147,7 @@ export function WebsiteRowsEditor({ api, rows, onChange }: Props) {
                   {p.data.items.map((it) => (
                     <li key={it.url}>
                       {it.title}{' '}
-                      <span className="text-neutral-400">
+                      <span className="text-ink-soft">
                         ({it.publishedAt ? new Date(it.publishedAt).toLocaleDateString('de-DE') : 'ohne Datum'})
                       </span>
                     </li>

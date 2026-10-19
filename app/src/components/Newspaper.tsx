@@ -194,13 +194,13 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       />
 
       {agents.length > 1 ? (
-        <nav className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule dark:border-rule-dark pb-2 -mt-2" aria-label="Ressorts">
+        <nav className="flex flex-wrap gap-x-6 gap-y-1 border-b border-rule pb-2 -mt-2" aria-label="Ressorts">
           {agents.map((a) => (
             <button
               key={a.slug}
               onClick={() => chooseRessort(a.slug)}
               className={`text-sm uppercase tracking-[0.15em] pb-1 ${
-                a.slug === slug ? 'font-bold border-b-2 border-ink dark:border-ink-dark' : 'text-ink-soft dark:text-ink-soft-dark hover:underline'
+                a.slug === slug ? 'font-bold border-b-2 border-accent' : 'text-ink-soft hover:underline'
               } ${a.enabled ? '' : 'line-through opacity-60'}`}
             >
               {a.title}
@@ -210,13 +210,13 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       ) : null}
 
       {current && !current.enabled ? (
-        <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm">
+        <div className="border border-rule px-3 py-2 text-sm">
           Dieses Ressort ist ausgeschaltet (unter „Ressorts“ wieder einschalten).
         </div>
       ) : null}
 
       {runMessage ? (
-        <div className="border border-rule dark:border-rule-dark px-3 py-2 text-sm flex flex-wrap items-center gap-3">
+        <div className="border border-rule px-3 py-2 text-sm flex flex-wrap items-center gap-3">
           <span className="whitespace-pre-line">{runMessage}</span>
           {runSetupHint ? (
             <button className="uppercase tracking-wider text-xs font-bold hover:underline" onClick={onOpenSetup}>
@@ -227,7 +227,7 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       ) : null}
 
       {loadError ? (
-        <div className="border border-red-400 bg-red-50 dark:bg-red-950/30 p-3 text-xs text-red-800 dark:text-red-200 font-mono">
+        <div className="border border-danger bg-danger-paper p-3 text-xs text-danger font-mono">
           {loadError}
         </div>
       ) : null}
@@ -243,22 +243,22 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       ) : null}
 
       {empty && !running && !needsSetup ? (
-        <div className="py-16 text-center text-ink-soft dark:text-ink-soft-dark flex flex-col items-center gap-4">
-          <p className="font-serif text-2xl">Noch keine Ausgabe{current ? ` in „${current.title}“` : ''}.</p>
+        <div className="py-16 text-center text-ink-soft flex flex-col items-center gap-4">
+          <p className="font-body text-2xl">Noch keine Ausgabe{current ? ` in „${current.title}“` : ''}.</p>
           {keyReady ? (
             <>
               <p className="text-sm max-w-xl">
                 Samix holt jetzt die ersten Artikel aus den Quellen des Ressorts und lässt das Modell sie zusammenfassen. Das kostet
                 einige Cent; das Tageslimit des Ressorts begrenzt es.
               </p>
-              <button className="border border-ink dark:border-ink-dark text-ink dark:text-ink-dark px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline disabled:opacity-40" onClick={() => void runNewsletter()} disabled={!current?.enabled}>
+              <button className="border border-ink text-ink px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline disabled:opacity-40" onClick={() => void runNewsletter()} disabled={!current?.enabled}>
                 Erste Ausgabe holen
               </button>
             </>
           ) : (
             <>
               <p className="text-sm max-w-xl">Zuerst braucht Samix einen API-Schlüssel (oder ein lokales Modell).</p>
-              <button className="border border-ink dark:border-ink-dark text-ink dark:text-ink-dark px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline" onClick={onOpenSetup}>
+              <button className="border border-ink text-ink px-4 py-2 text-xs uppercase tracking-wider font-bold hover:underline" onClick={onOpenSetup}>
                 Einrichtung öffnen
               </button>
             </>
@@ -269,18 +269,18 @@ export function Newspaper({ api, onOpen, refreshToken, onOpenSetup }: NewspaperP
       {layout && edition ? (
         <>
           {layout.lead.length > 0 ? (
-            <section className="grid gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] border-b border-rule dark:border-rule-dark pb-8">
+            <section className="grid gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] border-b border-rule pb-8">
               <div className="flex flex-col gap-8">
                 {layout.lead.map((a, i) => (
                   <LeadStory key={a.id} api={api} article={a} primary={i === 0} onOpen={open} onVote={vote} />
                 ))}
               </div>
-              <aside className="md:border-l md:pl-8 border-rule dark:border-rule-dark">
-                <h2 className="text-xs font-bold uppercase tracking-[0.2em] mb-4 pb-1 border-b-2 border-ink dark:border-ink-dark">
+              <aside className="md:border-l md:pl-8 border-rule">
+                <h2 className="text-xs font-bold uppercase tracking-[0.2em] mb-4 pb-1 border-b-2 border-ink">
                   Kurz notiert
                 </h2>
                 {layout.brief.length === 0 ? (
-                  <p className="text-sm text-ink-soft dark:text-ink-soft-dark">Heute nichts weiter.</p>
+                  <p className="text-sm text-ink-soft">Heute nichts weiter.</p>
                 ) : (
                   <ul className="flex flex-col gap-4">
                     {layout.brief.map((a) => (
@@ -321,8 +321,8 @@ function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer
   const btn =
     'px-2 py-1 text-xs uppercase tracking-wider hover:underline disabled:opacity-30 disabled:no-underline';
   return (
-    <header className="border-b-4 border-double border-ink dark:border-ink-dark pb-3">
-      <div className="flex items-baseline justify-between gap-4 text-xs uppercase tracking-widest text-ink-soft dark:text-ink-soft-dark">
+    <header className="border-b-4 border-double border-ink pb-3">
+      <div className="flex items-baseline justify-between gap-4 text-xs uppercase tracking-widest text-ink-soft">
         <span>{edition ? `Ausgabe Nr. ${edition.number} · ${formatLongDate(new Date(edition.startedAt))}` : formatLongDate(new Date())}</span>
         {edition ? (
           <span className="text-right normal-case tracking-normal">
@@ -331,8 +331,8 @@ function Masthead({ edition, running, canRun, onRun, onRefresh, onOlder, onNewer
           </span>
         ) : null}
       </div>
-      <h1 className="font-serif font-black text-6xl md:text-7xl text-center tracking-tight my-2">Samix</h1>
-      <nav className="flex items-center justify-between border-t border-rule dark:border-rule-dark pt-2">
+      <h1 className="font-head font-black text-6xl md:text-7xl text-center tracking-tight my-2">Samix</h1>
+      <nav className="flex items-center justify-between border-t border-rule pt-2">
         <div className="flex items-center">
           <button className={btn} onClick={onOlder} disabled={!onOlder}>
             ‹ Vorige Ausgabe
@@ -382,12 +382,12 @@ function Meta({
   const readingList = [article.id, ...related.map((r) => r.id)];
   return (
     <>
-      <div className="flex items-center justify-between gap-2 text-xs text-ink-soft dark:text-ink-soft-dark">
+      <div className="flex items-center justify-between gap-2 text-xs text-ink-soft">
         <p>{parts.join(' · ')}</p>
         <VoteButtons vote={article.vote} onVote={(v) => onVote(article.id, v)} />
       </div>
       {related.length > 0 ? (
-        <p className="mt-1 text-xs text-ink-soft dark:text-ink-soft-dark" title="Die Zuordnung zu einer Meldung ist das Urteil des Modells">
+        <p className="mt-1 text-xs text-ink-soft" title="Die Zuordnung zu einer Meldung ist das Urteil des Modells">
           {storySources(article).length > 1 ? `${storySources(article).length} Quellen berichten · auch bei:` : 'Weitere Beiträge dazu:'}{' '}
           {related.map((r, i) => (
             <span key={r.id}>
@@ -406,7 +406,7 @@ function Meta({
 function Kicker({ article }: { article: EditionArticle }) {
   if (!article.topic) return null;
   return (
-    <p className="text-[0.7rem] font-bold uppercase tracking-[0.2em] text-ink-soft dark:text-ink-soft-dark mb-1">
+    <p className="text-[0.7rem] font-bold uppercase tracking-[0.2em] text-accent mb-1">
       {article.topic}
     </p>
   );
@@ -415,7 +415,7 @@ function Kicker({ article }: { article: EditionArticle }) {
 function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api: ApiClient; primary: boolean }) {
   const imageId = article.content?.leadImageId;
   return (
-    <article className={primary ? '' : 'border-t border-rule dark:border-rule-dark pt-8'}>
+    <article className={primary ? '' : 'border-t border-rule pt-8'}>
       <Kicker article={article} />
       <h2
         className={`font-serif font-bold leading-[1.1] mb-2 ${primary ? 'text-4xl md:text-5xl' : 'text-3xl'}`}
@@ -428,17 +428,17 @@ function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api
 
       {imageId ? (
         <button onClick={() => onOpen(article.id)} className="block w-full my-4">
-          <AuthImage api={api} id={imageId} className="w-full aspect-[2.4/1] object-cover" />
+          <AuthImage api={api} id={imageId} photo className="w-full aspect-[2.4/1] object-cover" />
         </button>
       ) : null}
 
-      <div className="my-4 border-l-4 border-ink dark:border-ink-dark pl-4">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ink-soft dark:text-ink-soft-dark mb-1">
+      <div className="my-4 border-l-4 border-ink pl-4">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ink-soft mb-1">
           KI-Zusammenfassung
         </p>
-        <p className="font-serif text-lg leading-snug">{article.summary}</p>
+        <p className="font-body text-lg leading-snug">{article.summary}</p>
         {article.importanceReason ? (
-          <p className="mt-2 text-xs italic text-ink-soft dark:text-ink-soft-dark">
+          <p className="mt-2 text-xs italic text-ink-soft">
             Warum oben: {article.importanceReason}
           </p>
         ) : null}
@@ -446,10 +446,10 @@ function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api
 
       {article.excerpt && article.excerpt.length > 0 ? (
         <div className="relative">
-          <div className="font-serif columns-1 lg:columns-2 gap-8 [column-rule:1px_solid_rgba(120,110,90,0.35)]">
+          <div className="font-body columns-1 lg:columns-2 gap-8 [column-rule:1px_solid_rgb(var(--rule))]">
             <Blocks blocks={article.excerpt} api={api} variant="excerpt" />
           </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-paper dark:from-paper-dark to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-paper to-transparent" />
         </div>
       ) : null}
 
@@ -465,14 +465,14 @@ function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api
 
 function ArticleBlock({ article, onOpen, onVote }: StoryProps) {
   return (
-    <article className="border-t-2 border-ink dark:border-ink-dark pt-3">
+    <article className="border-t-2 border-ink pt-3">
       <Kicker article={article} />
-      <h3 className="font-serif font-bold text-xl leading-tight mb-1">
+      <h3 className="font-head font-bold text-xl leading-tight mb-1">
         <button onClick={() => onOpen(article.id)} className="text-left hover:underline">
           {article.title}
         </button>
       </h3>
-      <p className="font-serif text-[0.95rem] leading-snug mb-2">{article.summary}</p>
+      <p className="font-body text-[0.95rem] leading-snug mb-2">{article.summary}</p>
       <Meta article={article} onVote={onVote} onOpen={onOpen} />
     </article>
   );
@@ -480,11 +480,11 @@ function ArticleBlock({ article, onOpen, onVote }: StoryProps) {
 
 function BriefItem({ article, onOpen, onVote }: StoryProps) {
   return (
-    <li className="border-b border-rule dark:border-rule-dark pb-3 last:border-0">
+    <li className="border-b border-rule pb-3 last:border-0">
       <button onClick={() => onOpen(article.id)} className="text-left">
-        <span className="block font-serif font-bold leading-snug hover:underline">{article.title}</span>
+        <span className="block font-head font-bold leading-snug hover:underline">{article.title}</span>
       </button>
-      <p className="font-serif text-sm leading-snug mt-1 line-clamp-3">{article.summary}</p>
+      <p className="font-body text-sm leading-snug mt-1 line-clamp-3">{article.summary}</p>
       <Meta article={article} onVote={onVote} onOpen={onOpen} />
     </li>
   );

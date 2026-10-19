@@ -20,7 +20,7 @@ interface Props {
 }
 
 const btn =
-  'rounded border border-neutral-300 dark:border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40';
+  'rounded border border-line px-3 py-1 text-xs hover:bg-ink/5 disabled:opacity-40';
 
 export function Agents({ api, onChanged }: Props) {
   const [agents, setAgents] = useState<AgentSummary[] | null>(null);
@@ -76,7 +76,7 @@ export function Agents({ api, onChanged }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-soft">
           Jedes Ressort hat eigene Quellen, einen eigenen Zeitplan und sein eigenes Tageslimit.
         </p>
         <button className={btn} onClick={() => setCreating(true)}>
@@ -84,24 +84,24 @@ export function Agents({ api, onChanged }: Props) {
         </button>
       </div>
 
-      {error ? <p className="text-xs text-red-600 dark:text-red-400 font-mono">{error}</p> : null}
-      {!agents ? <p className="text-sm text-neutral-400">Lädt …</p> : null}
+      {error ? <p className="text-xs text-danger font-mono">{error}</p> : null}
+      {!agents ? <p className="text-sm text-ink-soft">Lädt …</p> : null}
 
-      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 border-y border-neutral-200 dark:border-neutral-800">
+      <ul className="flex flex-col divide-y divide-rule border-y border-rule">
         {agents?.map((a) => (
           <li key={a.slug} className={`py-3 flex flex-col gap-1 ${a.enabled ? '' : 'opacity-60'}`}>
             <div className="flex items-baseline gap-3">
-              <button className="font-serif font-bold text-lg text-left hover:underline" onClick={() => setSelected(selected === a.slug ? null : a.slug)}>
+              <button className="font-head font-bold text-lg text-left hover:underline" onClick={() => setSelected(selected === a.slug ? null : a.slug)}>
                 {a.title}
               </button>
-              <span className="text-xs text-neutral-500">{a.schedule ? describeCron(a.schedule.cron) : 'nur manuell'}</span>
+              <span className="text-xs text-ink-soft">{a.schedule ? describeCron(a.schedule.cron) : 'nur manuell'}</span>
               <label className="ml-auto flex items-center gap-2 text-xs">
                 <input type="checkbox" checked={a.enabled} onChange={() => void toggle(a)} />
                 aktiv
               </label>
             </div>
-            {a.description ? <p className="text-xs text-neutral-500">{a.description}</p> : null}
-            <p className="text-xs text-neutral-500">
+            {a.description ? <p className="text-xs text-ink-soft">{a.description}</p> : null}
+            <p className="text-xs text-ink-soft">
               {a.model ?? 'kein Modell'}
               {a.lastRun
                 ? ` · letzter Lauf ${formatDateTime(a.lastRun.startedAt)}: ${RUN_STATUS[a.lastRun.status]?.label ?? a.lastRun.status} (${formatUsd(a.lastRun.costUsd)})`
@@ -121,7 +121,7 @@ export function Agents({ api, onChanged }: Props) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 border-b border-neutral-200 dark:border-neutral-800 pb-1">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-soft border-b border-rule pb-1">
         {title}
       </h4>
       {children}
@@ -191,11 +191,11 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
   };
 
   return (
-    <div className="mt-4 mb-2 flex flex-col gap-6 pl-4 border-l-2 border-neutral-200 dark:border-neutral-800">
+    <div className="mt-4 mb-2 flex flex-col gap-6 pl-4 border-l-2 border-rule">
       <Section title="Name">
         <div className="flex items-center gap-3">
           <input
-            className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-sm w-64"
+            className="rounded border border-line bg-paper-raised px-2 py-1 text-sm w-64"
             value={title}
             maxLength={60}
             onChange={(e) => setTitle(e.target.value)}
@@ -204,14 +204,14 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
           <button className={btn} onClick={() => void saveTitle()} disabled={!title.trim() || title.trim() === agent.title}>
             Umbenennen
           </button>
-          {titleMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{titleMessage}</span> : null}
+          {titleMessage ? <span className="text-xs text-ink-soft">{titleMessage}</span> : null}
         </div>
       </Section>
       {agent.topic !== null ? (
         <Section title="Thema">
           <div className="flex flex-col gap-2">
             <textarea
-              className="rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-sm w-full max-w-xl"
+              className="rounded border border-line bg-paper-raised px-2 py-1 text-sm w-full max-w-xl"
               rows={2}
               maxLength={400}
               value={topic}
@@ -222,9 +222,9 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
               <button className={btn} onClick={() => void saveTopic()} disabled={!topic.trim() || topic.trim() === agent.topic}>
                 Thema speichern
               </button>
-              {topicMessage ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{topicMessage}</span> : null}
+              {topicMessage ? <span className="text-xs text-ink-soft">{topicMessage}</span> : null}
             </div>
-            <p className="text-xs text-neutral-400">Das Modell wählt aus den abgerufenen Beiträgen die zu diesem Thema passenden aus; die Websuche sucht danach.</p>
+            <p className="text-xs text-ink-soft">Das Modell wählt aus den abgerufenen Beiträgen die zu diesem Thema passenden aus; die Websuche sucht danach.</p>
           </div>
         </Section>
       ) : null}
@@ -234,9 +234,9 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
           <button className={btn} onClick={() => void saveSchedule()}>
             Zeitplan speichern
           </button>
-          {message ? <span className="text-xs text-neutral-600 dark:text-neutral-400">{message}</span> : null}
+          {message ? <span className="text-xs text-ink-soft">{message}</span> : null}
         </div>
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-ink-soft">
           Verpasste Läufe (Rechner aus oder im Ruhezustand) werden nachgeholt, sobald Samix wieder läuft.
         </p>
       </Section>
@@ -254,12 +254,12 @@ function AgentDetail({ api, agent, onChanged, version }: { api: ApiClient; agent
       </Section>
       <Section title="Entfernen">
         <div className="flex items-center gap-3">
-          <button className={`${btn} text-red-700 dark:text-red-400`} onClick={() => void remove()}>
+          <button className={`${btn} text-danger`} onClick={() => void remove()}>
             Ressort entfernen
           </button>
-          {removeMessage ? <span className="text-xs text-red-600 dark:text-red-400">{removeMessage}</span> : null}
+          {removeMessage ? <span className="text-xs text-danger">{removeMessage}</span> : null}
         </div>
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-ink-soft">
           Nichts wird gelöscht: die Dateien kommen in den Ordner „.removed“, Artikel und Verlauf bleiben in der Datenbank.
         </p>
       </Section>

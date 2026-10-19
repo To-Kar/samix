@@ -16,8 +16,8 @@ const fromLines = (text: string): string[] =>
     .filter(Boolean);
 
 const area =
-  'w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-400';
-const legend = 'text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1';
+  'w-full rounded border border-line bg-paper-raised px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-focus';
+const legend = 'text-xs font-semibold uppercase tracking-wide text-ink-soft mb-1';
 
 export function Sources({ api, slug }: SourcesProps) {
   const [sources, setSources] = useState<SourceSpec[] | null>(null);
@@ -106,18 +106,18 @@ export function Sources({ api, slug }: SourcesProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-xs text-red-800 dark:text-red-200 font-mono">
+      <div className="rounded-md border border-danger bg-danger-paper p-3 text-xs text-danger font-mono">
         {loadError}
       </div>
     );
   }
-  if (!sources) return <div className="text-sm text-neutral-500">Lädt …</div>;
+  if (!sources) return <div className="text-sm text-ink-soft">Lädt …</div>;
 
   return (
     <div className="flex flex-col gap-5">
       <fieldset className="flex flex-col gap-2">
         <legend className={legend}>Webseiten</legend>
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-ink-soft">
           Eine Seite eintragen (z. B. <code>chip.de</code>), um ihre neuesten Artikel zu bekommen. Mit Stichwörtern
           bleiben nur passende (ganze Wörter, eines genügt, z. B. <code>KI, AI</code>). Die <em>Vorschau</em> zeigt vor
           dem Speichern, was geholt würde.
@@ -128,14 +128,14 @@ export function Sources({ api, slug }: SourcesProps) {
       <fieldset className="flex flex-col gap-2">
         <legend className={legend}>RSS-Feeds</legend>
         <textarea value={rssUrls} onChange={(e) => setRssUrls(e.target.value)} rows={3} className={area} placeholder="https://hnrss.org/frontpage" />
-        <p className="text-xs text-neutral-400">Eine URL pro Zeile</p>
+        <p className="text-xs text-ink-soft">Eine URL pro Zeile</p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className={legend}>arXiv</legend>
-        <label className="text-xs text-neutral-600 dark:text-neutral-400">Kategorien (eine pro Zeile)</label>
+        <label className="text-xs text-ink-soft">Kategorien (eine pro Zeile)</label>
         <textarea value={arxivCategories} onChange={(e) => setArxivCategories(e.target.value)} rows={2} className={area} placeholder="cs.AI" />
-        <label className="text-xs text-neutral-600 dark:text-neutral-400">Optionaler Suchbegriff</label>
+        <label className="text-xs text-ink-soft">Optionaler Suchbegriff</label>
         <input type="text" value={arxivQuery} onChange={(e) => setArxivQuery(e.target.value)} className={area} placeholder="large language models" />
       </fieldset>
 
@@ -151,11 +151,11 @@ export function Sources({ api, slug }: SourcesProps) {
                 (Thema: <em>{topic}</em>)
               </>
             ) : (
-              <span className="text-neutral-400"> – dieses Ressort hat kein gespeichertes Thema; trage unten Suchanfragen ein</span>
+              <span className="text-ink-soft"> – dieses Ressort hat kein gespeichertes Thema; trage unten Suchanfragen ein</span>
             )}
           </span>
         </label>
-        <label className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+        <label className="flex items-center gap-2 text-xs text-ink-soft">
           Nur Ergebnisse der letzten
           <select value={recency} onChange={(e) => setRecency(Number(e.target.value))} className={`${area} w-auto`}>
             <option value={24}>24 Stunden</option>
@@ -163,27 +163,27 @@ export function Sources({ api, slug }: SourcesProps) {
             <option value={168}>7 Tage</option>
           </select>
         </label>
-        <label className="text-xs text-neutral-600 dark:text-neutral-400">Weitere Suchanfragen (eine pro Zeile, optional)</label>
+        <label className="text-xs text-ink-soft">Weitere Suchanfragen (eine pro Zeile, optional)</label>
         <textarea value={perplexityQueries} onChange={(e) => setPerplexityQueries(e.target.value)} rows={2} className={area} placeholder="Bundesliga Spieltag Ergebnisse" />
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-ink-soft">
           Jede Suche kostet extra (geschätzt etwa 0,25 Cent, abgebucht vom Tageslimit des Ressorts). Die gefundenen Seiten werden
           wie andere Quellen geprüft: ohne Datum und ohne abrufbare URL erscheint nichts. Ohne Haken und ohne Anfragen sucht
           das Ressort nur auf den Seiten und Feeds oben.
         </p>
         {(webSearch || perplexityQueries.trim()) && !searchKey ? (
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+          <p className="text-xs text-warning">
             Es ist noch kein Perplexity-Schlüssel eingetragen (Einrichtung → Weitere Anbieter). Ohne ihn findet die Suche nichts.
           </p>
         ) : null}
       </fieldset>
 
       {saveMessage ? (
-        <div className="rounded-md border border-neutral-200 dark:border-neutral-800 px-3 py-2 text-xs">{saveMessage}</div>
+        <div className="rounded-md border border-rule px-3 py-2 text-xs">{saveMessage}</div>
       ) : null}
       <button
         onClick={() => void save()}
         disabled={saving}
-        className="self-start rounded border border-neutral-300 dark:border-neutral-700 px-4 py-1.5 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+        className="self-start rounded border border-line px-4 py-1.5 text-xs hover:bg-ink/5 disabled:opacity-40"
       >
         {saving ? 'Speichert …' : 'Quellen speichern'}
       </button>

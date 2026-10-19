@@ -1,18 +1,28 @@
 /** @type {import('tailwindcss').Config} */
+
+// Colours and fonts come from the active theme (src/theme/apply.ts writes the
+// CSS variables on <html>). Colours are RGB triplets so opacity modifiers
+// (`bg-ink/5`) keep working. Components use these tokens only — no `dark:`
+// variants: every theme carries its own light and dark palette.
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+const COLOR_TOKENS = [
+  'paper', 'paper-raised', 'ink', 'ink-soft', 'rule', 'line', 'accent', 'on-accent',
+  'mark', 'focus', 'danger', 'danger-paper', 'warning', 'warning-paper',
+];
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
-      colors: {
-        // Newsprint: warm paper and soft black ink; dark mode is dark paper.
-        paper: { DEFAULT: '#f6f1e6', dark: '#15130f' },
-        ink: { DEFAULT: '#1c1a16', dark: '#e8e2d4', soft: '#5d574a', 'soft-dark': '#a39b88' },
-        rule: { DEFAULT: '#c9bfa8', dark: '#38342b' },
-      },
+      colors: Object.fromEntries(COLOR_TOKENS.map((n) => [n, token(n)])),
       fontFamily: {
-        // Bundled locally (@fontsource-variable, OFL): the CSP only allows 'self'.
-        serif: ['"Source Serif 4 Variable"', 'Georgia', 'Cambria', 'serif'],
+        // Bundled locally (Fontsource, OFL): the CSP only allows 'self'.
+        head: ['var(--font-head)'],
+        body: ['var(--font-body)'],
+        ui: ['var(--font-ui)'],
       },
+      borderRadius: { theme: 'var(--radius)' },
+      maxWidth: { measure: 'var(--measure)' },
     },
   },
   plugins: [require('tailwindcss-animate')],
