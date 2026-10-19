@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { applyTheme } from './apply';
+import { probeHyphenation } from './hyphenation';
 import { BUILT_IN_THEMES } from './registry';
 import { resolveTheme, type ResolvedTheme } from './resolve';
 import { loadSettings, saveSettings } from './store';
@@ -11,6 +12,8 @@ const systemIsDark = () => typeof matchMedia === 'function' && matchMedia(DARK_Q
 
 /** Paints the stored theme before React mounts, so the first frame is already right. */
 export function bootTheme(): void {
+  const root = document.documentElement;
+  root.dataset.hyphenation = String(probeHyphenation(root.lang || 'de'));
   const settings = loadSettings();
   applyTheme(document.documentElement, resolveTheme(BUILT_IN_THEMES, settings, systemIsDark()), settings);
 }

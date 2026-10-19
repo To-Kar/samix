@@ -79,9 +79,10 @@ body {
   [data-paragraph='indent'] .samix-prose p + p {
     text-indent: 1.5em;
   }
-  /* Justified text only where lines are long enough not to tear. */
+  /* Justified text only where lines are long enough not to tear, and only
+     when the engine really hyphenates German (probe in theme/hyphenation.ts). */
   @media (min-width: 40rem) {
-    [data-justify='true'] .samix-prose p {
+    [data-justify='true'][data-hyphenation='true'] .samix-prose p {
       text-align: justify;
     }
   }
@@ -106,6 +107,166 @@ body {
     font-size: 1.125rem;
     font-variant: all-small-caps;
     letter-spacing: 0.06em;
+  }
+
+  /* ---- Newspaper front page ---------------------------------------- */
+  .samix-masthead {
+    text-align: center;
+    padding-bottom: calc(0.75rem * var(--density));
+    margin-bottom: calc(1rem * var(--density));
+  }
+  .samix-masthead-name {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 3.25rem;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  [data-masthead='double'] .samix-masthead {
+    border-bottom: 4px double rgb(var(--ink));
+  }
+  [data-masthead='single'] .samix-masthead {
+    border-bottom: var(--rule-width) solid rgb(var(--rule));
+  }
+  [data-masthead='thick'] .samix-masthead {
+    border-bottom: 3px solid rgb(var(--ink));
+  }
+  [data-masthead='short'] .samix-masthead::after {
+    content: '';
+    display: block;
+    width: 3.5rem;
+    height: 1px;
+    margin: 1rem auto 0;
+    background: rgb(var(--rule));
+  }
+  [data-masthead='none'] .samix-masthead {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    text-align: left;
+  }
+  [data-masthead='none'] .samix-masthead-name {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 1.75rem;
+  }
+
+  .samix-ressorts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem 1.25rem;
+    margin-bottom: calc(2rem * var(--density));
+    font-size: 0.9375rem;
+  }
+  [data-masthead='none'] .samix-ressorts {
+    justify-content: flex-start;
+  }
+  .samix-ressorts button {
+    @apply text-ink-soft;
+    padding: 0.125rem 0;
+  }
+  .samix-ressorts button[aria-pressed='true'] {
+    @apply text-ink font-semibold underline decoration-accent decoration-2 underline-offset-[0.35em];
+  }
+
+  .samix-headline-link {
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  .samix-headline-link:hover {
+    @apply underline decoration-accent decoration-1 underline-offset-4;
+  }
+
+  .samix-teaser {
+    font-family: var(--font-body);
+    font-size: calc(var(--body-size) * 0.92);
+    line-height: var(--body-leading);
+  }
+  [data-hyphens='true'] .samix-teaser {
+    hyphens: auto;
+  }
+
+  .samix-lead {
+    padding-bottom: calc(1.75rem * var(--density));
+    margin-bottom: calc(1.75rem * var(--density));
+  }
+  :is([data-rule='hairline'], [data-rule='solid']) .samix-lead {
+    border-bottom: var(--rule-width) solid rgb(var(--rule));
+  }
+  [data-rule='ornament'] .samix-lead::after {
+    content: '⁂';
+    display: block;
+    text-align: center;
+    margin-top: calc(1.75rem * var(--density));
+    color: rgb(var(--ink-soft));
+  }
+
+  /* Columns flow like print: top to bottom, then the next column. */
+  .samix-columns {
+    column-count: 1;
+    column-gap: calc(2rem * var(--density));
+  }
+  @media (min-width: 45rem) {
+    :is([data-columns='2'], [data-columns='3']) .samix-columns {
+      column-count: 2;
+    }
+  }
+  @media (min-width: 64rem) {
+    [data-columns='3'] .samix-columns {
+      column-count: 3;
+    }
+  }
+  [data-column-rules='true'] .samix-columns {
+    column-rule: var(--rule-width) solid rgb(var(--rule));
+  }
+  .samix-column-item {
+    break-inside: avoid;
+    padding-bottom: calc(1.5rem * var(--density));
+  }
+  [data-columns='1'] .samix-column-item + .samix-column-item {
+    border-top: 1px solid rgb(var(--rule));
+    padding-top: calc(1.5rem * var(--density));
+  }
+
+  .samix-earlier {
+    margin-top: calc(2.5rem * var(--density));
+  }
+  /* Single-column themes keep the whole edition at reading measure. */
+  [data-columns='1'] :is(.samix-lead, .samix-columns, .samix-earlier) {
+    width: 100%;
+    max-width: var(--measure);
+    margin-inline: auto;
+  }
+
+  /* ---- Reader view ------------------------------------------------- */
+  .samix-reader {
+    display: flex;
+    flex-direction: column;
+    max-width: var(--measure);
+    margin: 0 auto;
+    width: 100%;
+  }
+  .samix-reader-meta {
+    margin: 0.75rem 0 calc(1.5rem * var(--density));
+    padding-bottom: calc(1rem * var(--density));
+  }
+  :is([data-rule='hairline'], [data-rule='solid']) .samix-reader-meta {
+    border-bottom: var(--rule-width) solid rgb(var(--rule));
+  }
+  .samix-reader-sources {
+    margin-top: calc(2.5rem * var(--density));
+    padding-top: calc(1rem * var(--density));
+  }
+  :is([data-rule='hairline'], [data-rule='solid']) .samix-reader-sources {
+    border-top: var(--rule-width) solid rgb(var(--rule));
+  }
+  [data-rule='ornament'] .samix-reader-sources::before {
+    content: '⁂';
+    display: block;
+    text-align: center;
+    margin-bottom: 1rem;
   }
 
   /* Links always underlined: never told apart by colour alone. */

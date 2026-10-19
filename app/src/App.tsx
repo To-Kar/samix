@@ -6,11 +6,18 @@ import { Appearance } from './components/Appearance';
 import { Newspaper } from './components/Newspaper';
 import { Sources } from './components/Sources';
 
+type View = 'paper' | 'sources' | 'settings';
+
+const VIEWS: [View, string][] = [
+  ['paper', 'Zeitung'],
+  ['sources', 'Quellen'],
+  ['settings', 'Einstellungen'],
+];
+
 export default function App() {
   const [api, setApi] = useState<ApiClient | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showSources, setShowSources] = useState(false);
+  const [view, setView] = useState<View>('paper');
 
   useEffect(() => {
     initApi()
@@ -48,35 +55,16 @@ export default function App() {
   return (
     <main className="min-h-full flex flex-col">
       <ConnectionBanner api={api} />
-      <div className="max-w-3xl w-full mx-auto px-6 py-8 flex flex-col gap-6">
-        <header className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="samix-headline text-3xl">Samix</h1>
-            <p className="samix-hint">Today's news, curated locally.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setShowSources((v) => !v);
-                setShowSettings(false);
-              }}
-              className="samix-button"
-            >
-              {showSources ? 'Close sources' : 'Sources'}
+      <div className="max-w-6xl w-full mx-auto px-6 py-6 flex flex-col gap-6">
+        <nav className="flex justify-end gap-2" aria-label="Bereiche">
+          {VIEWS.map(([id, label]) => (
+            <button key={id} className="samix-button" aria-pressed={view === id} onClick={() => setView(id)}>
+              {label}
             </button>
-            <button
-              onClick={() => {
-                setShowSettings((v) => !v);
-                setShowSources(false);
-              }}
-              className="samix-button"
-            >
-              {showSettings ? 'Close settings' : 'Settings'}
-            </button>
-          </div>
-        </header>
-        {showSettings ? (
-          <div className="flex flex-col gap-10">
+          ))}
+        </nav>
+        {view === 'settings' ? (
+          <div className="max-w-3xl flex flex-col gap-10">
             <section>
               <h2 className="samix-headline text-2xl mb-4">Aussehen</h2>
               <Appearance />
@@ -86,11 +74,9 @@ export default function App() {
               <Settings />
             </section>
           </div>
-        ) : showSources ? (
-          <section>
-            <h2 className="samix-label mb-3">
-              Sources
-            </h2>
+        ) : view === 'sources' ? (
+          <section className="max-w-3xl">
+            <h2 className="samix-label mb-3">Quellen</h2>
             <Sources api={api} />
           </section>
         ) : (
