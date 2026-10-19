@@ -10,6 +10,7 @@ import { StaticAdapter } from './static.js';
 import { ClaudeAdapter } from './claude.js';
 import { PerplexityAdapter } from './perplexity.js';
 import { OllamaAdapter } from './ollama.js';
+import { DeepSeekAdapter } from './deepseek.js';
 
 export type AdapterFactory = () => ModelAdapter;
 
@@ -18,6 +19,7 @@ const registry = new Map<ModelId, AdapterFactory>();
 registry.set('static', () => new StaticAdapter());
 registry.set('claude-haiku-4-5', () => new ClaudeAdapter('claude-haiku-4-5'));
 registry.set('claude-sonnet-4-6', () => new ClaudeAdapter('claude-sonnet-4-6'));
+registry.set('deepseek-chat', () => new DeepSeekAdapter());
 registry.set('perplexity-sonar', () => new PerplexityAdapter());
 registry.set('ollama-llama3', () => new OllamaAdapter());
 

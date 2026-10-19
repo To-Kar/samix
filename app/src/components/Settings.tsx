@@ -19,6 +19,7 @@ const GROUPS: { title: string; fields: FieldSpec[] }[] = [
     fields: [
       { account: 'ANTHROPIC_API_KEY', label: 'Anthropic API key', sensitive: true },
       { account: 'PERPLEXITY_API_KEY', label: 'Perplexity API key', sensitive: true },
+      { account: 'DEEPSEEK_API_KEY', label: 'DeepSeek API key', sensitive: true },
     ],
   },
 ];

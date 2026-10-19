@@ -2,13 +2,18 @@ import type { Logger } from 'pino';
 
 export type AgentType = 'reactive' | 'proactive';
 
-export type ModelId =
-  | 'static'
-  | 'claude-haiku-4-5'
-  | 'claude-sonnet-4-6'
-  | 'gpt-4o-mini'
-  | 'perplexity-sonar'
-  | 'ollama-llama3';
+// Single source of truth: the manifest validator derives its enum from this.
+export const MODEL_IDS = [
+  'static',
+  'claude-haiku-4-5',
+  'claude-sonnet-4-6',
+  'deepseek-chat',
+  'gpt-4o-mini',
+  'perplexity-sonar',
+  'ollama-llama3',
+] as const;
+
+export type ModelId = (typeof MODEL_IDS)[number];
 
 export interface Skill {
   id: string;

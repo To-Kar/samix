@@ -34,7 +34,7 @@ pub fn spawn_core(port: u16, token: &str) -> Result<Child, std::io::Error> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    for account in &["ANTHROPIC_API_KEY", "PERPLEXITY_API_KEY"] {
+    for account in &["ANTHROPIC_API_KEY", "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY"] {
         if let Some(value) = read_secret(account) {
             cmd.env(account, value);
         }
