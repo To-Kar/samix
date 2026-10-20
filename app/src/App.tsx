@@ -1,3 +1,4 @@
+import { ArticleLanguageSync } from './components/ArticleLanguage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { initApi, type ApiClient } from './lib/api';
 import { ConnectionBanner } from './components/ConnectionBanner';
@@ -79,6 +80,7 @@ export default function App() {
   return (
     <main className="min-h-full bg-paper text-ink flex flex-col">
       <ConnectionBanner api={api} />
+      <ArticleLanguageSync api={api} />
       <div className="max-w-6xl w-full mx-auto px-6 pt-3 pb-12 flex flex-col gap-4">
         <ModelHint api={api} refreshKey={view.kind} />
         <nav className="flex justify-end gap-1" aria-label={t.app.navLabel}>

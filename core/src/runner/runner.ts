@@ -1,3 +1,5 @@
+import { getArticleLanguage } from '../settings.js';
+import { withArticleLanguage } from './language.js';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 import type { Logger } from 'pino';
@@ -398,8 +400,11 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
     log.info({ liked: profile.liked.length, disliked: profile.disliked.length }, 'reader_profile_attached');
   }
 
+  const language = getArticleLanguage();
+  if (language) log.info({ language }, 'article_language');
+
   const request: NormalizedRequest = {
-    systemPrompt: skill.systemPrompt,
+    systemPrompt: language ? withArticleLanguage(skill.systemPrompt, language) : skill.systemPrompt,
     messages: sourceItems.length
       ? [
           {

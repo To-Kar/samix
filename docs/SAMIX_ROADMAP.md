@@ -524,6 +524,12 @@ Core: 374 Tests, App: 19; Oberfläche (Ressort bearbeiten/entfernen) in Chromium
 - **Veröffentlichung:** vorbereitet, nicht ausgeführt (siehe Phase 5 und `docs/SAMIX_RELEASE.md`).
 - Folge der angehobenen Agenten-Versionen (`newsletter-ai` 1.2, `frag-die-zeitung` 1.2): installierte Kopien werden beim nächsten Start der App aktualisiert (Backup im Agenten-Ordner).
 
+### Status Artikelsprache (2026-10-20)
+
+Einrichtung → „Sprache der Artikel“: *Wie die App* (Standard), *Deutsch* oder *English*. Die App speichert die Wahl pro Gerät und schickt die wirksame Sprache an den Core (`PUT /settings/article-language`, `AppSetting`); bei „Wie die App“ geschieht das bei jedem Start und Sprachwechsel. Ab dem **nächsten Lauf** hängt der Runner (`runner/language.ts`) an den System-Prompt eines Ressorts einen Satz an: Titel, Zusammenfassung und Begründung in der gewählten Sprache schreiben, getreu übersetzen, Namen, Zahlen, Zitate und URLs unverändert lassen. Kein Agent-File ändert sich, kein Versions-Bump nötig. Ohne gesetzte Sprache bleibt der Prompt unverändert. Getestet gegen Fakes (`article-language.test.ts`) und im Browser gegen einen echten Core.
+
+**Nicht verifiziert / offen:** ob echte Modelle die Vorgabe zuverlässig befolgen (der Core prüft die Sprache nicht); ob die Längengrenzen im Schema (`summary` ≤ 280 Zeichen) für deutsche Texte reichen [Inference: Deutsch ist oft länger, zu lange Texte würden als `partial` enden]; bereits abgerufene Artikel werden nicht übersetzt; Antworten der Fragen-Funktion und feste Texte wie „nichts gefunden“ folgen dieser Einstellung nicht.
+
 ## Phase 5 — Öffentliche Veröffentlichung
 
 **Vorbereitet, nicht ausgeführt** (Details und Entscheidungen für den Auftraggeber: `docs/SAMIX_RELEASE.md`): `scripts/version.mjs` (eine Version für alle Dateien, geprüft in CI und im Test), `release.yml` signiert/notarisiert auf macOS nur wenn die Apple-Secrets gesetzt sind und legt bei einem Tag einen Entwurf-Release an, Anleitung zum Veröffentlichen und eine Prüfliste für echte Rechner. **Nicht gebaut:** Auto-Update, Windows-Signierung. **Offen, braucht dich:** Apple-Developer-Konto, Lizenzwahl (es gibt keine `LICENSE`), Datenschutztext, Namensprüfung. Nichts davon wurde auf echten Rechnern oder Runnern ausprobiert.

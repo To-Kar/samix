@@ -49,3 +49,15 @@ export function getPriceOverride(model: string): PriceOverride | undefined {
 
 export const setPriceOverride = (model: string, p: PriceOverride) => setSetting(priceKey(model), JSON.stringify(p));
 export const clearPriceOverride = (model: string) => deleteSetting(priceKey(model));
+
+// Language the agents write the articles in. Unset = the prompt decides (no
+// instruction added). The app sets it, either fixed or following its own UI
+// language; it applies from the next run on, past articles are not touched.
+export const ARTICLE_LANGUAGE_KEY = 'articleLanguage';
+export const ARTICLE_LANGUAGES = ['de', 'en'] as const;
+export type ArticleLanguage = (typeof ARTICLE_LANGUAGES)[number];
+
+export function getArticleLanguage(): ArticleLanguage | undefined {
+  const v = getSetting(ARTICLE_LANGUAGE_KEY);
+  return (ARTICLE_LANGUAGES as readonly string[]).includes(v ?? '') ? (v as ArticleLanguage) : undefined;
+}

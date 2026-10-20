@@ -9,7 +9,18 @@ import { isAgentRunning, runAgent } from './runner/runner.js';
 import { askAgent } from './runner/converse.js';
 import { routeQuestion } from './runner/orchestrate.js';
 import { checkBudget, computeCostUsd, estimateRunCostUsd, readGlobalCap, recordSpend, utcDayStart } from './runner/budget.js';
-import { GLOBAL_CAP_KEY, clearPriceOverride, deleteSetting, getPriceOverride, getSetting, setPriceOverride, setSetting } from './settings.js';
+import {
+  ARTICLE_LANGUAGES,
+  ARTICLE_LANGUAGE_KEY,
+  GLOBAL_CAP_KEY,
+  clearPriceOverride,
+  deleteSetting,
+  getArticleLanguage,
+  getPriceOverride,
+  getSetting,
+  setPriceOverride,
+  setSetting,
+} from './settings.js';
 import { MAX_QUESTION_CHARS } from './runner/turn.js';
 import { addNote, deleteNote, listNotes } from './memory/notes.js';
 import { validateProjectRoot } from './projects/safePath.js';
@@ -240,6 +251,23 @@ export async function buildApp(deps: AppDeps) {
     }
     await setSetting(GLOBAL_CAP_KEY, String(parsed.data.usd));
     return { globalCapUsd: readGlobalCap() };
+  });
+
+  fastify.get('/settings/article-language', async () => ({ language: getArticleLanguage() ?? null }));
+
+  fastify.put('/settings/article-language', async (request, reply) => {
+    const parsed = z.object({ language: z.enum(ARTICLE_LANGUAGES) }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: `language must be one of: ${ARTICLE_LANGUAGES.join(', ')}` });
+      return reply;
+    }
+    await setSetting(ARTICLE_LANGUAGE_KEY, parsed.data.language);
+    return { language: parsed.data.language };
+  });
+
+  fastify.delete('/settings/article-language', async () => {
+    await deleteSetting(ARTICLE_LANGUAGE_KEY);
+    return { language: null };
   });
 
   fastify.delete('/budget/global', async () => {

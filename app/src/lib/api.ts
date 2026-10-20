@@ -521,6 +521,10 @@ export class ApiClient {
     return this.json('PUT', '/budget/global', { usd });
   }
 
+  setArticleLanguage(language: 'de' | 'en'): Promise<{ language: 'de' | 'en' }> {
+    return this.json('PUT', '/settings/article-language', { language });
+  }
+
   resetGlobalCap(): Promise<{ globalCapUsd: number }> {
     return this.request('/budget/global', { method: 'DELETE' });
   }

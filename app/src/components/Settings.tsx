@@ -1,3 +1,4 @@
+import { ArticleLanguageSetting } from './ArticleLanguage';
 import { useCallback, useEffect, useState } from 'react';
 import type { AgentSummary, ApiClient, ModelInfo, ModelTestResult } from '../lib/api';
 import { explainFailure } from '../lib/explain';
@@ -128,6 +129,7 @@ export function Settings({ api }: { api: ApiClient }) {
         <h3 className={h3}>{t.app.language}</h3>
         <Segmented value={locale} options={LOCALES.map((l) => [l, LOCALE_NAMES[l]])} onChange={setLocale} />
         <p className="text-xs text-ink-soft">{t.app.languageHint}</p>
+        <ArticleLanguageSetting />
       </section>
 
       <section className={card}>

@@ -20,7 +20,11 @@ export const de = {
     setupClose: 'Einrichtung schließen',
     appearance: 'Aussehen',
     language: 'Sprache',
-    languageHint: 'Gilt für die Oberfläche. Artikel bleiben in ihrer Originalsprache.',
+    languageHint: 'Gilt für die Oberfläche.',
+    articleLanguage: 'Sprache der Artikel',
+    articleLanguageFollow: 'Wie die App',
+    articleLanguageHint:
+      'Gilt ab dem nächsten Abruf: Die Agenten schreiben Titel und Zusammenfassungen in dieser Sprache. Bereits abgerufene Artikel bleiben, wie sie sind. Ob ein Modell die Vorgabe befolgt, prüft Samix nicht.',
     quote: (text: string) => `„${text}“`,
   },
   banner: {
@@ -59,7 +63,11 @@ export const en: typeof de = {
     setupClose: 'Close setup',
     appearance: 'Appearance',
     language: 'Language',
-    languageHint: 'Applies to the interface. Articles stay in their original language.',
+    languageHint: 'Applies to the interface.',
+    articleLanguage: 'Article language',
+    articleLanguageFollow: 'Same as the app',
+    articleLanguageHint:
+      'Applies from the next fetch: agents write titles and summaries in this language. Articles already fetched stay as they are. Samix does not check whether a model follows the instruction.',
     quote: (text) => `“${text}”`,
   },
   banner: {
