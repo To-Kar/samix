@@ -3,6 +3,7 @@
 // fails `tsc`. Parameterised strings are functions.
 
 import * as agents from './ns/agents';
+import * as ai from './ns/ai';
 import * as app from './ns/app';
 import * as appearance from './ns/appearance';
 import * as ask from './ns/ask';
@@ -17,8 +18,8 @@ import * as schedule from './ns/schedule';
 import * as settings from './ns/settings';
 import * as sources from './ns/sources';
 
-const de = { ...app.de, ...appearance.de, ...explain.de, ...paper.de, ...reader.de, ...ask.de, ...settings.de, ...agents.de, ...schedule.de, ...costs.de, ...onboarding.de, ...sources.de, ...data.de, ...model.de };
-const en: Messages = { ...app.en, ...appearance.en, ...explain.en, ...paper.en, ...reader.en, ...ask.en, ...settings.en, ...agents.en, ...schedule.en, ...costs.en, ...onboarding.en, ...sources.en, ...data.en, ...model.en };
+const de = { ...app.de, ...appearance.de, ...explain.de, ...paper.de, ...reader.de, ...ask.de, ...settings.de, ...agents.de, ...schedule.de, ...costs.de, ...onboarding.de, ...sources.de, ...data.de, ...model.de, ...ai.de };
+const en: Messages = { ...app.en, ...appearance.en, ...explain.en, ...paper.en, ...reader.en, ...ask.en, ...settings.en, ...agents.en, ...schedule.en, ...costs.en, ...onboarding.en, ...sources.en, ...data.en, ...model.en, ...ai.en };
 
 export type Messages = typeof de;
 

@@ -1,5 +1,5 @@
+import { composeSystemPrompt } from './prompt.js';
 import { getArticleLanguage } from '../settings.js';
-import { withArticleLanguage } from './language.js';
 import { randomUUID } from 'node:crypto';
 import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 import type { Logger } from 'pino';
@@ -404,7 +404,7 @@ async function executeRun(opts: RunAgentOptions): Promise<RunResult> {
   if (language) log.info({ language }, 'article_language');
 
   const request: NormalizedRequest = {
-    systemPrompt: language ? withArticleLanguage(skill.systemPrompt, language) : skill.systemPrompt,
+    systemPrompt: composeSystemPrompt(skill, { articleLanguage: true }),
     messages: sourceItems.length
       ? [
           {

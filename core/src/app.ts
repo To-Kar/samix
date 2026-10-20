@@ -10,6 +10,22 @@ import { askAgent } from './runner/converse.js';
 import { routeQuestion } from './runner/orchestrate.js';
 import { checkBudget, computeCostUsd, estimateRunCostUsd, readGlobalCap, recordSpend, utcDayStart } from './runner/budget.js';
 import {
+  AI_MODES,
+  AI_MODE_KEY,
+  MAX_INSTRUCTIONS_CHARS,
+  clearCustomModel,
+  clearInstructions,
+  getAiMode,
+  getCustomModel,
+  getInstructions,
+  getOllamaModel,
+  getOllamaUrl,
+  isAdvanced,
+  ollamaSource,
+  resetOllama,
+  setCustomModel,
+  setInstructions,
+  setOllama,
   ARTICLE_LANGUAGES,
   ARTICLE_LANGUAGE_KEY,
   GLOBAL_CAP_KEY,
@@ -220,8 +236,9 @@ export async function buildApp(deps: AppDeps) {
         todaySearchUsd: searchBy.get(s.id) ?? 0,
       }));
 
+    // The custom model's price is edited with its own settings, not here.
     const prices = knownModelIds()
-      .filter((id) => id !== 'static')
+      .filter((id) => id !== 'static' && id !== 'custom')
       .flatMap((id) => {
         try {
           const a = resolveAdapter(id);
@@ -989,11 +1006,129 @@ export async function buildApp(deps: AppDeps) {
     return reply;
   });
 
+  // ---- AI settings: mode, local model, own model, extra instructions -------
+
+  const customView = () => {
+    const c = getCustomModel();
+    const price = getPriceOverride('custom');
+    return {
+      configured: Boolean(c),
+      baseUrl: c?.baseUrl ?? '',
+      model: c?.model ?? '',
+      tools: c?.tools ?? false,
+      inputPerMillionTokens: price?.inputPerMillionTokens ?? null,
+      outputPerMillionTokens: price?.outputPerMillionTokens ?? null,
+      keyConfigured: Boolean(process.env['CUSTOM_API_KEY']),
+    };
+  };
+  const aiView = () => ({
+    mode: getAiMode(),
+    ollama: { url: getOllamaUrl(), model: getOllamaModel(), source: ollamaSource() },
+    custom: { ...customView(), usable: selectableModelIds().includes('custom') },
+  });
+
+  fastify.get('/settings/ai', async () => aiView());
+
+  fastify.put('/settings/ai', async (request, reply) => {
+    const parsed = z.object({ mode: z.enum(AI_MODES) }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: `mode must be one of: ${AI_MODES.join(', ')}` });
+      return reply;
+    }
+    await setSetting(AI_MODE_KEY, parsed.data.mode);
+    return aiView();
+  });
+
+  const httpUrl = z
+    .string()
+    .trim()
+    .max(300)
+    .refine((u) => {
+      try {
+        return ['http:', 'https:'].includes(new URL(u).protocol);
+      } catch {
+        return false;
+      }
+    }, 'must be an http(s) URL');
+
+  fastify.put('/settings/ollama', async (request, reply) => {
+    const parsed = z.object({ url: httpUrl, model: z.string().trim().min(1).max(100) }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: errorMessage(parsed.error) });
+      return reply;
+    }
+    await setOllama(parsed.data.url.replace(/\/+$/, ''), parsed.data.model);
+    return aiView();
+  });
+
+  fastify.delete('/settings/ollama', async () => {
+    await resetOllama();
+    return aiView();
+  });
+
+  // The model endpoint is the reader's own choice (not a URL taken from a feed
+  // or page), so it is called directly, not through safeFetch: it is typically
+  // on this machine or the reader's network.
+  fastify.put('/settings/custom-model', async (request, reply) => {
+    const price = z.number().min(0).max(10_000);
+    const parsed = z
+      .object({
+        baseUrl: httpUrl,
+        model: z.string().trim().min(1).max(100),
+        tools: z.boolean(),
+        inputPerMillionTokens: price,
+        outputPerMillionTokens: price,
+      })
+      .safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: errorMessage(parsed.error) });
+      return reply;
+    }
+    const b = parsed.data;
+    await setCustomModel({ baseUrl: b.baseUrl.replace(/\/+$/, ''), model: b.model, tools: b.tools });
+    await setPriceOverride('custom', { inputPerMillionTokens: b.inputPerMillionTokens, outputPerMillionTokens: b.outputPerMillionTokens });
+    return aiView();
+  });
+
+  fastify.delete('/settings/custom-model', async () => {
+    await clearCustomModel();
+    await clearPriceOverride('custom');
+    return aiView();
+  });
+
+  fastify.get<{ Params: { slug: string } }>('/agents/:slug/instructions', async (request, reply) => {
+    if (!skillList().some((s) => s.id === request.params.slug)) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    return { text: getInstructions(request.params.slug) ?? '', active: isAdvanced() && Boolean(getInstructions(request.params.slug)) };
+  });
+
+  fastify.put<{ Params: { slug: string } }>('/agents/:slug/instructions', async (request, reply) => {
+    if (!skillList().some((s) => s.id === request.params.slug)) {
+      reply.code(404).send({ error: 'agent_not_found', slug: request.params.slug });
+      return reply;
+    }
+    const parsed = z.object({ text: z.string().max(MAX_INSTRUCTIONS_CHARS) }).safeParse(request.body);
+    if (!parsed.success) {
+      reply.code(400).send({ error: 'invalid_body', message: `text must be at most ${MAX_INSTRUCTIONS_CHARS} characters` });
+      return reply;
+    }
+    const text = parsed.data.text.trim();
+    if (text) await setInstructions(request.params.slug, text);
+    else await clearInstructions(request.params.slug);
+    return { text, active: isAdvanced() && Boolean(text) };
+  });
+
   // ---- Model choice ------------------------------------------------------
 
+  // The custom model is offered only while it can actually run: advanced mode,
+  // an endpoint and a price.
+  const selectableModelIds = () =>
+    knownModelIds().filter((id) => id !== 'static' && (id !== 'custom' || (isAdvanced() && getCustomModel() && getPriceOverride('custom'))));
+
   fastify.get('/models', async () =>
-    knownModelIds()
-      .filter((id) => id !== 'static')
+    selectableModelIds()
       .map((id) => {
         const keyEnv = MODEL_KEY_ENV[id] ?? null;
         return {
@@ -1001,6 +1136,8 @@ export async function buildApp(deps: AppDeps) {
           keyEnv,
           // Local models need no key.
           keyConfigured: keyEnv ? Boolean(process.env[keyEnv]) : true,
+          // Which model behind a slot the reader configured (local tag, own model).
+          ...(id === 'ollama-llama3' ? { detail: getOllamaModel() } : id === 'custom' ? { detail: getCustomModel()?.model } : {}),
         };
       })
   );
@@ -1028,7 +1165,7 @@ export async function buildApp(deps: AppDeps) {
         return reply;
       }
       const parsed = modelBodySchema.safeParse(request.body);
-      const available = new Set<string>(knownModelIds().filter((id) => id !== 'static'));
+      const available = new Set<string>(selectableModelIds());
       const bad = parsed.success
         ? [parsed.data.primary, parsed.data.fallback].find((id) => id && !available.has(id))
         : undefined;
@@ -1062,7 +1199,7 @@ export async function buildApp(deps: AppDeps) {
     const everyAgent = parsed.success && parsed.data.all === true;
     const target = parsed.success ? parsed.data.primary : null;
     const targetKey = target ? MODEL_KEY_ENV[target] : undefined;
-    if (!target || !knownModelIds().includes(target) || target === 'static') {
+    if (!target || !selectableModelIds().includes(target)) {
       reply.code(400).send({ error: 'invalid_model' });
       return reply;
     }
@@ -1100,7 +1237,7 @@ export async function buildApp(deps: AppDeps) {
   // global cap applies like for every call.
   fastify.post('/models/test', async (request, reply) => {
     const parsed = z.object({ model: z.enum(MODEL_IDS) }).safeParse(request.body);
-    if (!parsed.success || parsed.data.model === 'static' || !knownModelIds().includes(parsed.data.model)) {
+    if (!parsed.success || !selectableModelIds().includes(parsed.data.model)) {
       reply.code(400).send({ error: 'invalid_model' });
       return reply;
     }

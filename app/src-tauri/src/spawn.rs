@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager};
 /// Keychain accounts whose values are handed to the core as environment
 /// variables of the same name. A missing key is simply left out: the core's
 /// adapters then report themselves as unavailable.
-const SECRET_ACCOUNTS: &[&str] = &["ANTHROPIC_API_KEY", "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY"];
+const SECRET_ACCOUNTS: &[&str] = &["ANTHROPIC_API_KEY", "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "CUSTOM_API_KEY"];
 
 fn read_secret(account: &str) -> Option<String> {
     Entry::new("samix", account).ok()?.get_password().ok()

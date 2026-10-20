@@ -100,6 +100,10 @@ A "Ressort" is a proactive agent. `POST /agents` (`skills/create.ts`) writes a n
 
 `Project` rows are folders the reader released; `allowModelAccess` must be on or no tool returns anything. All filesystem access goes through `projects/safePath.ts` (relative paths only, `realpath` inside the real root, exclusions, symlinks skipped, size caps) and is read-only. Tool results surface `file:<projectId>:<path>` source ids; `converse.ts` validates them exactly like article ids.
 
+### AI mode: simple / advanced
+
+`AppSetting`s (`settings.ts`): `aiMode` (default simple), Ollama URL/tag (app → env → default, **always** effective), the own model `custom` (`adapters/custom.ts`: any OpenAI-compatible endpoint via the shared `adapters/openai-compat.ts`, which DeepSeek also uses; needs advanced mode, an endpoint **and a price**, else `resolveAdapter` throws and `/models` hides it), and `instructions:<slug>`. `runner/prompt.ts` (`composeSystemPrompt`) is the one place that builds an agent's system prompt (skill prompt, then article language, then — advanced only — the reader's extra instructions); all three runners go through it. Extra instructions are appended, never replace the skill prompt, and do not weaken code-enforced rules. The own model's endpoint is the reader's own choice, so it is called directly, not through `safeFetch` (that rule is for URLs from feeds and pages). Not built: reasoning/thinking settings (provider parameters unverified).
+
 ### Non-obvious runtime invariants
 
 - **Project files are read-only, released per folder, and never reached by path tricks.** Do not add a tool that takes an absolute path or writes, and do not bypass `resolveInProject`. The exclusion list is a heuristic, not a guarantee.

@@ -1,3 +1,4 @@
+import { AiSettings } from './AiSettings';
 import { ArticleLanguageSetting } from './ArticleLanguage';
 import { useCallback, useEffect, useState } from 'react';
 import type { AgentSummary, ApiClient, ModelInfo, ModelTestResult } from '../lib/api';
@@ -105,6 +106,8 @@ export function Settings({ api }: { api: ApiClient }) {
       </section>
 
       <DefaultModel api={api} models={models} agents={agents} version={version} onChanged={reload} />
+
+      <AiSettings api={api} agents={agents} onChanged={reload} onKeyChanged={applyKeyChange} />
 
       <section className={card}>
         <h3 className={h3}>{t.settings.costs}</h3>
@@ -321,7 +324,8 @@ function DefaultModel({
             {usable.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.id}
-                {m.keyEnv ? '' : s.localNoTools}
+                {m.detail ? ` · ${m.detail}` : ''}
+                {m.keyEnv || m.id === 'custom' ? '' : s.localNoTools}
               </option>
             ))}
           </select>

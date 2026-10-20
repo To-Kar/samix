@@ -11,6 +11,7 @@ export const SECRET_ACCOUNTS = [
   'ANTHROPIC_API_KEY',
   'PERPLEXITY_API_KEY',
   'DEEPSEEK_API_KEY',
+  'CUSTOM_API_KEY',
 ] as const;
 
 export type SecretAccount = (typeof SECRET_ACCOUNTS)[number];

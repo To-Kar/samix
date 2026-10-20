@@ -11,6 +11,7 @@ import { ClaudeAdapter } from './claude.js';
 import { PerplexityAdapter } from './perplexity.js';
 import { OllamaAdapter } from './ollama.js';
 import { DeepSeekAdapter } from './deepseek.js';
+import { createCustomAdapter } from './custom.js';
 
 export type AdapterFactory = () => ModelAdapter;
 
@@ -31,6 +32,7 @@ registry.set('claude-sonnet-4-6', () => new ClaudeAdapter('claude-sonnet-4-6'));
 registry.set('deepseek-chat', () => new DeepSeekAdapter());
 registry.set('perplexity-sonar', () => new PerplexityAdapter());
 registry.set('ollama-llama3', () => new OllamaAdapter());
+registry.set('custom', createCustomAdapter);
 
 // Overrides the adapter for a model id. Used by tests to avoid real provider
 // calls; the runner and fallback chain only ever see the ModelAdapter interface.

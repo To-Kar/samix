@@ -31,7 +31,7 @@ export function AgentModel({ api, slug, version, onSaved }: { api: ApiClient; sl
     };
   }, [api, slug, version]);
 
-  const label = (m: ModelInfo) => `${m.id}${m.keyEnv ? (m.keyConfigured ? m_.keyPresent : m_.noKey) : m_.local}`;
+  const label = (m: ModelInfo) => `${m.id}${m.detail ? ` · ${m.detail}` : ''}${m.keyEnv ? (m.keyConfigured ? m_.keyPresent : m_.noKey) : m.id === 'custom' ? '' : m_.local}`;
   const selected = models.find((m) => m.id === primary);
 
   const save = async () => {

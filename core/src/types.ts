@@ -11,6 +11,7 @@ export const MODEL_IDS = [
   'gpt-4o-mini',
   'perplexity-sonar',
   'ollama-llama3',
+  'custom',
 ] as const;
 
 export type ModelId = (typeof MODEL_IDS)[number];

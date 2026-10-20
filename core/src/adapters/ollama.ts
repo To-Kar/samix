@@ -1,4 +1,5 @@
 import { assertNoTools } from './no-tools.js';
+import { getOllamaModel, getOllamaUrl } from '../settings.js';
 import type {
   ModelAdapter,
   ModelId,
@@ -31,13 +32,10 @@ export class OllamaAdapter implements ModelAdapter {
 
   private readonly base: string;
   // Installs differ in which tag they pulled (llama3.2, llama3.1:8b, …), so
-  // the tag is configurable. The ModelId stays `ollama-llama3`.
+  // the tag is configurable (app setting, else environment). The ModelId stays `ollama-llama3`.
   private readonly model: string;
 
-  constructor(
-    base = process.env.SAMIX_OLLAMA_URL ?? 'http://127.0.0.1:11434',
-    model = process.env.SAMIX_OLLAMA_MODEL ?? 'llama3'
-  ) {
+  constructor(base = getOllamaUrl(), model = getOllamaModel()) {
     this.base = base;
     this.model = model;
   }

@@ -1,3 +1,4 @@
+import { composeSystemPrompt } from './prompt.js';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 import { ModelWithoutToolsError, generateWithFallback, resolveAdapter } from '../adapters/index.js';
@@ -192,7 +193,7 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
       if (refusal) return await finish('failed', { error: refusal.refusal });
 
       const request: NormalizedRequest = {
-        systemPrompt: skill.systemPrompt,
+        systemPrompt: composeSystemPrompt(skill),
         messages,
         tools: specs,
         maxTokens: skill.manifest.budget.tokensPerRunMax || undefined,

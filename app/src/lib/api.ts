@@ -229,6 +229,33 @@ export interface ModelInfo {
   /** Environment variable / keychain account holding its API key; null = local. */
   keyEnv: string | null;
   keyConfigured: boolean;
+  /** Model behind a configurable slot (local tag, own model). */
+  detail?: string;
+}
+
+export type AiMode = 'simple' | 'advanced';
+
+export interface AiSettings {
+  mode: AiMode;
+  ollama: { url: string; model: string; source: 'app' | 'env' | 'default' };
+  custom: {
+    configured: boolean;
+    usable: boolean;
+    baseUrl: string;
+    model: string;
+    tools: boolean;
+    inputPerMillionTokens: number | null;
+    outputPerMillionTokens: number | null;
+    keyConfigured: boolean;
+  };
+}
+
+export interface CustomModelInput {
+  baseUrl: string;
+  model: string;
+  tools: boolean;
+  inputPerMillionTokens: number;
+  outputPerMillionTokens: number;
 }
 
 export interface ModelChoice {
@@ -588,6 +615,38 @@ export class ApiClient {
    */
   useModel(primary: string, all = false): Promise<{ changed: AgentRef[]; skipped?: AgentRef[] }> {
     return this.json('POST', '/models/use', { primary, all });
+  }
+
+  getAiSettings(): Promise<AiSettings> {
+    return this.request<AiSettings>('/settings/ai');
+  }
+
+  setAiMode(mode: AiMode): Promise<AiSettings> {
+    return this.json('PUT', '/settings/ai', { mode });
+  }
+
+  setOllama(url: string, model: string): Promise<AiSettings> {
+    return this.json('PUT', '/settings/ollama', { url, model });
+  }
+
+  resetOllama(): Promise<AiSettings> {
+    return this.request('/settings/ollama', { method: 'DELETE' });
+  }
+
+  setCustomModel(input: CustomModelInput): Promise<AiSettings> {
+    return this.json('PUT', '/settings/custom-model', input);
+  }
+
+  deleteCustomModel(): Promise<AiSettings> {
+    return this.request('/settings/custom-model', { method: 'DELETE' });
+  }
+
+  getInstructions(slug: string): Promise<{ text: string; active: boolean }> {
+    return this.request(`/agents/${encodeURIComponent(slug)}/instructions`);
+  }
+
+  setInstructions(slug: string, text: string): Promise<{ text: string; active: boolean }> {
+    return this.json('PUT', `/agents/${encodeURIComponent(slug)}/instructions`, { text });
   }
 
   /** One tiny request through the model's adapter: does the key work? */

@@ -18,7 +18,8 @@
 | Volltexte und Bilder abgerufener Artikel | Datenbank bzw. Medienordner neben der Datenbank | laufen nach 90 Tagen ab (einstellbar über `SAMIX_CONTENT_RETENTION_DAYS`) |
 | Logdatei `core.log` | Log-Ordner der App | wird beim Start rotiert; kann Fehlertexte und Adressen enthalten **[Unverified: ob in Fehlertexten Teile deiner Fragen auftauchen können]** |
 | Darstellung (gewähltes Theme, eigene Themes, Schriftgröße, Sprache der Oberfläche) | Browser-Speicher (`localStorage`) des App-Fensters, nur auf diesem Gerät; wird nicht an Dritte gesendet | Eigene Themes in der App löschbar; sonst mit dem App-Datenordner |
-| API-Schlüssel | OS-Schlüsselbund, Dienst „samix“ | in der App entfernbar |
+| KI-Einstellungen (Modus, Ollama-Adresse und -Tag, eigenes Modell mit Preis, Zusatzanweisungen) | Datenbank (`samix.db`) | in der App zurücksetzbar bzw. mit der Datenbank |
+| API-Schlüssel (auch für ein eigenes Modell) | OS-Schlüsselbund, Dienst „samix“ | in der App entfernbar |
 
 ## 3. Was an Dritte geht
 
@@ -29,7 +30,9 @@ Je nach Funktion wird an **den von dir für das jeweilige Ressort gewählten** A
 - **Projekt-Assistent:** nur für Ordner, die du **ausdrücklich freigegeben** hast und bei denen „Modellzugriff“ aktiv ist: deine Frage und die Dateiausschnitte, die die Lese-Werkzeuge liefern.
 - **Notizen:** gehen nur an ein Modell, wenn ein Agent sie über das Werkzeug „Notizen lesen“ abruft oder ein Ressort „Interessen“ nutzt.
 
-Bei **Ollama** bleibt alles auf deinem Rechner (sofern dein Ollama lokal läuft).
+Bei **Ollama** bleibt alles auf deinem Rechner, sofern dein Ollama lokal läuft. Die Adresse ist in der App einstellbar; zeigt sie auf einen anderen Rechner, gehen die Daten dorthin.
+
+Im **erweiterten KI-Modus** kannst du ein **eigenes Modell** eintragen (Adresse, Name, Preis, optional ein Schlüssel). Dann geht alles, was ein Agent mit diesem Modell verarbeitet, **an diese Adresse**, ohne dass Samix den Betreiber oder dessen Bedingungen kennt. Der Aufruf geht direkt von deinem Rechner aus (nicht über die Schutzprüfung für fremde Adressen, weil du die Adresse selbst bestimmst). Dein Schlüssel dafür liegt im Schlüsselbund. Deine **Zusatzanweisungen** je Agent werden an den Prompt angehängt und gehen daher an das jeweilige Modell; sie liegen sonst nur lokal in der Datenbank.
 Wie lange Anthropic/DeepSeek Eingaben speichern oder verwenden, hängt von deren Bedingungen und deinem Vertrag ab. **Ich kann das nicht verifizieren** – bitte dort nachlesen. DeepSeek ist ein Anbieter außerhalb der EU **[Unverified: Verarbeitungsort]**.
 
 ### 3.2 Perplexity (Websuche)
