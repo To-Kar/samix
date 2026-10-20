@@ -17,6 +17,7 @@
 | Ressort-Definitionen (Prompt, Quellen, Zeitplan) | Ordner `agents/` im Datenordner | Entfernte Ressorts wandern nach `agents/.removed/`, werden **nicht** gelöscht; Datenbankeinträge (Läufe, Artikel) bleiben |
 | Volltexte und Bilder abgerufener Artikel | Datenbank bzw. Medienordner neben der Datenbank | laufen nach 90 Tagen ab (einstellbar über `SAMIX_CONTENT_RETENTION_DAYS`) |
 | Logdatei `core.log` | Log-Ordner der App | wird beim Start rotiert; kann Fehlertexte und Adressen enthalten **[Unverified: ob in Fehlertexten Teile deiner Fragen auftauchen können]** |
+| Darstellung (gewähltes Theme, eigene Themes, Schriftgröße, Sprache der Oberfläche) | Browser-Speicher (`localStorage`) des App-Fensters, nur auf diesem Gerät; wird nicht an Dritte gesendet | Eigene Themes in der App löschbar; sonst mit dem App-Datenordner |
 | API-Schlüssel | OS-Schlüsselbund, Dienst „samix“ | in der App entfernbar |
 
 ## 3. Was an Dritte geht
@@ -37,7 +38,10 @@ Wenn ein Ressort „allgemein suchen“ nutzt, gehen dessen **Themenbeschreibung
 ### 3.3 Abruf von Quellen
 Feeds, Webseiten, Sitemaps und Bilder werden direkt von den jeweiligen Servern abgerufen. Diese sehen deine IP-Adresse und den User-Agent `samix/0.1`. Adressen im privaten Netz werden von Samix nicht abgerufen.
 
-### 3.4 Sonst nichts
+### 3.4 Themes und Sprache
+Eine Theme-Datei (`.samix-theme.json`) enthält nur Daten: Farben als Hex-Werte, Schriftnamen aus einer festen Liste, Maße und Texte (Name, Haltung, Übersetzungen). Beim Import wird sie gegen ein Schema und eine Kontrastprüfung geprüft (max. 64 KB). Sie kann weder Adressen noch Bilder noch Schriften nachladen; die Schriften sind in der App mitgeliefert und die Inhaltssicherheitsrichtlinie (CSP) der App erlaubt Schriften nur von der App selbst. Beim Import und Export wird nichts über das Netz gesendet; der Export ist ein lokaler Dateidownload. Ein eigener Hintergrund (Bild) ist derzeit **nicht** vorgesehen. Käme er, müsste er lokal gespeichert werden und dieser Abschnitt ergänzt werden.
+
+### 3.5 Sonst nichts
 Keine Telemetrie, keine Absturzberichte, kein automatischer Update-Check (Stand dieses Entwurfs). Kommt ein Update-Check hinzu, muss dieser Text ergänzt werden.
 
 ## 4. Projektordner: Grenzen
