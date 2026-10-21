@@ -87,7 +87,9 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
   const blockImageIds = new Set(
     (content?.blocks ?? []).filter((b) => b.type === 'image').map((b) => (b as { mediaId: string }).mediaId)
   );
-  const showLeadImage = content?.status === 'ok' && content.leadImageId && !blockImageIds.has(content.leadImageId);
+  // The page's own lead picture when its text was extracted, else the one the feed shipped.
+  const leadImageId = (content?.status === 'ok' ? content.leadImageId : null) ?? detail?.imageId ?? null;
+  const showLeadImage = leadImageId && !blockImageIds.has(leadImageId);
 
   return (
     <div className="mx-auto max-w-[68ch]">
@@ -162,7 +164,7 @@ export function Reader({ api, articleId, order, onClose, onNavigate }: ReaderPro
           </div>
 
           {showLeadImage ? (
-            <AuthImage api={api} id={content!.leadImageId!} photo className="w-full h-auto mb-8" />
+            <AuthImage api={api} id={leadImageId!} photo className="w-full h-auto mb-8" />
           ) : null}
 
           <section className="samix-prose">

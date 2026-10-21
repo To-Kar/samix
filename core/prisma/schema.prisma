@@ -55,6 +55,10 @@ model Article {
   summary     String
   sourceUrl   String?
   sourceName  String?
+  // Image the source feed declares for this item, and the id of its local copy
+  // in the media store (content/media.ts) once downloaded.
+  imageUrl    String?
+  imageId     String?
   publishedAt DateTime?
   topic       String?
   metadata    String?

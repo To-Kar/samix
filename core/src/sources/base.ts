@@ -1,5 +1,6 @@
 import { parseFeed } from 'feedsmith';
 import type { SourceItem } from '../types.js';
+import { pickImageUrl } from './image.js';
 
 // feedsmith is pinned to ~2.7 in package.json: 2.8+ bundles transitive deps
 // under dist/node_modules/ and tsx (our dev runner) fails to resolve the
@@ -33,6 +34,7 @@ export function parseAndNormalize(xml: string): ParsedFeed {
         title: item.title ?? '(untitled)',
         snippet: item.description,
         publishedAt: parseDate(item.pubDate),
+        imageUrl: pickImageUrl(item),
         raw: item as unknown as Record<string, unknown>,
       });
     }
@@ -47,6 +49,7 @@ export function parseAndNormalize(xml: string): ParsedFeed {
         url,
         title: item.title ?? '(untitled)',
         snippet: item.description,
+        imageUrl: pickImageUrl(item),
         raw: item as unknown as Record<string, unknown>,
       });
     }
@@ -62,6 +65,7 @@ export function parseAndNormalize(xml: string): ParsedFeed {
         title: entry.title ?? '(untitled)',
         snippet: entry.summary ?? entry.content,
         publishedAt: parseDate(entry.published ?? entry.updated),
+        imageUrl: pickImageUrl(entry),
         raw: entry as unknown as Record<string, unknown>,
       });
     }
@@ -75,6 +79,7 @@ export function parseAndNormalize(xml: string): ParsedFeed {
         title: item.title ?? '(untitled)',
         snippet: item.summary ?? item.content_text,
         publishedAt: parseDate(item.date_published),
+        imageUrl: pickImageUrl(item),
         raw: item as unknown as Record<string, unknown>,
       });
     }

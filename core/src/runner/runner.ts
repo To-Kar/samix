@@ -165,6 +165,7 @@ async function createArticles(
     summary: a.summary,
     sourceUrl: a.sourceUrl,
     sourceName: a.sourceName,
+    imageUrl: a.imageUrl,
     publishedAt: a.publishedAt,
     topic: a.topic,
     importance: a.importance,

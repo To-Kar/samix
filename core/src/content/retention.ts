@@ -28,6 +28,9 @@ export async function applyContentRetention(
     if (c.leadImageId) referenced.add(c.leadImageId);
     for (const b of parseBlocks(c.blocks)) if (b.type === 'image') referenced.add(b.mediaId);
   }
+  for (const a of await prisma.article.findMany({ where: { imageId: { not: null } }, select: { imageId: true } })) {
+    if (a.imageId) referenced.add(a.imageId);
+  }
   const media = await collectUnreferencedMedia(referenced);
   if (contents || media) log.info({ contents, media }, 'content_retention_applied');
   return { contents, media };

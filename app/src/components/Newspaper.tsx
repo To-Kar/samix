@@ -418,7 +418,7 @@ function Kicker({ article }: { article: EditionArticle }) {
 
 function LeadStory({ api, article, primary, onOpen, onVote }: StoryProps & { api: ApiClient; primary: boolean }) {
   const { t } = useI18n();
-  const imageId = article.content?.leadImageId;
+  const imageId = article.content?.leadImageId ?? article.imageId;
   return (
     <article className={primary ? '' : 'border-t border-rule pt-8'}>
       <Kicker article={article} />

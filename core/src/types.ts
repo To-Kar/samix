@@ -192,6 +192,8 @@ export interface SourceItem {
   title: string;
   snippet?: string;
   publishedAt?: Date;
+  /** Image the feed itself declares for this item (never sent to the model). */
+  imageUrl?: string;
   sourceName: string;
   // The fetcher that produced this item; persisted on SourceSnapshot.
   sourceType: FetcherType;

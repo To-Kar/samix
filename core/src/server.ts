@@ -11,6 +11,7 @@ import { seedAgents } from './skills/seed.js';
 import { syncShippedAgents } from './skills/sync.js';
 import { buildApp } from './app.js';
 import { registerContentPrefetch } from './content/prefetch.js';
+import { registerFeedImages } from './content/feedImages.js';
 import { applyContentRetention } from './content/retention.js';
 import type { Skill } from './types.js';
 
@@ -60,6 +61,7 @@ async function start(): Promise<void> {
   }
   skills = await loadSkills({ agentsDir });
   registerContentPrefetch(logger);
+  registerFeedImages(logger);
   await applyContentRetention(logger);
   setInterval(
     () => void applyContentRetention(logger).catch((err) => logger.warn({ err }, 'retention_failed')),

@@ -127,6 +127,8 @@ export interface EditionArticle {
   summary: string;
   sourceUrl: string | null;
   sourceName: string | null;
+  /** Local copy of the picture the source feed ships for this item (media store id). */
+  imageId: string | null;
   publishedAt: string | null;
   topic: string | null;
   importance: number;

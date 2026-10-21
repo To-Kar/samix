@@ -30,6 +30,8 @@ export interface TraceableArticle {
   sourceUrl: string;
   sourceName: string;
   publishedAt: Date;
+  // The image the source item declares, if any (downloaded after the run).
+  imageUrl?: string;
 }
 
 export type RejectionReason =
@@ -143,6 +145,7 @@ export function enforceTraceability(
       sourceUrl: source.url,
       sourceName: source.sourceName,
       publishedAt,
+      imageUrl: source.imageUrl,
     });
   }
 

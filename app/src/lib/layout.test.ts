@@ -8,6 +8,7 @@ const art = (id: string, importance: number): EditionArticle => ({
   summary: '',
   sourceUrl: null,
   sourceName: null,
+  imageId: null,
   publishedAt: null,
   topic: null,
   importance,

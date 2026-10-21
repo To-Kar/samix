@@ -1484,6 +1484,8 @@ function articleSummary(a: ArticleWithContent, leadParagraphs: number) {
     summary: a.summary,
     sourceUrl: a.sourceUrl,
     sourceName: a.sourceName,
+    imageId: a.imageId,
+    imageUrl: a.imageUrl,
     publishedAt: a.publishedAt,
     topic: a.topic,
     importance: a.importance ?? 3,
