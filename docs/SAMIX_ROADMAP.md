@@ -536,6 +536,26 @@ Einrichtung → „KI-Modus“. **Einfach** (Standard): nur die eingebauten Mode
 
 **Nicht verifiziert / offen:** kein Test gegen einen echten OpenAI-kompatiblen Dienst (LM Studio, OpenRouter, …) und nicht gegen Claude über eine solche Schnittstelle; ob ein frei gewähltes Modell gut oder überhaupt Werkzeuge aufruft, hängt am Modell; der Schlüssel-Weg für das eigene Modell (Schlüsselbund → Neustart des Cores) ist auf dem Mac nicht erprobt; Reasoning-/Denk-Einstellungen sind **nicht gebaut** (Parameter und Abrechnung der echten APIs nicht prüfbar); ein Ersetzen des Prompts statt Anhängen gibt es nicht.
 
+### Status Hierarchie und Frage-Budget (2026-10-21)
+
+Router dürfen an Router delegieren (höchstens 3 Agenten tief), und das Budget einer Frage fließt von oben nach unten. Ausgeliefert ist eine echte dritte Ebene: **Eingang** (`orchestrator` 1.2) → **Wissens-Desk** (`wissens-desk` 1.0, Router: `delegate`, `show_notes`) → **Frag deine Zeitung**; daneben der Projekt-Assistent. `show_notes` wanderte vom Eingang in den Wissens-Desk.
+
+| Baustein | Umsetzung |
+|---|---|
+| Hierarchie als Daten | `delegates:` darf jeder Router haben. `skills/hierarchy.ts` (`validateDelegation`) prüft beim Laden: Ziel muss ein vorhandener reaktiver Agent sein, keine Zyklen, höchstens `MAX_DELEGATION_DEPTH = 3` Agenten pro Kette. Eine ungültige Kante wird mit der Warnung `delegation_invalid` entfernt, der Agent lädt trotzdem |
+| Rekursives Routing | `routeQuestion` ruft sich für einen Delegaten mit `output.format: route` selbst auf (`ephemeral`, mit Verlauf). Zur Laufzeit wird der Pfad noch einmal geprüft (`delegation_cycle`, `delegation_too_deep`), weil die Manifeste vom Leser bearbeitbar sind |
+| Frage-Budget | `budget.question_usd_max` im Manifest. `BudgetEnvelope` (`runner/budget.ts`): jede Ebene hat ihre eigene Grenze und teilt das Geld des Elternteils; ein Kind kann nie mehr ausgeben, als der Elternteil noch hat. Geprüft in `checkBudget` **vor** jedem Modellaufruf (`question_budget_exceeded`), gebucht nach jedem Aufruf. Ohne Grenze in der Kette ändert sich nichts. Der Eingang hat 0,10 USD für den ganzen Baum |
+| Aufrufbaum | `AgentRun.parentRunId` (Migration, nur `ADD COLUMN`). `POST /ask` und die Gesprächsnachrichten liefern `delegation` (Baum mit Kosten je Agent) und `route.path`; `GET /runs/:id` liefert `parentRunId` und `children`. Die App zeigt den Pfad („Wissens-Desk › Antwort aus deinen Artikeln“) und unter „Wie kam das zustande?“ den Baum |
+| Agenten-Updates | `skills/sync.ts` trägt `question_usd_max` in bestehende Kopien ein, ohne die vom Leser gesetzten Limits anzufassen; `routes`/`delegates` des Eingangs werden über die höhere Version nachgezogen, `wissens-desk` wird als neuer Agent kopiert |
+
+Getestet: `core/test/hierarchy.test.ts` (3 Ebenen mit Kosten-Summe, `parentRunId`-Kette, Trace, nur der Eingang hat ein Gespräch; Kaskade: Ablehnung vor dem Modellaufruf, spätere Ablehnung, eigenes kleineres Limit eines Kindes ohne Limit oben; Zyklus und Tiefe zur Laufzeit; `validateDelegation`; API). Mutationsprobe: ohne `envelope` im Gate der Fachagenten schlagen drei Tests fehl.
+
+**Nicht verifiziert / offen:**
+- Ein **echtes** Modell hat die zweistufige Weiterleitung nicht gewählt; kein Schlüssel in dieser Umgebung. Jede Ebene ist ein zusätzlicher Modellaufruf je Frage (Haiku, Bruchteil eines Cents), und jede Umformulierung der Frage kann sie verfälschen.
+- Die Obergrenze von 0,10 USD ist eine Schätzung. Sie wird mit der Vorab-Schätzung der Aufrufe (`tokens_per_run_max`) verglichen, nicht mit echten Kosten; ein Volltext-Abruf kann sie in einem teuren Modell früher aufbrauchen.
+- Die Oberfläche (Pfad, Baum) ist typgeprüft und gebaut, aber nicht im Browser angesehen.
+- Aufteilen einer Frage auf mehrere Agenten mit Zusammenführung und Eskalation zu stärkeren Modellen sind nicht gebaut.
+
 ## Phase 5 — Öffentliche Veröffentlichung
 
 **Vorbereitet, nicht ausgeführt** (Details und Entscheidungen für den Auftraggeber: `docs/SAMIX_RELEASE.md`): `scripts/version.mjs` (eine Version für alle Dateien, geprüft in CI und im Test), `release.yml` signiert/notarisiert auf macOS nur wenn die Apple-Secrets gesetzt sind und legt bei einem Tag einen Entwurf-Release an, Anleitung zum Veröffentlichen und eine Prüfliste für echte Rechner. **Nicht gebaut:** Auto-Update, Windows-Signierung. **Offen, braucht dich:** Apple-Developer-Konto, Lizenzwahl (es gibt keine `LICENSE`), Datenschutztext, Namensprüfung. Nichts davon wurde auf echten Rechnern oder Runnern ausprobiert.

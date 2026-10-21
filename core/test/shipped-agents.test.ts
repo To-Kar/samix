@@ -23,10 +23,17 @@ describe('agents shipped in the repo', () => {
     });
     expect(by['orchestrator']).toMatchObject({
       type: 'reactive',
-      manifest: { routes: ['delegate', 'show_notes', 'propose_refresh'], delegates: ['frag-die-zeitung', 'projekt-assistent'] },
+      manifest: { routes: ['delegate', 'propose_refresh'], delegates: ['wissens-desk', 'projekt-assistent'], budget: { questionUsdMax: 0.1 } },
     });
-    // Every delegate an orchestrator names must be a shipped reactive agent.
-    for (const d of by['orchestrator']!.manifest.delegates ?? []) expect(by[d]?.type).toBe('reactive');
+    // The Wissens-Desk is the router in between: it routes, and hands article questions to the Q&A agent.
+    expect(by['wissens-desk']).toMatchObject({
+      type: 'reactive',
+      manifest: { routes: ['delegate', 'show_notes'], delegates: ['frag-die-zeitung'], output: { format: 'route' } },
+    });
+    // Every delegate a router names must be a shipped reactive agent, and loading must not have had to drop one.
+    for (const r of ['orchestrator', 'wissens-desk']) {
+      for (const d of by[r]!.manifest.delegates ?? []) expect(by[d]?.type).toBe('reactive');
+    }
     // Every shipped agent that declares a schema must point at a file that exists.
     for (const s of skills) expect(s.manifest.model.primary).toBeTruthy();
   });

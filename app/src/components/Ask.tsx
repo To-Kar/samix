@@ -5,7 +5,9 @@ import type {
   ApiClient,
   ConversationMessage,
   ConversationSummary,
+  DelegationNode,
   Proposal,
+  RouteInfo,
   TraceStep,
 } from '../lib/api';
 import { splitAnswer } from '../lib/answer';
@@ -17,6 +19,7 @@ import type { Messages } from '../i18n/messages';
 // Questions go to the orchestrator; the Q&A agent answers behind it.
 export const ORCHESTRATOR = 'orchestrator';
 export const QA_AGENT = 'frag-die-zeitung';
+const DESK = 'wissens-desk';
 
 interface AskProps {
   api: ApiClient;
@@ -121,7 +124,8 @@ export function Ask({ api, onOpenSource, onOpenSetup }: AskProps) {
   const entry = orch ?? qa;
   const titleOf = (slug?: string) => agents?.find((a) => a.slug === slug)?.title ?? slug ?? '';
   const off = agents !== undefined && (!entry || !entry.enabled);
-  const models = [...new Set([orch?.model, qa?.model].filter(Boolean))] as string[];
+  const desk = agents?.find((a) => a.slug === DESK);
+  const models = [...new Set([orch?.model, desk?.model, qa?.model].filter(Boolean))] as string[];
 
   return (
     <div className="grid gap-8 md:grid-cols-[14rem_1fr]">
@@ -274,7 +278,7 @@ function Answer({
             {t.ask.openSetup}
           </button>
         ) : null}
-        <Trace message={message} />
+        <Trace message={message} titleOf={titleOf} />
       </div>
     );
   }
@@ -283,7 +287,7 @@ function Answer({
     <article className="flex flex-col gap-3">
       {message.route?.kind === 'delegate' ? (
         <p className="text-xs uppercase tracking-wider text-ink-soft">
-          {t.ask.route[message.route.agent ?? ''] ?? t.ask.delegatedTo(titleOf(message.route.agent))}
+          {routeLabel(t, message.route, titleOf)}
         </p>
       ) : null}
       <p className="font-body text-lg leading-relaxed whitespace-pre-wrap">
@@ -335,7 +339,7 @@ function Answer({
       {(message.proposals ?? []).map((p) => (
         <ProposalButton key={p.ressort} proposal={p} api={api} />
       ))}
-      <Trace message={message} />
+      <Trace message={message} titleOf={titleOf} />
     </article>
   );
 }
@@ -346,7 +350,7 @@ function describeStep(t: Messages, s: TraceStep): string {
   return `${s.tool}${args ? ` (${args})` : ''} → ${s.isError ? t.ask.stepError : t.ask.stepResults(s.resultCount)} · ${s.ms} ms`;
 }
 
-function Trace({ message }: { message: ConversationMessage }) {
+function Trace({ message, titleOf }: { message: ConversationMessage; titleOf: (slug?: string) => string }) {
   const { t } = useI18n();
   const f = useFormat();
   const steps = message.trace ?? [];
@@ -358,6 +362,12 @@ function Trace({ message }: { message: ConversationMessage }) {
           {message.model ?? t.ask.noModel}
           {message.costUsd != null ? ` · ${f.usd(message.costUsd)}` : ''}
         </p>
+        {message.delegation && message.delegation.children.length > 0 ? (
+          <div>
+            <p className="font-bold">{t.ask.treeTitle}</p>
+            <DelegationTree node={message.delegation} titleOf={titleOf} />
+          </div>
+        ) : null}
         {steps.length === 0 ? <p>{t.ask.noTools}</p> : null}
         <ol className="list-decimal pl-5">
           {steps.map((s, i) => (
@@ -403,5 +413,32 @@ function ProposalButton({ proposal, api }: { proposal: Proposal; api: ApiClient 
       </button>
       {state.kind === 'done' ? <span role="status">{state.text}</span> : null}
     </div>
+  );
+}
+
+// "Wissens-Desk › Antwort aus deinen Artikeln": the agents the question passed
+// through, the last one named by what it answers from.
+function routeLabel(t: Messages, route: RouteInfo, titleOf: (slug?: string) => string): string {
+  const path = route.path?.length ? route.path : route.agent ? [route.agent] : [];
+  const last = path[path.length - 1];
+  const leaf = t.ask.route[last ?? ''] ?? t.ask.delegatedTo(titleOf(last));
+  return [...path.slice(0, -1).map((s) => titleOf(s)), leaf].join(' › ');
+}
+
+function DelegationTree({ node, titleOf, depth = 0 }: { node: DelegationNode; titleOf: (slug?: string) => string; depth?: number }) {
+  const { t } = useI18n();
+  const f = useFormat();
+  return (
+    <ul className={depth === 0 ? '' : 'pl-4 border-l border-rule ml-1'}>
+      <li>
+        <span className="font-mono">
+          {titleOf(node.agent)} · {f.usd(node.costUsd)}
+          {node.status !== 'success' ? ` · ${node.error ? explainAsk(t, node.error) : node.status}` : ''}
+        </span>
+        {node.children.map((c) => (
+          <DelegationTree key={c.runId} node={c} titleOf={titleOf} depth={depth + 1} />
+        ))}
+      </li>
+    </ul>
   );
 }

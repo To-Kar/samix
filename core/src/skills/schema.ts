@@ -15,6 +15,8 @@ const budgetSchema = z.object({
   daily_usd_max: z.number().min(0),
   tokens_per_run_max: z.number().int().min(0),
   halt_on_budget_exceeded: z.boolean(),
+  // Reactive agents: most one question may cost across the whole delegation tree (0 = no cap).
+  question_usd_max: z.number().min(0).optional(),
 });
 
 const scheduleSchema = z.object({

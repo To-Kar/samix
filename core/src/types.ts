@@ -75,6 +75,8 @@ export interface BudgetSpec {
   dailyUsdMax: number;
   tokensPerRunMax: number;
   haltOnBudgetExceeded: boolean;
+  /** Most one question may cost in total, over the agent and everything it delegates to. */
+  questionUsdMax?: number;
 }
 
 export interface ScheduleSpec {

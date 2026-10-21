@@ -21,6 +21,9 @@ export const de = {
       model_without_tools:
         'Das eingestellte Modell kann keine Werkzeuge nutzen und würde aus dem Gedächtnis antworten. Wähle unter „Modell“ Claude oder DeepSeek.',
       budget_exceeded: 'Tagesbudget erreicht. Die Frage wurde nicht (weiter) bearbeitet.',
+      question_budget_exceeded: 'Das Budget für diese Frage ist aufgebraucht. Stelle sie enger oder in Teilen.',
+      delegation_cycle: 'Die Agenten verweisen im Kreis aufeinander. Prüfe die Weiterleitungen in den Manifesten.',
+      delegation_too_deep: 'Die Kette der Weiterleitungen ist zu lang (höchstens 3 Agenten).',
       ungrounded:
         'Das Modell hat nicht in den gesammelten Artikeln gesucht. Eine Antwort aus Allgemeinwissen wird nicht angezeigt.',
       no_valid_citations:
@@ -66,6 +69,9 @@ export const en: typeof de = {
       model_without_tools:
         'The selected model cannot use tools and would answer from memory. Choose Claude or DeepSeek under “Model”.',
       budget_exceeded: 'Daily budget reached. The question was not (further) processed.',
+      question_budget_exceeded: "This question's budget is used up. Ask it more narrowly or in parts.",
+      delegation_cycle: 'The agents point at each other in a circle. Check the delegations in the manifests.',
+      delegation_too_deep: 'The chain of delegations is too long (at most 3 agents).',
       ungrounded: 'The model did not search the collected articles. An answer from general knowledge is not shown.',
       no_valid_citations:
         'The model found articles but could not back its answer with them. An unsupported answer is not shown.',

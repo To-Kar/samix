@@ -41,7 +41,43 @@ export function readGlobalCap(): number {
   return Number.isFinite(n) ? n : 5.0;
 }
 
-export type BudgetRefusal = 'budget_exceeded' | 'global_budget_exceeded';
+// What one question may still cost, over the agent that was asked and
+// everything it delegates to. Each level has its own cap and shares its
+// parent's money, so a child can never spend more than the parent has left.
+// Checked in checkBudget, i.e. before the call, like the other caps.
+export class BudgetEnvelope {
+  private spent = 0;
+
+  constructor(
+    readonly limitUsd: number,
+    private readonly parent?: BudgetEnvelope
+  ) {}
+
+  remaining(): number {
+    const own = this.limitUsd - this.spent;
+    return this.parent ? Math.min(own, this.parent.remaining()) : own;
+  }
+
+  /** Books a finished call here and in every level above. */
+  add(costUsd: number): void {
+    this.spent += costUsd;
+    this.parent?.add(costUsd);
+  }
+
+  /** Without an own cap the child just shares the parent's. */
+  child(limitUsd?: number): BudgetEnvelope {
+    return new BudgetEnvelope(limitUsd && limitUsd > 0 ? limitUsd : Number.POSITIVE_INFINITY, this);
+  }
+}
+
+// The envelope for one agent's turn: nested in its caller's, or a new root if
+// the manifest sets a cap. No cap anywhere up the chain means no envelope.
+export function envelopeFor(questionUsdMax: number | undefined, parent?: BudgetEnvelope): BudgetEnvelope | undefined {
+  if (parent) return parent.child(questionUsdMax);
+  return questionUsdMax && questionUsdMax > 0 ? new BudgetEnvelope(questionUsdMax) : undefined;
+}
+
+export type BudgetRefusal = 'budget_exceeded' | 'question_budget_exceeded' | 'global_budget_exceeded';
 
 export interface BudgetCheck {
   agentId: string;
@@ -51,6 +87,8 @@ export interface BudgetCheck {
   estimatedCostUsd: number;
   /** When given, the agent's own cap must also hold for this much more spending (paid sources). */
   agentProjectedUsd?: number;
+  /** The question's remaining budget across the delegation tree, if it has a cap. */
+  envelope?: BudgetEnvelope;
   now: Date;
 }
 
@@ -73,6 +111,10 @@ export async function checkBudget(c: BudgetCheck): Promise<BudgetRefusalDetail |
     c.agentProjectedUsd === undefined ? spentToday >= c.dailyUsdMax : spentToday + c.agentProjectedUsd > c.dailyUsdMax;
   if (c.haltOnBudgetExceeded && c.dailyUsdMax > 0 && overAgentCap) {
     return { refusal: 'budget_exceeded', spent: spentToday, cap: c.dailyUsdMax };
+  }
+
+  if (c.envelope && c.estimatedCostUsd > c.envelope.remaining()) {
+    return { refusal: 'question_budget_exceeded', spent: spentToday, cap: c.envelope.remaining(), estimatedCostUsd: c.estimatedCostUsd };
   }
 
   const globalCap = readGlobalCap();

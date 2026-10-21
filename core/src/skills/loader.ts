@@ -5,6 +5,7 @@ import matter from 'gray-matter';
 import type { Manifest, Skill } from '../types.js';
 import { logger } from '../logger.js';
 import { prisma } from '../db/prisma.js';
+import { validateDelegation } from './hierarchy.js';
 import {
   manifestYamlSchema,
   skillFrontmatterSchema,
@@ -51,6 +52,7 @@ export async function loadSkills(opts: LoadOptions): Promise<Skill[]> {
     }
   }
 
+  validateDelegation(skills, log);
   return skills;
 }
 
@@ -98,6 +100,7 @@ function normalizeManifest(m: ManifestYaml): Manifest {
       dailyUsdMax: m.budget.daily_usd_max,
       tokensPerRunMax: m.budget.tokens_per_run_max,
       haltOnBudgetExceeded: m.budget.halt_on_budget_exceeded,
+      questionUsdMax: m.budget.question_usd_max,
     },
     schedule: m.schedule
       ? {

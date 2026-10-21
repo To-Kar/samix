@@ -8,7 +8,7 @@ import { unwrapJsonFences } from '../output/unwrap.js';
 import { executeTool, resolveTools } from '../tools/index.js';
 import type { ToolDefinition } from '../tools/index.js';
 import type { NormalizedMessage, NormalizedRequest, Skill } from '../types.js';
-import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './budget.js';
+import { type BudgetEnvelope, checkBudget, computeCostUsd, envelopeFor, estimateRunCostUsd, recordSpend } from './budget.js';
 import { acquireAgent, beginTurn, checkAsker, recordRefusal } from './turn.js';
 
 export { MAX_QUESTION_CHARS } from './turn.js';
@@ -76,6 +76,8 @@ export interface AskOptions {
   history?: NormalizedMessage[];
   /** Answer without creating a conversation or messages; only the AgentRun is kept. */
   ephemeral?: boolean;
+  /** Set when another agent handed this question over: the run hangs under it, and its budget caps this one. */
+  delegation?: { parentRunId: string; envelope?: BudgetEnvelope };
   logger?: Logger;
 }
 
@@ -95,7 +97,7 @@ export async function askAgent(opts: AskOptions): Promise<AskResult> {
 }
 
 async function refused(opts: AskOptions, error: string): Promise<AskResult> {
-  const { runId } = await recordRefusal(opts.skill.id, error);
+  const { runId } = await recordRefusal(opts.skill.id, error, opts.delegation?.parentRunId);
   return { conversationId: opts.conversationId ?? null, runId, status: 'failed', error, citations: [], trace: [], costUsd: 0, model: null };
 }
 
@@ -127,8 +129,10 @@ async function execute(opts: AskOptions): Promise<AskResult> {
     conversationId: opts.conversationId,
     history: opts.history,
     ephemeral: opts.ephemeral,
+    parentRunId: opts.delegation?.parentRunId,
   });
   if (!turn) return refused(opts, 'conversation_not_found');
+  const envelope = envelopeFor(skill.manifest.budget.questionUsdMax, opts.delegation?.envelope);
   const { runId, history } = turn;
   const runLog = log.child({ runId });
 
@@ -190,6 +194,7 @@ async function execute(opts: AskOptions): Promise<AskResult> {
         dailyUsdMax: skill.manifest.budget.dailyUsdMax,
         haltOnBudgetExceeded: skill.manifest.budget.haltOnBudgetExceeded,
         estimatedCostUsd: estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax),
+        envelope,
         now: new Date(),
       });
       if (refused) {
@@ -214,6 +219,7 @@ async function execute(opts: AskOptions): Promise<AskResult> {
       tokensOutput += response.usage.outputTokens;
       costUsd += callCost;
       await recordSpend(agentRow.id, new Date(), response.usage, callCost);
+      envelope?.add(callCost);
 
       if (response.toolCalls.length > 0) {
         messages.push({ role: 'assistant', content: response.content, toolCalls: response.toolCalls });

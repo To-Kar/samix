@@ -40,11 +40,16 @@ model AgentRun {
   model        String?
   startedAt    DateTime  @default(now())
   completedAt  DateTime?
+  // The run of the agent that handed this question over (delegation tree).
+  parentRunId  String?
+  parentRun    AgentRun?  @relation("Delegation", fields: [parentRunId], references: [id], onDelete: SetNull)
+  childRuns    AgentRun[] @relation("Delegation")
 
   articles  Article[]
   snapshots SourceSnapshot[]
 
   @@index([agentId, startedAt])
+  @@index([parentRunId])
 }
 
 model Article {

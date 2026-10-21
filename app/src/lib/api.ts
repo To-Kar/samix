@@ -310,7 +310,20 @@ export interface Proposal {
 
 export interface RouteInfo {
   kind: 'delegate' | 'show_notes' | 'propose_refresh';
+  /** The agent the question was handed to. */
   agent?: string;
+  /** Every agent below the entry point the question passed through, ending at the one that answered. */
+  path?: string[];
+}
+
+/** Who handled a question: an agent, what its own calls cost, and the agents it handed the question to. */
+export interface DelegationNode {
+  agent: string;
+  runId: string;
+  status: 'success' | 'partial' | 'failed';
+  costUsd: number;
+  error?: string;
+  children: DelegationNode[];
 }
 
 export interface Project {
@@ -341,6 +354,7 @@ export interface AskResult {
   model: string | null;
   route?: RouteInfo;
   proposals?: Proposal[];
+  delegation?: DelegationNode;
 }
 
 export interface ConversationSummary {
@@ -362,6 +376,7 @@ export interface ConversationMessage {
   // Assistant messages: where the question went and what the reader may confirm.
   route?: RouteInfo | null;
   proposals?: Proposal[];
+  delegation?: DelegationNode | null;
   // Assistant messages: how the answer came about.
   runId?: string;
   error?: string | null;

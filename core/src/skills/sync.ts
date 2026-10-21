@@ -145,6 +145,13 @@ async function syncOne(bundledDir: string, dir: string, name: string, log?: Logg
   for (const [key, value] of Object.entries(shipped)) {
     if (!(key in merged) && !['id', 'topic', 'template'].includes(key)) merged[key] = value;
   }
+  // The per-question cap is a safety limit the reader cannot edit, so it comes from the shipped
+  // manifest even though `budget` as a whole is the reader's.
+  const shippedCap = (shipped['budget'] as { question_usd_max?: unknown } | undefined)?.question_usd_max;
+  if (typeof shippedCap === 'number' && merged['budget'] && typeof merged['budget'] === 'object') {
+    const budget = merged['budget'] as Record<string, unknown>;
+    if (!('question_usd_max' in budget)) merged['budget'] = { ...budget, question_usd_max: shippedCap };
+  }
   merged['version'] = to;
   if (created) {
     merged['template'] = templateId;

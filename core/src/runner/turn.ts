@@ -30,12 +30,12 @@ export async function agentRowOf(slug: string): Promise<Agent> {
 
 // A question that never started (busy, disabled, bad setup): one failed run
 // row so it shows in the history, nothing is stored in the conversation.
-export async function recordRefusal(slug: string, error: string): Promise<{ runId: string }> {
+export async function recordRefusal(slug: string, error: string, parentRunId?: string): Promise<{ runId: string }> {
   const agentRow = await agentRowOf(slug);
   const runId = randomUUID();
   const now = new Date();
   await prisma.agentRun.create({
-    data: { id: runId, agentId: agentRow.id, status: 'failed', trigger: 'manual', error, startedAt: now, completedAt: now },
+    data: { id: runId, agentId: agentRow.id, parentRunId, status: 'failed', trigger: 'manual', error, startedAt: now, completedAt: now },
   });
   return { runId };
 }
@@ -106,6 +106,8 @@ export async function beginTurn(opts: {
   history?: NormalizedMessage[];
   /** No conversation or messages; only the AgentRun is kept. */
   ephemeral?: boolean;
+  /** The run of the agent that handed this question over. */
+  parentRunId?: string;
 }): Promise<Turn | null> {
   const { agentRow, question } = opts;
   if (opts.conversationId) {
@@ -117,7 +119,7 @@ export async function beginTurn(opts: {
   const runId = randomUUID();
   const startedAt = new Date();
   await prisma.agentRun.create({
-    data: { id: runId, agentId: agentRow.id, status: 'running', trigger: 'manual', input: JSON.stringify({ question }), startedAt },
+    data: { id: runId, agentId: agentRow.id, parentRunId: opts.parentRunId, status: 'running', trigger: 'manual', input: JSON.stringify({ question }), startedAt },
   });
 
   let conversationId: string | null = null;

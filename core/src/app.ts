@@ -508,7 +508,7 @@ export async function buildApp(deps: AppDeps) {
         } catch {
           // an unreadable trace must not hide the conversation
         }
-        let extra: { route?: unknown; proposals?: unknown[]; totalCostUsd?: number } = {};
+        let extra: { route?: unknown; proposals?: unknown[]; totalCostUsd?: number; delegation?: unknown } = {};
         try {
           extra = m.extra ? (JSON.parse(m.extra) as typeof extra) : {};
         } catch {
@@ -523,6 +523,7 @@ export async function buildApp(deps: AppDeps) {
           createdAt: m.createdAt,
           route: extra.route ?? null,
           proposals: extra.proposals ?? [],
+          delegation: extra.delegation ?? null,
           ...(run ? { runId: run.id, error: run.error, model: run.model, costUsd: extra.totalCostUsd ?? run.costUsd, trace } : {}),
         };
       }),
@@ -639,7 +640,7 @@ export async function buildApp(deps: AppDeps) {
   fastify.get<{ Params: { id: string } }>('/runs/:id', async (request, reply) => {
     const run = await prisma.agentRun.findUnique({
       where: { id: request.params.id },
-      include: { agent: { select: { slug: true } } },
+      include: { agent: { select: { slug: true } }, childRuns: { orderBy: { startedAt: 'asc' }, include: { agent: { select: { slug: true } } } } },
     });
     if (!run) {
       reply.code(404).send({ error: 'run_not_found', id: request.params.id });
@@ -648,6 +649,9 @@ export async function buildApp(deps: AppDeps) {
     return {
       id: run.id,
       agentSlug: run.agent.slug,
+      // The run of the agent that handed this question over, and the runs it handed it to.
+      parentRunId: run.parentRunId,
+      children: run.childRuns.map((c) => ({ id: c.id, agentSlug: c.agent.slug, status: c.status, costUsd: c.costUsd, error: c.error })),
       status: run.status,
       trigger: run.trigger,
       input: run.input ? JSON.parse(run.input) : null,

@@ -106,11 +106,24 @@ describe('syncShippedAgents', () => {
     expect(await syncShippedAgents(bundled, user, logger)).toEqual([]);
   });
 
-  it('updates the delegates of an old orchestrator (the project assistant appears)', async () => {
+  it('updates the delegates and routes of an old orchestrator (the Wissens-Desk takes over notes and articles)', async () => {
     const user = tmp();
-    oldCopy(user, 'orchestrator', (m) => (m['delegates'] = ['frag-die-zeitung']));
+    oldCopy(user, 'orchestrator', (m) => {
+      m['delegates'] = ['frag-die-zeitung'];
+      m['routes'] = ['delegate', 'show_notes', 'propose_refresh'];
+    });
     await syncShippedAgents(shipped(), user, logger);
-    expect(manifestOf(user, 'orchestrator').delegates).toEqual(['frag-die-zeitung', 'projekt-assistent']);
+    expect(manifestOf(user, 'orchestrator').delegates).toEqual(['wissens-desk', 'projekt-assistent']);
+    expect(manifestOf(user, 'orchestrator').routes).toEqual(['delegate', 'propose_refresh']);
+  });
+
+  it('adds the per-question cap to an old copy but keeps the limits the reader set', async () => {
+    const user = tmp();
+    oldCopy(user, 'orchestrator', (m) => {
+      m['budget'] = { daily_usd_max: 0.77, tokens_per_run_max: 600, halt_on_budget_exceeded: true };
+    });
+    await syncShippedAgents(shipped(), user, logger);
+    expect(manifestOf(user, 'orchestrator').budget).toEqual({ daily_usd_max: 0.77, tokens_per_run_max: 600, halt_on_budget_exceeded: true, question_usd_max: 0.1 });
   });
 
   it('drops a capability key the shipped agent no longer has', async () => {

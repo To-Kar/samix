@@ -67,6 +67,10 @@ export function explainAsk(t: Messages, error: string | null | undefined): strin
       return x.ask[error];
     case 'global_budget_exceeded':
       return x.ask.budget_exceeded;
+    case 'question_budget_exceeded':
+    case 'delegation_cycle':
+    case 'delegation_too_deep':
+      return x.ask[error];
     case 'delegate_unavailable':
     case 'invalid_routes':
       return x.ask.not_set_up;

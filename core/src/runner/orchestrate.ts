@@ -6,7 +6,8 @@ import { prisma } from '../db/prisma.js';
 import { logger as rootLogger } from '../logger.js';
 import { listNotes } from '../memory/notes.js';
 import type { NormalizedMessage, NormalizedRequest, RouteName, Skill, ToolCall, ToolSpec } from '../types.js';
-import { checkBudget, computeCostUsd, estimateRunCostUsd, recordSpend } from './budget.js';
+import { MAX_DELEGATION_DEPTH } from '../skills/hierarchy.js';
+import { type BudgetEnvelope, checkBudget, computeCostUsd, envelopeFor, estimateRunCostUsd, recordSpend } from './budget.js';
 import { askAgent, type AnswerCitation, type AskResult, type TraceStep } from './converse.js';
 import { MAX_QUESTION_CHARS, acquireAgent, beginTurn, checkAsker, recordRefusal } from './turn.js';
 
@@ -29,13 +30,29 @@ export interface Proposal {
 
 export interface RouteInfo {
   kind: RouteName;
+  /** The agent the question was handed to. */
   agent?: string;
+  /** Every agent below this router the question passed through, ending at the one that answered. */
+  path?: string[];
+}
+
+// Who handled a question, as a tree: this agent's own calls and what it cost,
+// and the agents it handed the question to.
+export interface DelegationNode {
+  agent: string;
+  runId: string;
+  status: 'success' | 'partial' | 'failed';
+  /** Of this agent's own model calls, not including its children. */
+  costUsd: number;
+  error?: string;
+  children: DelegationNode[];
 }
 
 export interface RouteResult extends AskResult {
   route?: RouteInfo;
   proposals: Proposal[];
   delegateRunId?: string;
+  delegation?: DelegationNode;
 }
 
 export interface RouteOptions {
@@ -44,6 +61,12 @@ export interface RouteOptions {
   conversationId?: string;
   /** Every loaded agent: delegates and Ressorts are looked up here. */
   skills: Skill[];
+  /** Earlier turns supplied by a caller that keeps the conversation itself (a router above). */
+  history?: NormalizedMessage[];
+  /** Answer without creating a conversation or messages; only the AgentRun is kept. */
+  ephemeral?: boolean;
+  /** Set when a router above handed the question over. `path` is the agents above this one. */
+  delegation?: { parentRunId: string; envelope?: BudgetEnvelope; path: string[] };
   logger?: Logger;
 }
 
@@ -62,7 +85,7 @@ export async function routeQuestion(opts: RouteOptions): Promise<RouteResult> {
 }
 
 async function refused(opts: RouteOptions, error: string): Promise<RouteResult> {
-  const { runId } = await recordRefusal(opts.skill.id, error);
+  const { runId } = await recordRefusal(opts.skill.id, error, opts.delegation?.parentRunId);
   return { conversationId: opts.conversationId ?? null, runId, status: 'failed', error, citations: [], trace: [], costUsd: 0, model: null, proposals: [] };
 }
 
@@ -125,8 +148,17 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
   const primaryAdapter = resolveAdapter(skill.manifest.model.primary);
   if (!primaryAdapter.supportsTools) return refused(opts, 'model_without_tools');
 
-  const turn = await beginTurn({ agentRow: asker.agentRow, question, conversationId: opts.conversationId });
+  const turn = await beginTurn({
+    agentRow: asker.agentRow,
+    question,
+    conversationId: opts.conversationId,
+    history: opts.history,
+    ephemeral: opts.ephemeral,
+    parentRunId: opts.delegation?.parentRunId,
+  });
   if (!turn) return refused(opts, 'conversation_not_found');
+  const envelope = envelopeFor(skill.manifest.budget.questionUsdMax, opts.delegation?.envelope);
+  const path = [...(opts.delegation?.path ?? []), skill.id];
   const runLog = log.child({ runId: turn.runId });
 
   const trace: TraceStep[] = [];
@@ -141,6 +173,7 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
   let delegateRunId: string | undefined;
   let route: RouteInfo | undefined;
   let proposals: Proposal[] = [];
+  let children: DelegationNode[] = [];
 
   const finish = async (
     status: 'success' | 'partial' | 'failed',
@@ -148,12 +181,13 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
   ): Promise<RouteResult> => {
     const citations = f.citations ?? [];
     const totalCostUsd = costUsd + delegateCost;
+    const delegation: DelegationNode = { agent: skill.id, runId: turn.runId, status, costUsd, error: f.error, children };
     await turn.finish({
       status,
       error: f.error,
       answer: f.answer,
       citations,
-      extra: { route, proposals, delegateRunId, totalCostUsd },
+      extra: { route, proposals, delegateRunId, totalCostUsd, delegation },
       model: servedBy,
       output: { steps: trace, modelCalls, delegateRunId },
       tokensInput,
@@ -174,6 +208,7 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
       route,
       proposals,
       delegateRunId,
+      delegation,
     };
   };
 
@@ -188,6 +223,7 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
         dailyUsdMax: skill.manifest.budget.dailyUsdMax,
         haltOnBudgetExceeded: skill.manifest.budget.haltOnBudgetExceeded,
         estimatedCostUsd: estimateRunCostUsd(primaryAdapter, skill.manifest.budget.tokensPerRunMax),
+        envelope,
         now: new Date(),
       });
       if (refusal) return await finish('failed', { error: refusal.refusal });
@@ -207,6 +243,7 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
       tokensOutput += response.usage.outputTokens;
       costUsd += callCost;
       await recordSpend(turn.agentRow.id, new Date(), response.usage, callCost);
+      envelope?.add(callCost);
 
       if (response.toolCalls.length === 0) {
         messages.push({ role: 'assistant', content: response.content }, { role: 'user', content: CHOOSE_REMINDER });
@@ -255,9 +292,42 @@ async function execute(opts: RouteOptions): Promise<RouteResult> {
       // delegate
       const target = skills.find((s) => s.id === parsed.agent && s.type === 'reactive');
       if (!target) return await finish('failed', { error: 'delegate_unavailable' });
-      const sub = await askAgent({ skill: target, question: parsed.question, history: turn.history, ephemeral: true, logger: runLog });
+      // Another router: the question goes one level further down. The tree is
+      // checked when the agents load; the path is checked again here because
+      // the manifests are the reader's to edit.
+      if (target.manifest.routes?.length) {
+        if (path.includes(target.id)) return await finish('failed', { error: 'delegation_cycle' });
+        if (path.length >= MAX_DELEGATION_DEPTH) return await finish('failed', { error: 'delegation_too_deep' });
+        const sub = await routeQuestion({
+          skill: target,
+          question: parsed.question,
+          skills,
+          history: turn.history,
+          ephemeral: true,
+          delegation: { parentRunId: turn.runId, envelope, path },
+          logger: runLog,
+        });
+        delegateCost = sub.costUsd;
+        delegateRunId = sub.runId;
+        if (sub.delegation) children = [sub.delegation];
+        proposals = sub.proposals;
+        route = { kind: 'delegate', agent: target.id, path: [target.id, ...(sub.route?.path ?? (sub.route?.agent ? [sub.route.agent] : []))] };
+        for (const s of sub.trace) trace.push({ ...s, tool: `${target.id} › ${s.tool}` });
+        return await finish(sub.status, { error: sub.error, answer: sub.answer, citations: sub.citations });
+      }
+
+      const sub = await askAgent({
+        skill: target,
+        question: parsed.question,
+        history: turn.history,
+        ephemeral: true,
+        delegation: { parentRunId: turn.runId, envelope },
+        logger: runLog,
+      });
       delegateCost = sub.costUsd;
       delegateRunId = sub.runId;
+      children = [{ agent: target.id, runId: sub.runId, status: sub.status, costUsd: sub.costUsd, error: sub.error, children: [] }];
+      route = { kind: 'delegate', agent: target.id, path: [target.id] };
       for (const s of sub.trace) trace.push({ ...s, tool: `${target.id} › ${s.tool}` });
       return await finish(sub.status, { error: sub.error, answer: sub.answer, citations: sub.citations });
     }

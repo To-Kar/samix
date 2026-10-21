@@ -1,6 +1,6 @@
 id: orchestrator
 type: reactive
-version: "1.1"
+version: "1.2"
 
 model:
   # Needs tool calling (Claude, DeepSeek); there is no fallback without tools.
@@ -11,14 +11,15 @@ budget:
   # One short routing call per question; delegates have their own budgets.
   tokens_per_run_max: 600
   halt_on_budget_exceeded: true
+  # One question may cost this much in total, over the whole delegation tree.
+  question_usd_max: 0.10
 
 # What the orchestrator may do, and whom it may hand questions to.
 routes:
   - delegate
-  - show_notes
   - propose_refresh
 delegates:
-  - frag-die-zeitung
+  - wissens-desk
   - projekt-assistent
 
 output:
