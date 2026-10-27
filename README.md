@@ -30,7 +30,7 @@ No automated tests, no CI. No email or messenger delivery (dropped deliberately,
 
 ## Prerequisites
 
-- **Node.js** ≥ 20 LTS
+- **Node.js** ≥ 20.12 LTS (needed for `util.parseEnv`)
 - **pnpm** ≥ 10 (`npm install -g pnpm`)
 - **Rust toolchain** (for Tauri) — install via [rustup.rs](https://rustup.rs)
 - **Git**
@@ -47,7 +47,9 @@ pnpm install
 pnpm --filter samix-core prisma migrate deploy
 ```
 
-The SQLite dev DB is created at `core/data/samix-dev.db`.
+Works the same on macOS and Windows; no `.env` file is needed. `pnpm install` generates the Prisma client, and the SQLite dev DB is created at `core/data/samix-dev.db`. To use another location, set `DATABASE_URL` or `SAMIX_DATA_DIR` (see `core/src/db/location.ts`).
+
+**Windows:** `.gitattributes` checks every text file out with LF line endings, independent of `core.autocrlf`, so Prisma migration checksums and YAML match macOS byte for byte.
 
 ---
 

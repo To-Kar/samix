@@ -7,7 +7,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "prisma": "prisma"
+    "prisma": "tsx scripts/prisma.ts",
+    "postinstall": "tsx scripts/prisma.ts generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
@@ -16,7 +17,6 @@
     "@prisma/client": "^6.0.0",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
-    "better-sqlite3": "^11.7.0",
     "cron-parser": "^5.5.0",
     "fastify": "^5.2.0",
     "feedsmith": "~2.7.0",
@@ -28,7 +28,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.2",
     "@types/node-cron": "^3.0.11",
     "prisma": "^6.0.0",

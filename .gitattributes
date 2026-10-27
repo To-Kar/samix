@@ -1,0 +1,8 @@
+# Keep LF in the working tree on every OS. Prisma migration checksums, YAML
+# and SKILL.md frontmatter are all read byte-for-byte; a CRLF checkout on
+# Windows (core.autocrlf=true) must not change them.
+* text=auto eol=lf
+
+*.png  binary
+*.ico  binary
+*.icns binary
